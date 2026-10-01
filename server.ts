@@ -362,6 +362,52 @@ app.post('/api/supabase/push', async (req: Request, res: Response) => {
   }
 });
 
+// Supabase Reset (Reset semua data ke 0 untuk akun baru)
+app.post('/api/supabase/reset', async (req: Request, res: Response) => {
+  if (!supabase) {
+    return res.json({
+      configured: false,
+      success: true,
+      message: 'Supabase belum dikonfigurasi, data lokal berhasil direset ke 0.',
+    });
+  }
+
+  const { profile } = req.body || {};
+
+  try {
+    // Bersihkan semua data lama
+    await supabase.from('water_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('workout_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('health_notes').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('health_alarms').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('ai_health_analyses').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('profiles').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+
+    // Buat profil bersih untuk akun baru
+    if (profile) {
+      await supabase.from('profiles').insert({
+        name: profile.name || 'Pengguna Baru',
+        phone: profile.phone || '',
+        age: profile.age || 25,
+        gender: profile.gender || 'pria',
+        weight: profile.weight || 60,
+        height: profile.height || 165,
+        target_water_ml: profile.targetWaterMl || 2500,
+        daily_workout_minutes_target: profile.dailyWorkoutMinutesTarget || 30,
+        is_registered: true,
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Semua data di Supabase PostgreSQL berhasil direset ke 0 untuk akun baru!',
+    });
+  } catch (err: any) {
+    console.error('Error in /api/supabase/reset:', err);
+    return res.status(500).json({ error: err?.message || 'Gagal mereset data Supabase' });
+  }
+});
+
 // Helper rule-based parser for Indonesian drink voice queries
 function parseIndonesianWaterVoice(text: string): { amountMl: number; containerType: 'gelas' | 'cangkir' | 'botol' | 'tumbler' | 'galon' | 'custom'; note: string } {
   const lower = text.toLowerCase().trim();

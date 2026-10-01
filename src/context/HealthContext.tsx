@@ -16,12 +16,15 @@ import {
   checkSupabaseStatus,
   pushDataToSupabase,
   pullDataFromSupabase,
+  resetSupabaseData,
   SupabaseStatusResult,
 } from '../services/supabaseService';
 
 interface HealthContextType {
   profile: UserProfile;
   updateProfile: (newProfile: Partial<UserProfile>) => void;
+  createNewAccount: (newProfile: Omit<UserProfile, 'isRegistered'>) => Promise<void>;
+  resetAllDataToZero: () => Promise<void>;
   todayRecord: DayRecord;
   history: Record<string, DayRecord>;
   logWater: (
@@ -710,6 +713,109 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   };
 
+  const resetAllDataToZero = async () => {
+    const todayDate = getTodayDateString();
+    const cleanHistory: Record<string, DayRecord> = {
+      [todayDate]: {
+        date: todayDate,
+        waterLogs: [],
+        workoutLogs: [],
+        totalWaterMl: 0,
+        totalWorkoutMinutes: 0,
+        totalCalories: 0,
+      },
+    };
+
+    setHistory(cleanHistory);
+    setNotes([]);
+    localStorage.setItem('hidup_sehatku_history', JSON.stringify(cleanHistory));
+    localStorage.setItem('hidup_sehatku_notes', JSON.stringify([]));
+
+    const cleanAnalysis: AIHealthAnalysis = {
+      category: 'Pendaftar Baru - Siap Memulai Hidup Sehat',
+      waterStatus: 'Mulai dari 0 ml',
+      waterFeedback: `Selamat datang, ${profile.name || 'Sahabat Sehat'}! Semua riwayat Anda telah direset ke 0. Mari mulai perjalanan sehat Anda dengan minum segelas air hangat pertama hari ini.`,
+      workoutStatus: 'Mulai dari 0 menit',
+      workoutFeedback: 'Setiap perjalanan kebugaran dimulai dari langkah pertama. Yuk jadwalkan jalan santai 15-20 menit hari ini!',
+      overallScore: 100,
+      recommendations: [
+        'Awali dengan minum 1 gelas air putih (250 ml) sekarang.',
+        'Catat setiap gelas air yang Anda minum agar mencapai target harian.',
+        'Lakukan peregangan ringan di sela-sela aktivitas Anda.',
+      ],
+      healthTips: 'Memulai dari nol adalah kesempatan terbaik untuk membangun konsistensi baru yang lebih disiplin.',
+      analyzedAt: new Date().toISOString(),
+    };
+
+    setAiAnalysis(cleanAnalysis);
+    localStorage.setItem('hidup_sehatku_ai_analysis', JSON.stringify(cleanAnalysis));
+
+    // Reset in Supabase if connected
+    try {
+      await resetSupabaseData(profile);
+    } catch (e) {
+      console.error('Supabase reset error:', e);
+    }
+  };
+
+  const createNewAccount = async (newProfile: Omit<UserProfile, 'isRegistered'>) => {
+    const calculatedTarget =
+      newProfile.targetWaterMl || Math.round((newProfile.weight * 35) / 100) * 100;
+
+    const fullProfile: UserProfile = {
+      ...newProfile,
+      targetWaterMl: calculatedTarget,
+      isRegistered: true,
+    };
+
+    setProfile(fullProfile);
+    localStorage.setItem('hidup_sehatku_profile', JSON.stringify(fullProfile));
+
+    // Reset everything to 0
+    const todayDate = getTodayDateString();
+    const cleanHistory: Record<string, DayRecord> = {
+      [todayDate]: {
+        date: todayDate,
+        waterLogs: [],
+        workoutLogs: [],
+        totalWaterMl: 0,
+        totalWorkoutMinutes: 0,
+        totalCalories: 0,
+      },
+    };
+
+    setHistory(cleanHistory);
+    setNotes([]);
+    localStorage.setItem('hidup_sehatku_history', JSON.stringify(cleanHistory));
+    localStorage.setItem('hidup_sehatku_notes', JSON.stringify([]));
+
+    const welcomeAnalysis: AIHealthAnalysis = {
+      category: 'Akun Baru - Siap Memulai Hidup Sehat',
+      waterStatus: 'Mulai dari 0 ml',
+      waterFeedback: `Selamat datang, ${fullProfile.name}! Akun baru Anda telah aktif dan semua riwayat dimulai dari nol (0 ml & 0 menit). Cukupi target ${calculatedTarget} ml air putih Anda hari ini.`,
+      workoutStatus: 'Mulai dari 0 menit',
+      workoutFeedback: `Target kebugaran harian Anda adalah ${fullProfile.dailyWorkoutMinutesTarget || 30} menit. Awali dengan jalan kaki santai atau senam ringan!`,
+      overallScore: 100,
+      recommendations: [
+        `Minum 1 gelas air (250 ml) pertama Anda hari ini.`,
+        `Gunakan tombol 'Bicara Minum' atau tombol cepat untuk mencatat setiap kali minum.`,
+        `Pasang alarm pengingat di jam kantor agar tidak lupa minum.`,
+      ],
+      healthTips: 'Membangun kebiasaan sejak hari pertama pendaftaran sangat efektif membentuk metabolisme tubuh yang prima.',
+      analyzedAt: new Date().toISOString(),
+    };
+
+    setAiAnalysis(welcomeAnalysis);
+    localStorage.setItem('hidup_sehatku_ai_analysis', JSON.stringify(welcomeAnalysis));
+
+    // Sync reset to Supabase if connected
+    try {
+      await resetSupabaseData(fullProfile);
+    } catch (e) {
+      console.error('Supabase reset error:', e);
+    }
+  };
+
   const logWater = (
     amountMl: number,
     containerType: WaterLog['containerType'] = 'gelas',
@@ -1030,6 +1136,8 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       value={{
         profile,
         updateProfile,
+        createNewAccount,
+        resetAllDataToZero,
         todayRecord,
         history,
         logWater,

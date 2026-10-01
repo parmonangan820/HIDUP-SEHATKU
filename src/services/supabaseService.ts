@@ -71,3 +71,22 @@ export async function pullDataFromSupabase(): Promise<{
     };
   }
 }
+
+export async function resetSupabaseData(profile?: any): Promise<{ success: boolean; message: string }> {
+  try {
+    const res = await fetch('/api/supabase/reset', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ profile }),
+    });
+    return await res.json();
+  } catch (err: any) {
+    return {
+      success: false,
+      message: err?.message || 'Gagal mereset data di Supabase',
+    };
+  }
+}
+
