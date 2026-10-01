@@ -21,6 +21,11 @@ import {
   disconnectSupabase,
   SupabaseStatusResult,
 } from '../services/supabaseService';
+import {
+  AnnouncementItem,
+  verifyAdminPin,
+  fetchActiveAnnouncement,
+} from '../services/adminService';
 
 interface HealthContextType {
   profile: UserProfile;
@@ -32,6 +37,16 @@ interface HealthContextType {
     key: string
   ) => Promise<{ success: boolean; message: string; code?: string; url?: string }>;
   disconnectSupabaseConnection: () => Promise<{ success: boolean; message: string }>;
+  isAdmin: boolean;
+  loginAsAdmin: (pin: string) => Promise<{ success: boolean; message: string }>;
+  logoutAdmin: () => void;
+  isAdminModalOpen: boolean;
+  setIsAdminModalOpen: (open: boolean) => void;
+  isAdminLoginModalOpen: boolean;
+  setIsAdminLoginModalOpen: (open: boolean) => void;
+  activeAnnouncement: AnnouncementItem | null;
+  dismissAnnouncement: () => void;
+  refreshAnnouncement: () => Promise<void>;
   todayRecord: DayRecord;
   history: Record<string, DayRecord>;
   logWater: (
@@ -629,6 +644,49 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [lastSyncedTime, setLastSyncedTime] = useState<string | null>(() => {
     return localStorage.getItem('hidup_sehatku_last_synced') || null;
   });
+
+  // Admin Panel State
+  const [isAdmin, setIsAdmin] = useState<boolean>(() => {
+    return localStorage.getItem('hidup_sehatku_is_admin') === 'true';
+  });
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+  const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState(false);
+  const [activeAnnouncement, setActiveAnnouncement] = useState<AnnouncementItem | null>(null);
+
+  const refreshAnnouncement = async () => {
+    try {
+      const ann = await fetchActiveAnnouncement();
+      setActiveAnnouncement(ann);
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  const dismissAnnouncement = () => {
+    setActiveAnnouncement(null);
+  };
+
+  useEffect(() => {
+    refreshAnnouncement();
+  }, []);
+
+  const loginAsAdmin = async (pin: string): Promise<{ success: boolean; message: string }> => {
+    const res = await verifyAdminPin(pin);
+    if (res.success && res.isAdmin) {
+      setIsAdmin(true);
+      localStorage.setItem('hidup_sehatku_is_admin', 'true');
+      setIsAdminLoginModalOpen(false);
+      setIsAdminModalOpen(true);
+      return { success: true, message: 'Selamat datang, Administrator!' };
+    }
+    return { success: false, message: res.message || 'PIN Admin tidak valid' };
+  };
+
+  const logoutAdmin = () => {
+    setIsAdmin(false);
+    localStorage.removeItem('hidup_sehatku_is_admin');
+    setIsAdminModalOpen(false);
+  };
 
   const pullFromSupabase = async (): Promise<boolean> => {
     setIsSyncingSupabase(true);
@@ -1230,6 +1288,16 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         pullFromSupabase,
         configureSupabaseConnection,
         disconnectSupabaseConnection,
+        isAdmin,
+        loginAsAdmin,
+        logoutAdmin,
+        isAdminModalOpen,
+        setIsAdminModalOpen,
+        isAdminLoginModalOpen,
+        setIsAdminLoginModalOpen,
+        activeAnnouncement,
+        dismissAnnouncement,
+        refreshAnnouncement,
         weeklySummary: calculateWeeklySummary(),
         monthlySummary: calculateMonthlySummary(),
         todayWaterByPeriod,

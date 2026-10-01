@@ -1,6 +1,6 @@
 import React from 'react';
 import { useHealth } from '../context/HealthContext';
-import { Droplets, Sparkles, User, Bell, Smartphone, Monitor, Mic, Database, Cloud } from 'lucide-react';
+import { Droplets, Sparkles, User, Bell, Smartphone, Monitor, Mic, Database, Cloud, Shield } from 'lucide-react';
 
 interface TopHeaderProps {
   onOpenProfile: () => void;
@@ -19,7 +19,15 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   deviceMode,
   setDeviceMode,
 }) => {
-  const { profile, todayRecord, todayWaterByPeriod, supabaseStatus, isSyncingSupabase } = useHealth();
+  const {
+    profile,
+    todayRecord,
+    todayWaterByPeriod,
+    supabaseStatus,
+    isSyncingSupabase,
+    isAdmin,
+    setIsAdminModalOpen,
+  } = useHealth();
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -129,6 +137,18 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
               <Monitor className="w-3.5 h-3.5" />
             </button>
           </div>
+
+          {/* Admin Panel Button - ONLY VISIBLE IF LOGGED IN AS ADMIN */}
+          {isAdmin && (
+            <button
+              onClick={() => setIsAdminModalOpen(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 text-slate-950 font-black text-xs hover:brightness-110 active:scale-95 shadow-md shadow-amber-500/20 transition-all animate-in fade-in"
+              title="Buka Dasbor Panel Admin"
+            >
+              <Shield className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span className="hidden sm:inline">Admin Panel</span>
+            </button>
+          )}
 
           {/* Supabase Cloud Sync Trigger */}
           <button

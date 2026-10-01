@@ -14,11 +14,14 @@ import { AIChatModal } from './components/AIChatModal';
 import { VoiceDrinkModal } from './components/VoiceDrinkModal';
 import { AlarmRingingModal } from './components/AlarmRingingModal';
 import { SupabaseSyncModal } from './components/SupabaseSyncModal';
+import { AdminPanelModal } from './components/AdminPanelModal';
+import { AdminLoginModal } from './components/AdminLoginModal';
 import { RunningBanner } from './components/RunningBanner';
 import { Footer } from './components/Footer';
-import { Mic, Droplet } from 'lucide-react';
+import { Mic, Droplet, Megaphone, X } from 'lucide-react';
 
 function MainApp() {
+  const { activeAnnouncement, dismissAnnouncement } = useHealth();
   const [activeTab, setActiveTab] = useState<NavTab>('home');
   const [deviceMode, setDeviceMode] = useState<'android' | 'ios' | 'full'>('android');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -38,6 +41,35 @@ function MainApp() {
           deviceMode={deviceMode}
           setDeviceMode={setDeviceMode}
         />
+
+        {/* Broadcast Announcement from Administrator (if any) */}
+        {activeAnnouncement && (
+          <div className="mx-4 mt-3 mb-1 p-3 rounded-2xl bg-gradient-to-r from-amber-500/20 via-rose-500/20 to-purple-500/20 border border-amber-500/40 relative animate-in slide-in-from-top-2">
+            <button
+              onClick={dismissAnnouncement}
+              className="absolute top-2.5 right-2.5 p-1 rounded-full text-slate-400 hover:text-white"
+              title="Tutup Pengumuman"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+            <div className="flex items-start gap-2.5 pr-6">
+              <div className="w-7 h-7 rounded-xl bg-amber-500/30 flex items-center justify-center text-amber-300 flex-shrink-0 mt-0.5">
+                <Megaphone className="w-4 h-4 animate-bounce" />
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/30 text-amber-200 font-bold uppercase tracking-wider">
+                    Pemberitahuan Admin
+                  </span>
+                  <span className="text-xs font-bold text-white">{activeAnnouncement.title}</span>
+                </div>
+                <p className="text-[11px] text-slate-200 mt-1 leading-relaxed">
+                  {activeAnnouncement.message}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Modern Running Text Ticker */}
         <RunningBanner />
@@ -108,6 +140,8 @@ function MainApp() {
           isOpen={isSupabaseSyncOpen}
           onClose={() => setIsSupabaseSyncOpen(false)}
         />
+        <AdminPanelModal />
+        <AdminLoginModal />
       </div>
     </AppShell>
   );

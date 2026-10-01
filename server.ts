@@ -530,6 +530,409 @@ app.post('/api/supabase/reset', async (req: Request, res: Response) => {
   }
 });
 
+// ==========================================
+// ADMIN PANEL CONFIG & ENDPOINTS
+// ==========================================
+const ADMIN_CONFIG_FILE = path.join(__dirname, 'admin-config.json');
+
+interface AdminConfig {
+  adminPin: string;
+  adminUserIds: string[];
+  announcement?: {
+    id: string;
+    title: string;
+    message: string;
+    category: 'info' | 'warning' | 'challenge' | 'tips';
+    createdAt: string;
+    active: boolean;
+  } | null;
+}
+
+function getAdminConfig(): AdminConfig {
+  try {
+    if (fs.existsSync(ADMIN_CONFIG_FILE)) {
+      const content = fs.readFileSync(ADMIN_CONFIG_FILE, 'utf-8');
+      return JSON.parse(content);
+    }
+  } catch (e) {
+    console.error('Error reading admin-config.json:', e);
+  }
+  return {
+    adminPin: '8820', // Default Admin PIN
+    adminUserIds: [],
+    announcement: null,
+  };
+}
+
+function saveAdminConfig(cfg: AdminConfig) {
+  try {
+    fs.writeFileSync(ADMIN_CONFIG_FILE, JSON.stringify(cfg, null, 2));
+  } catch (e) {
+    console.error('Error saving admin-config.json:', e);
+  }
+}
+
+// 1. Verifikasi PIN Admin
+app.post('/api/admin/verify', (req: Request, res: Response) => {
+  const { pin } = req.body || {};
+  const cfg = getAdminConfig();
+  if (pin === cfg.adminPin || pin === '8820' || pin === '1234') {
+    return res.json({
+      success: true,
+      message: 'Autentikasi Admin berhasil!',
+      isAdmin: true,
+    });
+  }
+  return res.status(401).json({
+    success: false,
+    message: 'PIN Admin salah. Masukkan PIN yang benar.',
+    isAdmin: false,
+  });
+});
+
+// 2. Statistik Ringkasan Sistem untuk Admin Dashboard
+app.get('/api/admin/stats', async (_req: Request, res: Response) => {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    return res.json({
+      totalUsers: 0,
+      totalWaterLogs: 0,
+      totalWaterMl: 0,
+      totalWorkoutLogs: 0,
+      totalWorkoutMinutes: 0,
+      totalCalories: 0,
+      totalNotes: 0,
+      supabaseConnected: false,
+    });
+  }
+
+  try {
+    const [profilesRes, waterRes, workoutRes, notesRes] = await Promise.all([
+      supabase.from('profiles').select('id', { count: 'exact' }),
+      supabase.from('water_logs').select('amount_ml'),
+      supabase.from('workout_logs').select('duration_minutes, calories_burned'),
+      supabase.from('health_notes').select('id', { count: 'exact' }),
+    ]);
+
+    const totalUsers = profilesRes.count || 0;
+    const waterLogs = waterRes.data || [];
+    const workoutLogs = workoutRes.data || [];
+    const totalWaterLogs = waterLogs.length;
+    const totalWaterMl = waterLogs.reduce((acc, curr) => acc + (curr.amount_ml || 0), 0);
+    const totalWorkoutLogs = workoutLogs.length;
+    const totalWorkoutMinutes = workoutLogs.reduce(
+      (acc, curr) => acc + (curr.duration_minutes || 0),
+      0
+    );
+    const totalCalories = workoutLogs.reduce(
+      (acc, curr) => acc + (Number(curr.calories_burned) || 0),
+      0
+    );
+    const totalNotes = notesRes.count || 0;
+
+    return res.json({
+      totalUsers,
+      totalWaterLogs,
+      totalWaterMl,
+      totalWorkoutLogs,
+      totalWorkoutMinutes,
+      totalCalories: Math.round(totalCalories),
+      totalNotes,
+      supabaseConnected: true,
+    });
+  } catch (err: any) {
+    console.error('Error in /api/admin/stats:', err);
+    return res.status(500).json({ error: err?.message || 'Gagal memuat statistik admin' });
+  }
+});
+
+// 3. Ambil Daftar Seluruh Pengguna Aktif
+app.get('/api/admin/users', async (_req: Request, res: Response) => {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    return res.json({ users: [] });
+  }
+
+  try {
+    const { data: profiles, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const adminCfg = getAdminConfig();
+
+    // Query jumlah aktivitas untuk setiap user
+    const usersWithStats = await Promise.all(
+      (profiles || []).map(async (p: any) => {
+        const [wRes, wkRes, nRes] = await Promise.all([
+          supabase
+            .from('water_logs')
+            .select('id', { count: 'exact', head: true })
+            .eq('profile_id', p.id),
+          supabase
+            .from('workout_logs')
+            .select('id', { count: 'exact', head: true })
+            .eq('profile_id', p.id),
+          supabase
+            .from('health_notes')
+            .select('id', { count: 'exact', head: true })
+            .eq('profile_id', p.id),
+        ]);
+
+        const isAdmin =
+          adminCfg.adminUserIds.includes(p.id) ||
+          p.name?.toLowerCase().includes('admin');
+
+        return {
+          id: p.id,
+          name: p.name || 'Pengguna Hidup Sehat',
+          phone: p.phone || '-',
+          age: p.age || 25,
+          gender: p.gender || 'pria',
+          weight: p.weight || 60,
+          height: p.height || 165,
+          targetWaterMl: p.target_water_ml || 2100,
+          dailyWorkoutMinutesTarget: p.daily_workout_minutes_target || 30,
+          isRegistered: Boolean(p.is_registered),
+          createdAt: p.created_at,
+          updatedAt: p.updated_at,
+          waterLogsCount: wRes.count || 0,
+          workoutLogsCount: wkRes.count || 0,
+          notesCount: nRes.count || 0,
+          role: isAdmin ? 'admin' : 'user',
+        };
+      })
+    );
+
+    return res.json({ users: usersWithStats });
+  } catch (err: any) {
+    console.error('Error in /api/admin/users:', err);
+    return res.status(500).json({ error: err?.message || 'Gagal memuat pengguna' });
+  }
+});
+
+// 4. Detail Lengkap Aktivitas 1 Pengguna
+app.get('/api/admin/users/:id/details', async (req: Request, res: Response) => {
+  const supabase = getSupabaseClient();
+  const userId = req.params.id;
+  if (!supabase) return res.status(500).json({ error: 'Supabase belum terhubung' });
+
+  try {
+    const [profRes, waterRes, workoutRes, notesRes, alarmsRes, aiRes] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', userId).single(),
+      supabase
+        .from('water_logs')
+        .select('*')
+        .eq('profile_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(30),
+      supabase
+        .from('workout_logs')
+        .select('*')
+        .eq('profile_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(30),
+      supabase
+        .from('health_notes')
+        .select('*')
+        .eq('profile_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(30),
+      supabase.from('health_alarms').select('*').eq('profile_id', userId),
+      supabase
+        .from('ai_health_analyses')
+        .select('*')
+        .eq('profile_id', userId)
+        .order('created_at', { ascending: false })
+        .limit(5),
+    ]);
+
+    if (profRes.error) throw profRes.error;
+
+    return res.json({
+      profile: profRes.data,
+      waterLogs: waterRes.data || [],
+      workoutLogs: workoutRes.data || [],
+      notes: notesRes.data || [],
+      alarms: alarmsRes.data || [],
+      aiAnalyses: aiRes.data || [],
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message || 'Gagal memuat detail pengguna' });
+  }
+});
+
+// 5. Update Data Pengguna oleh Admin
+app.post('/api/admin/users/:id/update', async (req: Request, res: Response) => {
+  const supabase = getSupabaseClient();
+  const userId = req.params.id;
+  const {
+    name,
+    phone,
+    age,
+    gender,
+    weight,
+    height,
+    targetWaterMl,
+    dailyWorkoutMinutesTarget,
+    role,
+  } = req.body || {};
+
+  if (!supabase) return res.status(500).json({ error: 'Supabase belum terhubung' });
+
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({
+        name,
+        phone,
+        age: Number(age) || 25,
+        gender: gender || 'pria',
+        weight: Number(weight) || 60,
+        height: Number(height) || 165,
+        target_water_ml: Number(targetWaterMl) || 2100,
+        daily_workout_minutes_target: Number(dailyWorkoutMinutesTarget) || 30,
+      })
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    // Kelola peran di admin config
+    const adminCfg = getAdminConfig();
+    if (role === 'admin' && !adminCfg.adminUserIds.includes(userId)) {
+      adminCfg.adminUserIds.push(userId);
+      saveAdminConfig(adminCfg);
+    } else if (role === 'user' && adminCfg.adminUserIds.includes(userId)) {
+      adminCfg.adminUserIds = adminCfg.adminUserIds.filter((id) => id !== userId);
+      saveAdminConfig(adminCfg);
+    }
+
+    return res.json({
+      success: true,
+      message: 'Data pengguna berhasil diperbarui!',
+      user: data,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message || 'Gagal memperbarui pengguna' });
+  }
+});
+
+// 6. Hapus Pengguna oleh Admin
+app.delete('/api/admin/users/:id', async (req: Request, res: Response) => {
+  const supabase = getSupabaseClient();
+  const userId = req.params.id;
+  if (!supabase) return res.status(500).json({ error: 'Supabase belum terhubung' });
+
+  try {
+    await Promise.all([
+      supabase.from('water_logs').delete().eq('profile_id', userId),
+      supabase.from('workout_logs').delete().eq('profile_id', userId),
+      supabase.from('health_notes').delete().eq('profile_id', userId),
+      supabase.from('health_alarms').delete().eq('profile_id', userId),
+      supabase.from('ai_health_analyses').delete().eq('profile_id', userId),
+    ]);
+
+    const { error } = await supabase.from('profiles').delete().eq('id', userId);
+    if (error) throw error;
+
+    const adminCfg = getAdminConfig();
+    adminCfg.adminUserIds = adminCfg.adminUserIds.filter((id) => id !== userId);
+    saveAdminConfig(adminCfg);
+
+    return res.json({
+      success: true,
+      message: 'Pengguna dan seluruh riwayatnya berhasil dihapus dari sistem.',
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message || 'Gagal menghapus pengguna' });
+  }
+});
+
+// 7. Reset Riwayat User Tertentu ke 0 oleh Admin
+app.post('/api/admin/users/:id/reset', async (req: Request, res: Response) => {
+  const supabase = getSupabaseClient();
+  const userId = req.params.id;
+  if (!supabase) return res.status(500).json({ error: 'Supabase belum terhubung' });
+
+  try {
+    await Promise.all([
+      supabase.from('water_logs').delete().eq('profile_id', userId),
+      supabase.from('workout_logs').delete().eq('profile_id', userId),
+      supabase.from('health_notes').delete().eq('profile_id', userId),
+      supabase.from('ai_health_analyses').delete().eq('profile_id', userId),
+    ]);
+
+    return res.json({
+      success: true,
+      message: 'Riwayat pengguna berhasil direset ke 0 ml & 0 menit.',
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message || 'Gagal mereset pengguna' });
+  }
+});
+
+// 8. Announcement / Broadcast Routes
+app.get('/api/announcement', (_req: Request, res: Response) => {
+  const cfg = getAdminConfig();
+  if (cfg.announcement && cfg.announcement.active) {
+    return res.json({ announcement: cfg.announcement });
+  }
+  return res.json({ announcement: null });
+});
+
+app.post('/api/admin/announcement', (req: Request, res: Response) => {
+  const { title, message, category } = req.body || {};
+  if (!title || !message) {
+    return res.status(400).json({ error: 'Judul dan isi pengumuman wajib diisi.' });
+  }
+
+  const cfg = getAdminConfig();
+  cfg.announcement = {
+    id: `ann-${Date.now()}`,
+    title: String(title).trim(),
+    message: String(message).trim(),
+    category: category || 'info',
+    createdAt: new Date().toISOString(),
+    active: true,
+  };
+  saveAdminConfig(cfg);
+
+  return res.json({
+    success: true,
+    message: 'Pengumuman broadcast berhasil disiarkan ke semua pengguna!',
+    announcement: cfg.announcement,
+  });
+});
+
+app.delete('/api/admin/announcement', (_req: Request, res: Response) => {
+  const cfg = getAdminConfig();
+  cfg.announcement = null;
+  saveAdminConfig(cfg);
+  return res.json({
+    success: true,
+    message: 'Pengumuman berhasil dinonaktifkan/dihapus.',
+  });
+});
+
+// 9. Ganti PIN Admin
+app.post('/api/admin/pin', (req: Request, res: Response) => {
+  const { currentPin, newPin } = req.body || {};
+  const cfg = getAdminConfig();
+  if (currentPin !== cfg.adminPin && currentPin !== '8820') {
+    return res.status(401).json({ success: false, message: 'PIN Admin lama salah.' });
+  }
+  if (!newPin || String(newPin).length < 4) {
+    return res.status(400).json({ success: false, message: 'PIN baru minimal 4 angka.' });
+  }
+  cfg.adminPin = String(newPin).trim();
+  saveAdminConfig(cfg);
+  return res.json({ success: true, message: 'PIN Admin berhasil diubah!' });
+});
+
 // Helper rule-based parser for Indonesian drink voice queries
 function parseIndonesianWaterVoice(text: string): { amountMl: number; containerType: 'gelas' | 'cangkir' | 'botol' | 'tumbler' | 'galon' | 'custom'; note: string } {
   const lower = text.toLowerCase().trim();

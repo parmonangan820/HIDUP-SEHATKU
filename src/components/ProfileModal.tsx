@@ -14,6 +14,8 @@ import {
   AlertTriangle,
   UserPlus,
   Edit3,
+  ShieldCheck,
+  ShieldAlert,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -23,7 +25,17 @@ interface ProfileModalProps {
 }
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
-  const { profile, updateProfile, createNewAccount, resetAllDataToZero, supabaseStatus } = useHealth();
+  const {
+    profile,
+    updateProfile,
+    createNewAccount,
+    resetAllDataToZero,
+    supabaseStatus,
+    isAdmin,
+    setIsAdminModalOpen,
+    setIsAdminLoginModalOpen,
+    logoutAdmin,
+  } = useHealth();
 
   // Mode: 'register' (buat akun baru & reset ke 0) vs 'edit' (ubah profil saja)
   const [mode, setMode] = useState<'register' | 'edit'>('register');
@@ -418,6 +430,51 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
                   className="py-1.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition-colors"
                 >
                   Batal
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Administrator Portal Switch */}
+        <div className="mt-4 pt-3 border-t border-slate-800/80">
+          {!isAdmin ? (
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  setIsAdminLoginModalOpen(true);
+                }}
+                className="text-[11px] text-slate-500 hover:text-amber-400 transition-colors inline-flex items-center gap-1.5 py-1 px-2.5 rounded-lg hover:bg-slate-800/60"
+              >
+                <ShieldAlert className="w-3.5 h-3.5 text-slate-500" />
+                <span>Masuk sebagai Administrator</span>
+              </button>
+            </div>
+          ) : (
+            <div className="p-2.5 rounded-2xl bg-amber-950/30 border border-amber-500/30 flex items-center justify-between">
+              <span className="text-xs text-amber-300 font-bold flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-amber-400" />
+                <span>Mode Admin Aktif</span>
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    setIsAdminModalOpen(true);
+                  }}
+                  className="px-2.5 py-1 rounded-xl bg-amber-500 text-slate-950 text-[11px] font-black hover:brightness-110 active:scale-95 transition-all"
+                >
+                  Buka Admin Panel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => logoutAdmin()}
+                  className="px-2 py-1 rounded-xl bg-slate-800 text-rose-300 text-[11px] font-semibold hover:bg-slate-700 transition-all"
+                >
+                  Keluar Admin
                 </button>
               </div>
             </div>
