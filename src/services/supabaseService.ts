@@ -18,9 +18,12 @@ export interface SupabaseSyncPayload {
   aiAnalysis?: any;
 }
 
+const DEFAULT_SUPABASE_URL = 'https://pwujyfmejvgrhjvlfvcv.supabase.co';
+const DEFAULT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB3dWp5Zm1lanZncmhqdmxmdmN2Ikwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA4MzQxMTUsImV4cCI6MjEwNjQxMDExNX0.qr_8_aaegrfaWK10aPZ3J1wM3AJJZf72tORGHM9vkVw';
+
 function getDirectClient() {
-  const url = localStorage.getItem('hidup_sehatku_supabase_url') || '';
-  const key = localStorage.getItem('hidup_sehatku_supabase_key') || '';
+  const url = localStorage.getItem('hidup_sehatku_supabase_url') || import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+  const key = localStorage.getItem('hidup_sehatku_supabase_key') || import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_KEY;
   if (url && key) {
     try {
       return createClient(url.trim(), key.trim());
@@ -45,13 +48,13 @@ export async function checkSupabaseStatus(): Promise<SupabaseStatusResult> {
     // ignore backend error, try direct client fallback
   }
 
-  // 2. Fallback to direct client-side Supabase check (for static hosting like Vercel)
+  // 2. Fallback to direct client-side Supabase check (for static hosting like Vercel & multi-browser sync)
   const client = getDirectClient();
   if (!client) {
     return {
       configured: false,
       connected: false,
-      message: 'Supabase belum dikonfigurasi. Masukkan Project URL dan Anon Key untuk menghubungkan.',
+      message: 'Supabase belum dikonfigurasi.',
     };
   }
 
@@ -61,15 +64,15 @@ export async function checkSupabaseStatus(): Promise<SupabaseStatusResult> {
       return {
         configured: true,
         connected: false,
-        message: `Terhubung ke Supabase, namun query gagal: ${error.message}. Pastikan tabel SQL sudah dibuat di Supabase SQL Editor.`,
+        message: `Terhubung ke Supabase, namun query gagal: ${error.message}.`,
       };
     }
-    const url = localStorage.getItem('hidup_sehatku_supabase_url') || '';
+    const url = localStorage.getItem('hidup_sehatku_supabase_url') || import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
     return {
       configured: true,
       connected: true,
       url: url.replace(/(https:\/\/[^.]+).*/, '$1...'),
-      message: 'Sinkronisasi Supabase Aktif (Client-Side Direct Mode)!',
+      message: 'Sinkronisasi Supabase Otomatis Aktif di Semua Browser!',
       profilesCount: data ? data.length : 0,
       timestamp: new Date().toISOString(),
     };
@@ -171,9 +174,57 @@ export async function pushDataToSupabase(payload: SupabaseSyncPayload): Promise<
       }
     }
 
+    if (profileId && notes && notes.length > 0) {
+      for (const n of notes) {
+        await client.from('health_notes').upsert({
+          id: n.id,
+          profile_id: profileId,
+          date: n.date,
+          time: n.time,
+          title: n.title,
+          content: n.content,
+          category: n.category,
+          mood: n.mood,
+          has_alarm: n.hasAlarm,
+          alarm_time: n.alarmTime,
+          is_alarm_active: n.isAlarmActive,
+          completed: n.completed,
+        }, { onConflict: 'id' });
+      }
+    }
+
+    if (profileId && alarms && alarms.length > 0) {
+      for (const a of alarms) {
+        await client.from('health_alarms').upsert({
+          id: a.id,
+          profile_id: profileId,
+          label: a.label,
+          time: a.time,
+          days: a.days,
+          is_active: a.isActive,
+          type: a.type,
+          sound_enabled: a.soundEnabled,
+        }, { onConflict: 'id' });
+      }
+    }
+
+    if (profileId && aiAnalysis) {
+      await client.from('ai_health_analyses').insert({
+        profile_id: profileId,
+        category: aiAnalysis.category,
+        water_status: aiAnalysis.waterStatus,
+        water_feedback: aiAnalysis.waterFeedback,
+        workout_status: aiAnalysis.workoutStatus,
+        workout_feedback: aiAnalysis.workoutFeedback,
+        overall_score: aiAnalysis.overallScore,
+        recommendations: aiAnalysis.recommendations,
+        health_tips: aiAnalysis.healthTips,
+      });
+    }
+
     return {
       success: true,
-      message: 'Data berhasil disinkronkan ke Supabase (Client-Side Mode)!',
+      message: 'Data berhasil disinkronkan ke Supabase (Cross-Browser Mode)!',
       syncedAt: new Date().toISOString(),
     };
   } catch (err: any) {
@@ -342,11 +393,9 @@ export async function configureSupabase(
   url: string,
   key: string
 ): Promise<{ success: boolean; message: string; code?: string; url?: string }> {
-  // Save to localStorage so client-side direct mode works on static hosting like Vercel
   localStorage.setItem('hidup_sehatku_supabase_url', url.trim());
   localStorage.setItem('hidup_sehatku_supabase_key', key.trim());
 
-  // 1. Try backend server API first
   try {
     const res = await fetch('/api/supabase/config', {
       method: 'POST',
@@ -361,7 +410,6 @@ export async function configureSupabase(
     // ignore
   }
 
-  // 2. Validate via direct client test
   try {
     const testClient = createClient(url.trim(), key.trim());
     const { error } = await testClient.from('profiles').select('id').limit(1);
@@ -369,12 +417,12 @@ export async function configureSupabase(
       return {
         success: false,
         code: 'TABLES_MISSING',
-        message: `Koneksi URL berhasil, namun tabel database belum ditemukan: ${error.message}. Jalankan SQL Editor di Supabase.`,
+        message: `Koneksi URL berhasil, namun tabel database belum ditemukan: ${error.message}.`,
       };
     }
     return {
       success: true,
-      message: 'Supabase berhasil terhubung langsung dari browser (Client-Side Mode)!',
+      message: 'Supabase berhasil terhubung lintas browser!',
     };
   } catch (err: any) {
     return {
@@ -394,5 +442,5 @@ export async function disconnectSupabase(): Promise<{ success: boolean; message:
     // ignore
   }
 
-  return { success: true, message: 'Koneksi Supabase berhasil diputus.' };
+  return { success: true, message: 'Koneksi Supabase diputus.' };
 }

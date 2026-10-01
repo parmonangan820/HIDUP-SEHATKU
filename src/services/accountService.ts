@@ -15,9 +15,12 @@ export interface AccountSummary {
   createdAt: string;
 }
 
+const DEFAULT_SUPABASE_URL = 'https://pwujyfmejvgrhjvlfvcv.supabase.co';
+const DEFAULT_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB3dWp5Zm1lanZncmhqdmxmdmN2Ikwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA4MzQxMTUsImV4cCI6MjEwNjQxMDExNX0.qr_8_aaegrfaWK10aPZ3J1wM3AJJZf72tORGHM9vkVw';
+
 function getDirectClient() {
-  const url = localStorage.getItem('hidup_sehatku_supabase_url') || '';
-  const key = localStorage.getItem('hidup_sehatku_supabase_key') || '';
+  const url = localStorage.getItem('hidup_sehatku_supabase_url') || import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+  const key = localStorage.getItem('hidup_sehatku_supabase_key') || import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_KEY;
   if (url && key) {
     try {
       return createClient(url.trim(), key.trim());
@@ -42,7 +45,7 @@ export async function fetchRegisteredAccounts(): Promise<AccountSummary[]> {
     // try direct client fallback
   }
 
-  // 2. Direct client fallback (for Vercel / static hosting)
+  // 2. Direct client fallback (for cross-browser sync & Vercel)
   const client = getDirectClient();
   if (!client) return [];
 
