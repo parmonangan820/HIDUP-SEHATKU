@@ -305,7 +305,7 @@ export const AdminPanelModal: React.FC = () => {
       u.waterLogsCount,
       u.workoutLogsCount,
       u.notesCount,
-      `"${new Date(u.createdAt).toLocaleString('id-ID')}"`,
+      `"${u.createdAt ? new Date(u.createdAt).toLocaleString('id-ID') : '-'}"`,
     ]);
 
     const csvContent =

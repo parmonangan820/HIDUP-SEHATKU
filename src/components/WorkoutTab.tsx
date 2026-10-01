@@ -355,7 +355,7 @@ export const WorkoutTab: React.FC = () => {
                     <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
                       <span className="text-rose-400 font-semibold">{log.caloriesBurned} kcal</span>
                       {log.distanceKm && <span>· {log.distanceKm} km</span>}
-                      {log.steps && <span>· {log.steps.toLocaleString()} langkah</span>}
+                      {log.steps && <span>· {(log.steps ?? 0).toLocaleString()} langkah</span>}
                       <span>· Jam {log.time}</span>
                     </div>
                   </div>

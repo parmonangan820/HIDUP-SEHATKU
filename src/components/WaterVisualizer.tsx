@@ -139,10 +139,10 @@ export const WaterVisualizer: React.FC<WaterVisualizerProps> = ({
               {percentage}%
             </span>
             <span className="text-xs font-semibold text-cyan-200 drop-shadow">
-              {totalMl.toLocaleString()} / {targetMl.toLocaleString()} ml
+              {(totalMl ?? 0).toLocaleString()} / {(targetMl ?? 0).toLocaleString()} ml
             </span>
             <span className="text-[10px] text-slate-300 mt-1 drop-shadow">
-              {totalMl >= targetMl ? 'Tercapai 100%!' : `Sisa ${(targetMl - totalMl).toLocaleString()} ml`}
+              {(totalMl ?? 0) >= (targetMl ?? 0) ? 'Tercapai 100%!' : `Sisa ${((targetMl ?? 0) - (totalMl ?? 0)).toLocaleString()} ml`}
             </span>
           </div>
         </div>

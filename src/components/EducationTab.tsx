@@ -111,7 +111,7 @@ export const EducationTab: React.FC<EducationTabProps> = ({ onOpenAiChat }) => {
           <div className="p-2.5 rounded-xl bg-cyan-950/40 border border-cyan-500/20">
             <span className="text-[10px] text-cyan-300 block mb-0.5">Kebutuhan Air Harian:</span>
             <span className="text-lg font-extrabold text-white">
-              {recommendedWater.toLocaleString()} <span className="text-xs font-normal">ml</span>
+              {(recommendedWater ?? 0).toLocaleString()} <span className="text-xs font-normal">ml</span>
             </span>
             <span className="text-[9px] text-slate-400 block mt-0.5">
               ~{Math.round(recommendedWater / 250)} gelas per hari

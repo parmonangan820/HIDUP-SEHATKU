@@ -195,7 +195,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
             <div className="flex justify-between items-baseline text-xs mb-3">
               <span className="text-slate-400">Tercatat Hari Ini:</span>
               <span className="text-base font-extrabold text-white">
-                {totalWater.toLocaleString()} <span className="text-xs font-normal text-slate-400">ml</span>
+                {(totalWater ?? 0).toLocaleString()} <span className="text-xs font-normal text-slate-400">ml</span>
               </span>
             </div>
 

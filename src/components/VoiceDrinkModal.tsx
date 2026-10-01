@@ -236,8 +236,8 @@ export const VoiceDrinkModal: React.FC<VoiceDrinkModalProps> = ({ isOpen, onClos
           <div>
             <span className="text-[10px] text-slate-400 block">Total Air Hari Ini:</span>
             <span className="text-base font-extrabold text-white">
-              {currentTotal.toLocaleString()}{' '}
-              <span className="text-xs font-normal text-slate-400">/ {target.toLocaleString()} ml</span>
+              {(currentTotal ?? 0).toLocaleString()}{' '}
+              <span className="text-xs font-normal text-slate-400">/ {(target ?? 0).toLocaleString()} ml</span>
             </span>
           </div>
 

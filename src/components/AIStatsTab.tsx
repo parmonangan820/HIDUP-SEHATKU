@@ -390,11 +390,11 @@ export const AIStatsTab: React.FC<AIStatsTabProps> = ({ onOpenAiChat }) => {
                   Total Kalori Terbakar
                 </span>
                 <span className="text-2xl font-black text-rose-400 block">
-                  {monthlySummary.totalCalories.toLocaleString()}
+                  {(monthlySummary?.totalCalories ?? 0).toLocaleString()}
                   <span className="text-xs font-normal text-slate-400 ml-1">kcal</span>
                 </span>
                 <span className="text-[10px] text-slate-400 mt-1 block">
-                  Setara ~{Math.round(monthlySummary.totalCalories / 7700 * 10) / 10} kg lemak tubuh
+                  Setara ~{Math.round((monthlySummary?.totalCalories ?? 0) / 7700 * 10) / 10} kg lemak tubuh
                 </span>
               </div>
 
