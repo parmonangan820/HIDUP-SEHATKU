@@ -824,10 +824,63 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       const data = await pullDataFromSupabase();
       if (data.configured && data.hasData) {
-        if (data.profile) setProfile((prev) => ({ ...prev, ...data.profile }));
+        if (data.profile) setProfile((prev) => ({ ...prev, ...data.profile, isLoggedIn: true }));
         if (data.notes && data.notes.length > 0) setNotes(data.notes);
         if (data.alarms && data.alarms.length > 0) setAlarms(data.alarms);
         if (data.aiAnalysis) setAiAnalysis(data.aiAnalysis);
+
+        const todayDate = getTodayDateString();
+        const waterLogs = (data.waterLogs || []).map((w: any) => ({
+          id: w.id,
+          amountMl: w.amount_ml,
+          timestamp: w.created_at || w.timestamp,
+          time: w.time,
+          period: w.period,
+          containerType: w.container_type || 'gelas',
+          note: w.note,
+        }));
+        const workoutLogs = (data.workoutLogs || []).map((wk: any) => ({
+          id: wk.id,
+          timestamp: wk.created_at || wk.timestamp,
+          time: wk.time,
+          activityType: wk.activity_type,
+          activityName: wk.activity_name,
+          durationMinutes: wk.duration_minutes,
+          caloriesBurned: wk.calories_burned,
+          distanceKm: wk.distance_km,
+          steps: wk.steps,
+          intensity: wk.intensity || 'sedang',
+          period: wk.period,
+          notes: wk.notes,
+        }));
+
+        if (waterLogs.length > 0 || workoutLogs.length > 0) {
+          setHistory((prev) => {
+            const existingToday = prev[todayDate] || {
+              date: todayDate,
+              waterLogs: [],
+              workoutLogs: [],
+              totalWaterMl: 0,
+              totalWorkoutMinutes: 0,
+              totalCalories: 0,
+            };
+            const totalWaterMl = waterLogs.reduce((acc: number, curr: any) => acc + (curr.amountMl || 0), 0);
+            const totalWorkoutMinutes = workoutLogs.reduce((acc: number, curr: any) => acc + (curr.durationMinutes || 0), 0);
+            const totalCalories = workoutLogs.reduce((acc: number, curr: any) => acc + (curr.caloriesBurned || 0), 0);
+
+            return {
+              ...prev,
+              [todayDate]: {
+                ...existingToday,
+                waterLogs: waterLogs.length > 0 ? waterLogs : existingToday.waterLogs,
+                workoutLogs: workoutLogs.length > 0 ? workoutLogs : existingToday.workoutLogs,
+                totalWaterMl: waterLogs.length > 0 ? totalWaterMl : existingToday.totalWaterMl,
+                totalWorkoutMinutes: workoutLogs.length > 0 ? totalWorkoutMinutes : existingToday.totalWorkoutMinutes,
+                totalCalories: workoutLogs.length > 0 ? totalCalories : existingToday.totalCalories,
+              },
+            };
+          });
+        }
 
         const timeNow = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
         setLastSyncedTime(timeNow);
@@ -887,6 +940,15 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setIsSyncingSupabase(false);
     }
   };
+
+  // Real-time background auto-sync to Supabase PostgreSQL when data changes
+  useEffect(() => {
+    if (!supabaseStatus?.connected) return;
+    const timer = setTimeout(() => {
+      syncWithSupabase().catch(() => {});
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [history, profile, notes, alarms, aiAnalysis, supabaseStatus?.connected]);
 
   // Ensure selected date exists in history
   const todayRecord: DayRecord = history[selectedDate] || {
