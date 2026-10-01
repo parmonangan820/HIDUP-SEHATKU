@@ -15,11 +15,16 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.use(express.json({ limit: '10mb' }));
 
-// Initialize Supabase Client
-const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
-const supabase: SupabaseClient | null =
-  supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
+// Helper to get Supabase Client dynamically
+function getSupabaseClient(): SupabaseClient | null {
+  dotenv.config();
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+  const key = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+  if (url && key) {
+    return createClient(url, key);
+  }
+  return null;
+}
 
 
 // Initialize Google GenAI client
@@ -37,6 +42,7 @@ const ai = apiKey
 
 // Health endpoint
 app.get('/api/health', (_req: Request, res: Response) => {
+  const supabase = getSupabaseClient();
   res.json({
     status: 'ok',
     appName: 'Hidup Sehatku',
@@ -48,6 +54,7 @@ app.get('/api/health', (_req: Request, res: Response) => {
 
 // Supabase Status & Connection Ping
 app.get('/api/supabase/status', async (_req: Request, res: Response) => {
+  const supabase = getSupabaseClient();
   if (!supabase) {
     return res.json({
       configured: false,
@@ -84,6 +91,7 @@ app.get('/api/supabase/status', async (_req: Request, res: Response) => {
 
 // Supabase Pull (Ambil data dari Supabase ke aplikasi)
 app.get('/api/supabase/pull', async (_req: Request, res: Response) => {
+  const supabase = getSupabaseClient();
   if (!supabase) {
     return res.json({
       configured: false,
@@ -217,6 +225,7 @@ app.get('/api/supabase/pull', async (_req: Request, res: Response) => {
 
 // Supabase Push (Simpan/Unggah data aplikasi ke Supabase)
 app.post('/api/supabase/push', async (req: Request, res: Response) => {
+  const supabase = getSupabaseClient();
   if (!supabase) {
     return res.json({
       configured: false,
@@ -364,6 +373,7 @@ app.post('/api/supabase/push', async (req: Request, res: Response) => {
 
 // Supabase Reset (Reset semua data ke 0 untuk akun baru)
 app.post('/api/supabase/reset', async (req: Request, res: Response) => {
+  const supabase = getSupabaseClient();
   if (!supabase) {
     return res.json({
       configured: false,
