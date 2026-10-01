@@ -1,0 +1,7 @@
+{
+  "name": "Hidup Sehatku",
+  "description": "Aplikasi pengontrol hidrasi air minum harian, pencatat aktivitas olahraga, dan evaluasi gaya hidup sehat berbasis AI dengan tampilan antarmuka mobile modern.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
