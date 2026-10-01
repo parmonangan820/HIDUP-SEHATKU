@@ -17,6 +17,8 @@ import {
   pushDataToSupabase,
   pullDataFromSupabase,
   resetSupabaseData,
+  configureSupabase,
+  disconnectSupabase,
   SupabaseStatusResult,
 } from '../services/supabaseService';
 
@@ -25,6 +27,11 @@ interface HealthContextType {
   updateProfile: (newProfile: Partial<UserProfile>) => void;
   createNewAccount: (newProfile: Omit<UserProfile, 'isRegistered'>) => Promise<void>;
   resetAllDataToZero: () => Promise<void>;
+  configureSupabaseConnection: (
+    url: string,
+    key: string
+  ) => Promise<{ success: boolean; message: string; code?: string; url?: string }>;
+  disconnectSupabaseConnection: () => Promise<{ success: boolean; message: string }>;
   todayRecord: DayRecord;
   history: Record<string, DayRecord>;
   logWater: (
@@ -811,8 +818,64 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Sync reset to Supabase if connected
     try {
       await resetSupabaseData(fullProfile);
+      await pushDataToSupabase({
+        profile: fullProfile,
+        waterLogs: [],
+        workoutLogs: [],
+        notes: [],
+        alarms,
+        aiAnalysis: welcomeAnalysis,
+      });
+      const st = await checkSupabaseStatus();
+      setSupabaseStatus(st);
     } catch (e) {
       console.error('Supabase reset error:', e);
+    }
+  };
+
+  const configureSupabaseConnection = async (url: string, key: string) => {
+    setIsSyncingSupabase(true);
+    try {
+      const res = await configureSupabase(url, key);
+      if (res.success) {
+        const st = await checkSupabaseStatus();
+        setSupabaseStatus(st);
+        // Automatically sync existing account data to Supabase
+        await pushDataToSupabase({
+          profile,
+          waterLogs: todayRecord.waterLogs,
+          workoutLogs: todayRecord.workoutLogs,
+          notes,
+          alarms,
+          aiAnalysis,
+        });
+        const timeNow = new Date().toLocaleTimeString('id-ID', {
+          hour: '2-digit',
+          minute: '2-digit',
+        });
+        setLastSyncedTime(timeNow);
+        localStorage.setItem('hidup_sehatku_last_synced', timeNow);
+      }
+      return res;
+    } finally {
+      setIsSyncingSupabase(false);
+    }
+  };
+
+  const disconnectSupabaseConnection = async () => {
+    setIsSyncingSupabase(true);
+    try {
+      const res = await disconnectSupabase();
+      if (res.success) {
+        setSupabaseStatus({
+          configured: false,
+          connected: false,
+          message: 'Koneksi Supabase telah diputus.',
+        });
+      }
+      return res;
+    } finally {
+      setIsSyncingSupabase(false);
     }
   };
 
@@ -1165,6 +1228,8 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         lastSyncedTime,
         syncWithSupabase,
         pullFromSupabase,
+        configureSupabaseConnection,
+        disconnectSupabaseConnection,
         weeklySummary: calculateWeeklySummary(),
         monthlySummary: calculateMonthlySummary(),
         todayWaterByPeriod,

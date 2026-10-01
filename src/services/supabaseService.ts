@@ -90,3 +90,38 @@ export async function resetSupabaseData(profile?: any): Promise<{ success: boole
   }
 }
 
+export async function configureSupabase(
+  url: string,
+  key: string
+): Promise<{ success: boolean; message: string; code?: string; url?: string }> {
+  try {
+    const res = await fetch('/api/supabase/config', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ url, key }),
+    });
+    return await res.json();
+  } catch (err: any) {
+    return {
+      success: false,
+      message: err?.message || 'Gagal menghubungi server untuk menyimpan konfigurasi',
+    };
+  }
+}
+
+export async function disconnectSupabase(): Promise<{ success: boolean; message: string }> {
+  try {
+    const res = await fetch('/api/supabase/config', {
+      method: 'DELETE',
+    });
+    return await res.json();
+  } catch (err: any) {
+    return {
+      success: false,
+      message: err?.message || 'Gagal memutus koneksi Supabase',
+    };
+  }
+}
+

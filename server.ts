@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
@@ -9,19 +10,48 @@ dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const CONFIG_FILE = path.join(__dirname, 'supabase-config.json');
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.use(express.json({ limit: '10mb' }));
 
+// Helper to get Supabase credentials from .env or runtime config file
+function getSupabaseConfig(): { url: string; key: string } {
+  dotenv.config();
+  let url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+  let key = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+
+  if (!url || !key) {
+    try {
+      if (fs.existsSync(CONFIG_FILE)) {
+        const fileContent = fs.readFileSync(CONFIG_FILE, 'utf-8');
+        const parsed = JSON.parse(fileContent);
+        if (parsed.url && parsed.key) {
+          url = parsed.url;
+          key = parsed.key;
+          process.env.SUPABASE_URL = url;
+          process.env.SUPABASE_ANON_KEY = key;
+        }
+      }
+    } catch (e) {
+      console.error('Error reading supabase-config.json:', e);
+    }
+  }
+
+  return { url: url.trim(), key: key.trim() };
+}
+
 // Helper to get Supabase Client dynamically
 function getSupabaseClient(): SupabaseClient | null {
-  dotenv.config();
-  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-  const key = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+  const { url, key } = getSupabaseConfig();
   if (url && key) {
-    return createClient(url, key);
+    try {
+      return createClient(url, key);
+    } catch (e) {
+      console.error('Failed to create Supabase client:', e);
+    }
   }
   return null;
 }
@@ -54,12 +84,13 @@ app.get('/api/health', (_req: Request, res: Response) => {
 
 // Supabase Status & Connection Ping
 app.get('/api/supabase/status', async (_req: Request, res: Response) => {
+  const { url, key } = getSupabaseConfig();
   const supabase = getSupabaseClient();
-  if (!supabase) {
+  if (!supabase || !url || !key) {
     return res.json({
       configured: false,
       connected: false,
-      message: 'Supabase belum dikonfigurasi. Masukkan SUPABASE_URL dan SUPABASE_ANON_KEY di environment (.env).',
+      message: 'Supabase belum dikonfigurasi. Hubungkan Project URL dan Anon Key untuk mengaktifkan sinkronisasi cloud.',
     });
   }
 
@@ -69,6 +100,7 @@ app.get('/api/supabase/status', async (_req: Request, res: Response) => {
       return res.json({
         configured: true,
         connected: false,
+        url: url.replace(/(https:\/\/[^.]+).*/, '$1...'),
         message: `Terhubung ke server Supabase, namun query gagal: ${error.message}. Pastikan skema database SQL sudah dijalankan di Supabase SQL Editor.`,
       });
     }
@@ -76,6 +108,7 @@ app.get('/api/supabase/status', async (_req: Request, res: Response) => {
     return res.json({
       configured: true,
       connected: true,
+      url: url.replace(/(https:\/\/[^.]+).*/, '$1...'),
       message: 'Sinkronisasi Supabase Aktif & Terhubung ke PostgreSQL!',
       profilesCount: data ? data.length : 0,
       timestamp: new Date().toISOString(),
@@ -86,6 +119,82 @@ app.get('/api/supabase/status', async (_req: Request, res: Response) => {
       connected: false,
       message: err?.message || 'Gagal menghubungi Supabase.',
     });
+  }
+});
+
+// Configure Supabase (Save Project URL and Anon Key directly from UI)
+app.post('/api/supabase/config', async (req: Request, res: Response) => {
+  const { url, key } = req.body || {};
+  if (!url || !key) {
+    return res.status(400).json({
+      success: false,
+      message: 'Project URL dan Anon Key harus diisi.',
+    });
+  }
+
+  const cleanUrl = String(url).trim().replace(/\/$/, '');
+  const cleanKey = String(key).trim();
+
+  // Test connection to Supabase
+  try {
+    const testClient = createClient(cleanUrl, cleanKey);
+    const { data, error } = await testClient.from('profiles').select('id').limit(1);
+
+    if (error) {
+      if (error.message.includes('relation') || error.code === '42P01') {
+        return res.status(400).json({
+          success: false,
+          code: 'TABLES_MISSING',
+          message:
+            'Koneksi berhasil, namun tabel database belum dibuat. Silakan salin & jalankan kode SQL di SQL Editor Supabase terlebih dahulu.',
+        });
+      }
+      return res.status(400).json({
+        success: false,
+        message: `Koneksi gagal: ${error.message}. Periksa kembali Project URL dan Anon Key Anda.`,
+      });
+    }
+
+    // Persist configuration
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify({ url: cleanUrl, key: cleanKey }, null, 2));
+
+    try {
+      const envPath = path.join(__dirname, '.env');
+      fs.writeFileSync(envPath, `SUPABASE_URL="${cleanUrl}"\nSUPABASE_ANON_KEY="${cleanKey}"\n`);
+    } catch (e) {
+      // ignore
+    }
+
+    process.env.SUPABASE_URL = cleanUrl;
+    process.env.SUPABASE_ANON_KEY = cleanKey;
+
+    return res.json({
+      success: true,
+      message: 'Supabase berhasil terhubung dan terverifikasi!',
+      url: cleanUrl,
+    });
+  } catch (err: any) {
+    return res.status(500).json({
+      success: false,
+      message: `Gagal memverifikasi Supabase: ${err?.message || err}`,
+    });
+  }
+});
+
+// Disconnect Supabase
+app.delete('/api/supabase/config', async (_req: Request, res: Response) => {
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      fs.unlinkSync(CONFIG_FILE);
+    }
+    process.env.SUPABASE_URL = '';
+    process.env.SUPABASE_ANON_KEY = '';
+    return res.json({
+      success: true,
+      message: 'Koneksi Supabase berhasil diputus.',
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message });
   }
 });
 
@@ -386,26 +495,29 @@ app.post('/api/supabase/reset', async (req: Request, res: Response) => {
 
   try {
     // Bersihkan semua data lama
-    await supabase.from('water_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('workout_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('health_notes').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('health_alarms').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('ai_health_analyses').delete().neq('id', '00000000-0000-0000-0000-000000000000');
-    await supabase.from('profiles').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('water_logs').delete().not('id', 'is', null);
+    await supabase.from('workout_logs').delete().not('id', 'is', null);
+    await supabase.from('health_notes').delete().not('id', 'is', null);
+    await supabase.from('health_alarms').delete().not('id', 'is', null);
+    await supabase.from('ai_health_analyses').delete().not('id', 'is', null);
+    await supabase.from('profiles').delete().not('id', 'is', null);
 
     // Buat profil bersih untuk akun baru
     if (profile) {
-      await supabase.from('profiles').insert({
+      const { error: insErr } = await supabase.from('profiles').insert({
         name: profile.name || 'Pengguna Baru',
         phone: profile.phone || '',
         age: profile.age || 25,
         gender: profile.gender || 'pria',
         weight: profile.weight || 60,
         height: profile.height || 165,
-        target_water_ml: profile.targetWaterMl || 2500,
+        target_water_ml: profile.targetWaterMl || 2100,
         daily_workout_minutes_target: profile.dailyWorkoutMinutesTarget || 30,
         is_registered: true,
       });
+      if (insErr) {
+        console.error('Error inserting new profile in reset:', insErr);
+      }
     }
 
     return res.json({

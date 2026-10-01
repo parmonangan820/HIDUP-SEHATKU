@@ -23,7 +23,7 @@ interface ProfileModalProps {
 }
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
-  const { profile, updateProfile, createNewAccount, resetAllDataToZero } = useHealth();
+  const { profile, updateProfile, createNewAccount, resetAllDataToZero, supabaseStatus } = useHealth();
 
   // Mode: 'register' (buat akun baru & reset ke 0) vs 'edit' (ubah profil saja)
   const [mode, setMode] = useState<'register' | 'edit'>('register');
@@ -176,6 +176,22 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
             <Edit3 className="w-3.5 h-3.5" />
             <span>Ubah Profil</span>
           </button>
+        </div>
+
+        {/* Cloud Sync Status Indicator */}
+        <div className="mb-3 px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between text-[11px]">
+          <span className="text-slate-400">Database Cloud:</span>
+          {supabaseStatus?.connected ? (
+            <span className="text-emerald-400 font-semibold flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+              Supabase Terhubung (Sinkron Otomatis)
+            </span>
+          ) : (
+            <span className="text-amber-400 font-medium flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+              Belum Terhubung ke Supabase
+            </span>
+          )}
         </div>
 
         {/* Notice for New Account */}
