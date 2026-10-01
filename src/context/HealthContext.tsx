@@ -12,6 +12,12 @@ import {
 } from '../types';
 import { calculateCalories } from '../data/activities';
 import { playAlarmChime, stopAlarmChime, playNotificationBlip } from '../utils/sound';
+import {
+  checkSupabaseStatus,
+  pushDataToSupabase,
+  pullDataFromSupabase,
+  SupabaseStatusResult,
+} from '../services/supabaseService';
 
 interface HealthContextType {
   profile: UserProfile;
@@ -52,6 +58,11 @@ interface HealthContextType {
   activeRingingAlarm: { alarm: HealthAlarm; note?: HealthNote } | null;
   dismissRingingAlarm: () => void;
   testAlarmSound: () => void;
+  supabaseStatus: SupabaseStatusResult | null;
+  isSyncingSupabase: boolean;
+  lastSyncedTime: string | null;
+  syncWithSupabase: () => Promise<boolean>;
+  pullFromSupabase: () => Promise<boolean>;
   weeklySummary: {
     dates: string[];
     days: {
@@ -602,6 +613,82 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setAlarms((prev) => prev.filter((a) => a.id !== id));
   };
 
+  // Supabase Cloud Synchronization State
+  const [supabaseStatus, setSupabaseStatus] = useState<SupabaseStatusResult | null>(null);
+  const [isSyncingSupabase, setIsSyncingSupabase] = useState(false);
+  const [lastSyncedTime, setLastSyncedTime] = useState<string | null>(() => {
+    return localStorage.getItem('hidup_sehatku_last_synced') || null;
+  });
+
+  const pullFromSupabase = async (): Promise<boolean> => {
+    setIsSyncingSupabase(true);
+    try {
+      const data = await pullDataFromSupabase();
+      if (data.configured && data.hasData) {
+        if (data.profile) setProfile((prev) => ({ ...prev, ...data.profile }));
+        if (data.notes && data.notes.length > 0) setNotes(data.notes);
+        if (data.alarms && data.alarms.length > 0) setAlarms(data.alarms);
+        if (data.aiAnalysis) setAiAnalysis(data.aiAnalysis);
+
+        const timeNow = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        setLastSyncedTime(timeNow);
+        localStorage.setItem('hidup_sehatku_last_synced', timeNow);
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('Failed to pull from Supabase:', err);
+      return false;
+    } finally {
+      setIsSyncingSupabase(false);
+    }
+  };
+
+  // Check Supabase connection on mount
+  useEffect(() => {
+    checkSupabaseStatus()
+      .then((status) => {
+        setSupabaseStatus(status);
+        if (status.connected) {
+          pullFromSupabase();
+        }
+      })
+      .catch((e) => console.error('Supabase check error:', e));
+  }, []);
+
+  const syncWithSupabase = async (): Promise<boolean> => {
+    setIsSyncingSupabase(true);
+    try {
+      const allWaterLogs = todayRecord?.waterLogs || [];
+      const allWorkoutLogs = todayRecord?.workoutLogs || [];
+
+      const res = await pushDataToSupabase({
+        profile,
+        waterLogs: allWaterLogs,
+        workoutLogs: allWorkoutLogs,
+        notes,
+        alarms,
+        aiAnalysis,
+      });
+
+      if (res.success) {
+        const timeNow = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+        setLastSyncedTime(timeNow);
+        localStorage.setItem('hidup_sehatku_last_synced', timeNow);
+        setSupabaseStatus((prev) =>
+          prev ? { ...prev, connected: true, message: 'Sinkronisasi Supabase Aktif' } : null
+        );
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error('Failed to sync to Supabase:', err);
+      return false;
+    } finally {
+      setIsSyncingSupabase(false);
+    }
+  };
+
   // Ensure selected date exists in history
   const todayRecord: DayRecord = history[selectedDate] || {
     date: selectedDate,
@@ -965,6 +1052,11 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         activeRingingAlarm,
         dismissRingingAlarm,
         testAlarmSound,
+        supabaseStatus,
+        isSyncingSupabase,
+        lastSyncedTime,
+        syncWithSupabase,
+        pullFromSupabase,
         weeklySummary: calculateWeeklySummary(),
         monthlySummary: calculateMonthlySummary(),
         todayWaterByPeriod,

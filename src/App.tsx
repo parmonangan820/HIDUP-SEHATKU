@@ -13,6 +13,7 @@ import { ProfileModal } from './components/ProfileModal';
 import { AIChatModal } from './components/AIChatModal';
 import { VoiceDrinkModal } from './components/VoiceDrinkModal';
 import { AlarmRingingModal } from './components/AlarmRingingModal';
+import { SupabaseSyncModal } from './components/SupabaseSyncModal';
 import { RunningBanner } from './components/RunningBanner';
 import { Footer } from './components/Footer';
 import { Mic, Droplet } from 'lucide-react';
@@ -23,6 +24,7 @@ function MainApp() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isAiChatOpen, setIsAiChatOpen] = useState(false);
   const [isVoiceDrinkOpen, setIsVoiceDrinkOpen] = useState(false);
+  const [isSupabaseSyncOpen, setIsSupabaseSyncOpen] = useState(false);
 
   return (
     <AppShell deviceMode={deviceMode} setDeviceMode={setDeviceMode}>
@@ -32,6 +34,7 @@ function MainApp() {
           onOpenProfile={() => setIsProfileOpen(true)}
           onOpenAiChat={() => setIsAiChatOpen(true)}
           onOpenVoiceDrink={() => setIsVoiceDrinkOpen(true)}
+          onOpenSupabaseSync={() => setIsSupabaseSyncOpen(true)}
           deviceMode={deviceMode}
           setDeviceMode={setDeviceMode}
         />
@@ -101,6 +104,10 @@ function MainApp() {
           onClose={() => setIsVoiceDrinkOpen(false)}
         />
         <AlarmRingingModal />
+        <SupabaseSyncModal
+          isOpen={isSupabaseSyncOpen}
+          onClose={() => setIsSupabaseSyncOpen(false)}
+        />
       </div>
     </AppShell>
   );

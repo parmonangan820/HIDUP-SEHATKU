@@ -1,11 +1,12 @@
 import React from 'react';
 import { useHealth } from '../context/HealthContext';
-import { Droplets, Sparkles, User, Bell, Smartphone, Monitor, Mic } from 'lucide-react';
+import { Droplets, Sparkles, User, Bell, Smartphone, Monitor, Mic, Database, Cloud } from 'lucide-react';
 
 interface TopHeaderProps {
   onOpenProfile: () => void;
   onOpenAiChat: () => void;
   onOpenVoiceDrink: () => void;
+  onOpenSupabaseSync: () => void;
   deviceMode: 'android' | 'ios' | 'full';
   setDeviceMode: (mode: 'android' | 'ios' | 'full') => void;
 }
@@ -14,10 +15,11 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   onOpenProfile,
   onOpenAiChat,
   onOpenVoiceDrink,
+  onOpenSupabaseSync,
   deviceMode,
   setDeviceMode,
 }) => {
-  const { profile, todayRecord, todayWaterByPeriod } = useHealth();
+  const { profile, todayRecord, todayWaterByPeriod, supabaseStatus, isSyncingSupabase } = useHealth();
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -127,6 +129,24 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
               <Monitor className="w-3.5 h-3.5" />
             </button>
           </div>
+
+          {/* Supabase Cloud Sync Trigger */}
+          <button
+            onClick={onOpenSupabaseSync}
+            className={`relative p-2 rounded-lg border transition-all active:scale-95 flex items-center justify-center ${
+              supabaseStatus?.connected
+                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
+                : 'bg-slate-800 border-slate-750 text-slate-400 hover:text-white hover:bg-slate-700'
+            }`}
+            title="Status Sinkronisasi Supabase PostgreSQL"
+          >
+            <Database className="w-4 h-4" />
+            <span
+              className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full ${
+                supabaseStatus?.connected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-500'
+              }`}
+            />
+          </button>
 
           {/* Profile Trigger */}
           <button

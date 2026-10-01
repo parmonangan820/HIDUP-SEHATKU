@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { GoogleGenAI } from '@google/genai';
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 dotenv.config();
 
@@ -13,6 +14,13 @@ const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.use(express.json({ limit: '10mb' }));
+
+// Initialize Supabase Client
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+const supabase: SupabaseClient | null =
+  supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
+
 
 // Initialize Google GenAI client
 const apiKey = process.env.GEMINI_API_KEY || '';
@@ -33,8 +41,325 @@ app.get('/api/health', (_req: Request, res: Response) => {
     status: 'ok',
     appName: 'Hidup Sehatku',
     hasGeminiKey: Boolean(apiKey),
+    hasSupabase: Boolean(supabase),
     timestamp: new Date().toISOString(),
   });
+});
+
+// Supabase Status & Connection Ping
+app.get('/api/supabase/status', async (_req: Request, res: Response) => {
+  if (!supabase) {
+    return res.json({
+      configured: false,
+      connected: false,
+      message: 'Supabase belum dikonfigurasi. Masukkan SUPABASE_URL dan SUPABASE_ANON_KEY di environment (.env).',
+    });
+  }
+
+  try {
+    const { data, error } = await supabase.from('profiles').select('id, name').limit(1);
+    if (error) {
+      return res.json({
+        configured: true,
+        connected: false,
+        message: `Terhubung ke server Supabase, namun query gagal: ${error.message}. Pastikan skema database SQL sudah dijalankan di Supabase SQL Editor.`,
+      });
+    }
+
+    return res.json({
+      configured: true,
+      connected: true,
+      message: 'Sinkronisasi Supabase Aktif & Terhubung ke PostgreSQL!',
+      profilesCount: data ? data.length : 0,
+      timestamp: new Date().toISOString(),
+    });
+  } catch (err: any) {
+    return res.json({
+      configured: true,
+      connected: false,
+      message: err?.message || 'Gagal menghubungi Supabase.',
+    });
+  }
+});
+
+// Supabase Pull (Ambil data dari Supabase ke aplikasi)
+app.get('/api/supabase/pull', async (_req: Request, res: Response) => {
+  if (!supabase) {
+    return res.json({
+      configured: false,
+      hasData: false,
+      message: 'Supabase belum dikonfigurasi di server',
+    });
+  }
+
+  try {
+    const { data: profiles, error: pErr } = await supabase.from('profiles').select('*').limit(1);
+    if (pErr) throw pErr;
+
+    const profile = profiles && profiles[0] ? profiles[0] : null;
+    if (!profile) {
+      return res.json({
+        configured: true,
+        hasData: false,
+        message: 'Belum ada data profil pengguna di Supabase.',
+      });
+    }
+
+    const [waterRes, workoutRes, notesRes, alarmsRes, aiRes] = await Promise.all([
+      supabase
+        .from('water_logs')
+        .select('*')
+        .eq('profile_id', profile.id)
+        .order('created_at', { ascending: false })
+        .limit(50),
+      supabase
+        .from('workout_logs')
+        .select('*')
+        .eq('profile_id', profile.id)
+        .order('created_at', { ascending: false })
+        .limit(50),
+      supabase
+        .from('health_notes')
+        .select('*')
+        .eq('profile_id', profile.id)
+        .order('created_at', { ascending: false })
+        .limit(50),
+      supabase.from('health_alarms').select('*').eq('profile_id', profile.id),
+      supabase
+        .from('ai_health_analyses')
+        .select('*')
+        .eq('profile_id', profile.id)
+        .order('created_at', { ascending: false })
+        .limit(1),
+    ]);
+
+    return res.json({
+      configured: true,
+      hasData: true,
+      profile: {
+        name: profile.name,
+        phone: profile.phone,
+        age: profile.age,
+        gender: profile.gender,
+        weight: Number(profile.weight),
+        height: Number(profile.height),
+        targetWaterMl: profile.target_water_ml,
+        dailyWorkoutMinutesTarget: profile.daily_workout_minutes_target,
+        isRegistered: profile.is_registered,
+      },
+      waterLogs: (waterRes.data || []).map((w: any) => ({
+        id: w.id,
+        timestamp: w.created_at,
+        time: w.time,
+        amountMl: w.amount_ml,
+        period: w.period,
+        containerType: w.container_type,
+        note: w.note,
+      })),
+      workoutLogs: (workoutRes.data || []).map((wk: any) => ({
+        id: wk.id,
+        timestamp: wk.created_at,
+        time: wk.time,
+        activityType: wk.activity_type,
+        activityName: wk.activity_name,
+        durationMinutes: wk.duration_minutes,
+        caloriesBurned: Number(wk.calories_burned),
+        distanceKm: wk.distance_km ? Number(wk.distance_km) : undefined,
+        steps: wk.steps || undefined,
+        intensity: wk.intensity,
+        period: wk.period,
+        notes: wk.notes,
+      })),
+      notes: (notesRes.data || []).map((n: any) => ({
+        id: n.id,
+        date: n.date,
+        time: n.time,
+        title: n.title,
+        content: n.content,
+        category: n.category,
+        mood: n.mood,
+        hasAlarm: n.has_alarm,
+        alarmTime: n.alarm_time,
+        isAlarmActive: n.is_alarm_active,
+        completed: n.completed,
+        createdAt: n.created_at,
+      })),
+      alarms: (alarmsRes.data || []).map((a: any) => ({
+        id: a.id,
+        label: a.label,
+        time: a.time,
+        days: a.days,
+        isActive: a.is_active,
+        type: a.type,
+        soundEnabled: a.sound_enabled,
+      })),
+      aiAnalysis:
+        aiRes.data && aiRes.data[0]
+          ? {
+              category: aiRes.data[0].category,
+              waterStatus: aiRes.data[0].water_status,
+              waterFeedback: aiRes.data[0].water_feedback,
+              workoutStatus: aiRes.data[0].workout_status,
+              workoutFeedback: aiRes.data[0].workout_feedback,
+              overallScore: aiRes.data[0].overall_score,
+              recommendations: aiRes.data[0].recommendations || [],
+              healthTips: aiRes.data[0].health_tips,
+              analyzedAt: aiRes.data[0].analyzed_at,
+            }
+          : null,
+      message: 'Data berhasil disinkronkan dari Supabase!',
+    });
+  } catch (err: any) {
+    console.error('Error pulling Supabase data:', err);
+    return res.status(500).json({ error: err?.message || 'Gagal memuat data dari Supabase' });
+  }
+});
+
+// Supabase Push (Simpan/Unggah data aplikasi ke Supabase)
+app.post('/api/supabase/push', async (req: Request, res: Response) => {
+  if (!supabase) {
+    return res.json({
+      configured: false,
+      success: false,
+      message: 'Supabase belum dikonfigurasi di server (.env). Data tetap aman tersimpan di penyimpanan lokal.',
+    });
+  }
+
+  const { profile, waterLogs, workoutLogs, notes, alarms, aiAnalysis } = req.body || {};
+
+  try {
+    let profileId: string | null = null;
+    const { data: existingProfiles } = await supabase.from('profiles').select('id').limit(1);
+
+    if (existingProfiles && existingProfiles.length > 0) {
+      profileId = existingProfiles[0].id;
+      if (profile) {
+        await supabase
+          .from('profiles')
+          .update({
+            name: profile.name,
+            phone: profile.phone,
+            age: profile.age,
+            gender: profile.gender,
+            weight: profile.weight,
+            height: profile.height,
+            target_water_ml: profile.targetWaterMl,
+            daily_workout_minutes_target: profile.dailyWorkoutMinutesTarget,
+          })
+          .eq('id', profileId);
+      }
+    } else if (profile) {
+      const { data: newProfile } = await supabase
+        .from('profiles')
+        .insert({
+          name: profile.name || 'Pengguna Hidup Sehat',
+          phone: profile.phone || '',
+          age: profile.age || 26,
+          gender: profile.gender || 'pria',
+          weight: profile.weight || 64,
+          height: profile.height || 170,
+          target_water_ml: profile.targetWaterMl || 2500,
+          daily_workout_minutes_target: profile.dailyWorkoutMinutesTarget || 30,
+        })
+        .select('id')
+        .single();
+      if (newProfile) profileId = newProfile.id;
+    }
+
+    if (!profileId) {
+      return res.status(400).json({ error: 'Gagal mendapatkan atau membuat profil pengguna di Supabase' });
+    }
+
+    // Upsert recent water logs
+    if (Array.isArray(waterLogs) && waterLogs.length > 0) {
+      const rows = waterLogs.slice(0, 10).map((w: any) => ({
+        profile_id: profileId,
+        date: w.timestamp ? w.timestamp.split('T')[0] : new Date().toISOString().split('T')[0],
+        time: w.time || '08:00',
+        amount_ml: w.amountMl || 250,
+        period: w.period || 'morning',
+        container_type: w.containerType || 'gelas',
+        note: w.note || null,
+      }));
+      await supabase.from('water_logs').insert(rows);
+    }
+
+    // Upsert recent workout logs
+    if (Array.isArray(workoutLogs) && workoutLogs.length > 0) {
+      const rows = workoutLogs.slice(0, 10).map((wk: any) => ({
+        profile_id: profileId,
+        date: wk.timestamp ? wk.timestamp.split('T')[0] : new Date().toISOString().split('T')[0],
+        time: wk.time || '08:00',
+        activity_type: wk.activityType || 'jalan_kaki',
+        activity_name: wk.activityName || 'Olahraga',
+        duration_minutes: wk.durationMinutes || 20,
+        calories_burned: wk.caloriesBurned || 50,
+        distance_km: wk.distanceKm || null,
+        steps: wk.steps || null,
+        intensity: wk.intensity || 'sedang',
+        period: wk.period || 'afternoon',
+        notes: wk.notes || null,
+      }));
+      await supabase.from('workout_logs').insert(rows);
+    }
+
+    // Upsert notes
+    if (Array.isArray(notes) && notes.length > 0) {
+      const rows = notes.slice(0, 10).map((n: any) => ({
+        profile_id: profileId,
+        date: n.date || new Date().toISOString().split('T')[0],
+        time: n.time || '08:00',
+        title: n.title || 'Catatan',
+        content: n.content || '',
+        category: n.category || 'umum',
+        mood: n.mood || 'sehat',
+        has_alarm: Boolean(n.hasAlarm),
+        alarm_time: n.alarmTime || null,
+        is_alarm_active: Boolean(n.isAlarmActive),
+        completed: Boolean(n.completed),
+      }));
+      await supabase.from('health_notes').insert(rows);
+    }
+
+    // Sync Alarms
+    if (Array.isArray(alarms) && alarms.length > 0) {
+      await supabase.from('health_alarms').delete().eq('profile_id', profileId);
+      const rows = alarms.map((a: any) => ({
+        profile_id: profileId,
+        label: a.label || 'Alarm',
+        time: a.time || '08:00',
+        days: a.days || ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'],
+        is_active: Boolean(a.isActive),
+        type: a.type || 'minum',
+        sound_enabled: a.soundEnabled !== false,
+      }));
+      await supabase.from('health_alarms').insert(rows);
+    }
+
+    // AI Analysis
+    if (aiAnalysis) {
+      await supabase.from('ai_health_analyses').insert({
+        profile_id: profileId,
+        category: aiAnalysis.category || 'Pejuang Hidup Sehat',
+        water_status: aiAnalysis.waterStatus || 'Optimal',
+        water_feedback: aiAnalysis.waterFeedback || '',
+        workout_status: aiAnalysis.workoutStatus || 'Aktif',
+        workout_feedback: aiAnalysis.workoutFeedback || '',
+        overall_score: aiAnalysis.overallScore || 85,
+        recommendations: aiAnalysis.recommendations || [],
+        health_tips: aiAnalysis.healthTips || '',
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: 'Sinkronisasi berhasil! Data tersimpan di Supabase PostgreSQL.',
+      syncedAt: new Date().toISOString(),
+    });
+  } catch (err: any) {
+    console.error('Error pushing data to Supabase:', err);
+    return res.status(500).json({ error: err?.message || 'Gagal menyimpan ke Supabase' });
+  }
 });
 
 // Helper rule-based parser for Indonesian drink voice queries
