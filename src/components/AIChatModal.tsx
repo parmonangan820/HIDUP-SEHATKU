@@ -20,7 +20,7 @@ export const AIChatModal: React.FC<AIChatModalProps> = ({ isOpen, onClose }) => 
     {
       id: 'welcome',
       sender: 'ai',
-      text: `Halo ${profile.name || 'Sahabat Sehat'}! Saya adalah Asisten Medis & Kebugaran AI Hidup Sehatku. Anda bisa bertanya tentang takaran minum air putih, jam-jam terbaik minum, panduan olahraga (seperti jalan kaki, senam, badminton, jogging), atau tips hidup sehat lainnya. Ada yang ingin Anda ketahui hari ini?`,
+      text: `Halo ${profile.name || 'Sahabat Sehat'}! Saya adalah Dokter AI Hidup Sehatku. Anda bisa bertanya tentang takaran minum air putih, jam-jam terbaik minum, panduan olahraga (seperti jalan kaki, senam, badminton, jogging), atau tips hidup sehat lainnya. Ada yang ingin Anda ketahui hari ini?`,
       time: 'Baru saja',
     },
   ]);
@@ -42,6 +42,32 @@ export const AIChatModal: React.FC<AIChatModalProps> = ({ isOpen, onClose }) => 
     'Mengapa minum malam dibatasi 1 jam sebelum tidur?',
   ];
 
+  const getSmartAiReply = (query: string, currentProfile: any, stats: any): string => {
+    const name = currentProfile?.name || 'Sahabat Sehat';
+    const q = query.toLowerCase();
+    const water = stats?.waterMl || 0;
+    const target = currentProfile?.targetWaterMl || 2500;
+    const workoutMins = stats?.workoutMinutes || 0;
+
+    if (q.includes('bangun tidur') || q.includes('pagi')) {
+      return `Halo ${name}! Saat bangun tidur pagi (sebelum sarapan), sangat dianjurkan minum **1 hingga 2 gelas (300-500 ml) air putih**. Ini berfungsi merehidrasi tubuh setelah 7-8 jam tidur malam, mengaktifkan organ internal, serta membantu membuang toksin pencernaan. Hari ini Anda sudah minum ${water} ml dari target ${target} ml. Yuk tambah lagi!`;
+    }
+    if (q.includes('jalan di tempat') || q.includes('jalan kaki')) {
+      return `Bagus sekali pertanyaannya, ${name}! Jalan di tempat (indoor walking) sangat efektif membakar kalori dan melancarkan sirkulasi darah, hampir setara dengan jalan kaki ringan di luar ruangan jika dilakukan dengan intensitas stabil selama 20-30 menit. Hari ini total latihan Anda adalah ${workoutMins} menit. Pertahankan konsistensi ini!`;
+    }
+    if (q.includes('badminton') || q.includes('olahraga') || q.includes('jadwal minum')) {
+      return `Untuk olahraga seperti badminton atau jogging, ${name}, strategi hidrasi terbaik adalah:\n1. Minum 250-300 ml air 30 menit sebelum mulai.\n2. Minum 150-200 ml setiap 15-20 menit selama bermain.\n3. Rehidrasi setelah selesai secukupnya untuk mengganti cairan yang keluar lewat keringat.`;
+    }
+    if (q.includes('malam') || q.includes('tidur')) {
+      return `Membatasi minum air 1 jam sebelum tidur sangat dianjurkan agar kualitas tidur Anda (${name}) tidak terganggu oleh keinginan buang air kecil di tengah malam. Pastikan kebutuhan air harian (${target} ml) sudah tercapai sepanjang pagi hingga sore hari!`;
+    }
+    if (q.includes('takaran') || q.includes('berapa ml') || q.includes('kebutuhan') || q.includes('air')) {
+      return `Berdasarkan profil Anda (${name}, berat ${currentProfile?.weight || 60}kg), takaran ideal hidrasi harian Anda adalah sekitar **${target} ml** (atau setara ~${Math.round(target/250)} gelas). Hari ini tercatat ${water} ml. Mari capai target 100% hari ini!`;
+    }
+
+    return `Halo ${name}! Sebagai Dokter AI Hidup Sehatku, saya menyarankan Anda untuk menjaga keseimbangan antara hidrasi teratur dan aktivitas fisik ringan. Hari ini Anda telah mencatat ${water} ml air dan ${workoutMins} menit olahraga. Tetap konsisten, cukupi istirahat, dan nikmati hidup bugar setiap hari!`;
+  };
+
   const handleSend = async (textToSend?: string) => {
     const query = textToSend || inputPrompt;
     if (!query.trim() || isLoading) return;
@@ -57,6 +83,14 @@ export const AIChatModal: React.FC<AIChatModalProps> = ({ isOpen, onClose }) => 
     setInputPrompt('');
     setIsLoading(true);
 
+    const todayStats = {
+      waterMl: todayRecord.totalWaterMl,
+      workoutMinutes: todayRecord.totalWorkoutMinutes,
+      calories: todayRecord.totalCalories,
+    };
+
+    let replyText = '';
+
     try {
       const res = await fetch('/api/gemini/chat', {
         method: 'POST',
@@ -64,39 +98,33 @@ export const AIChatModal: React.FC<AIChatModalProps> = ({ isOpen, onClose }) => 
         body: JSON.stringify({
           message: query,
           profile,
-          todayStats: {
-            waterMl: todayRecord.totalWaterMl,
-            workoutMinutes: todayRecord.totalWorkoutMinutes,
-            calories: todayRecord.totalCalories,
-          },
+          todayStats,
         }),
       });
 
-      const data = await res.json();
-      const aiReply =
-        data.reply ||
-        'Terima kasih atas pertanyaannya! Pastikan Anda selalu menjaga hidrasi dan olahraga teratur setiap hari.';
-
-      const aiMsg: Message = {
-        id: `ai-${Date.now()}`,
-        sender: 'ai',
-        text: aiReply,
-        time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-      };
-
-      setMessages((prev) => [...prev, aiMsg]);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.reply) {
+          replyText = data.reply;
+        }
+      }
     } catch (err) {
-      console.error(err);
-      const fallbackMsg: Message = {
-        id: `ai-err-${Date.now()}`,
-        sender: 'ai',
-        text: 'Menjaga hidrasi minimal 8 gelas per hari dan rutin berolahraga seperti jalan santai atau senam sangat baik untuk kesehatan jangka panjang Anda.',
-        time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-      };
-      setMessages((prev) => [...prev, fallbackMsg]);
-    } finally {
-      setIsLoading(false);
+      // fallback to client-side smart engine
     }
+
+    if (!replyText) {
+      replyText = getSmartAiReply(query, profile, todayStats);
+    }
+
+    const aiMsg: Message = {
+      id: `ai-${Date.now()}`,
+      sender: 'ai',
+      text: replyText,
+      time: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    setMessages((prev) => [...prev, aiMsg]);
+    setIsLoading(false);
   };
 
   return (
@@ -202,16 +230,15 @@ export const AIChatModal: React.FC<AIChatModalProps> = ({ isOpen, onClose }) => 
         >
           <input
             type="text"
-            placeholder="Tanyakan seputar minum air putih atau olahraga..."
             value={inputPrompt}
             onChange={(e) => setInputPrompt(e.target.value)}
-            disabled={isLoading}
-            className="flex-1 px-3.5 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs placeholder:text-slate-500 focus:border-cyan-500 focus:outline-none"
+            placeholder="Tanyakan seputar minum air putih atau olahraga..."
+            className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-colors"
           />
           <button
             type="submit"
-            disabled={isLoading || !inputPrompt.trim()}
-            className="p-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white disabled:opacity-40 active:scale-95 transition-all shadow-md shadow-cyan-500/20"
+            disabled={!inputPrompt.trim() || isLoading}
+            className="w-10 h-10 rounded-2xl bg-gradient-to-r from-cyan-500 to-indigo-600 text-white flex items-center justify-center flex-shrink-0 disabled:opacity-50 active:scale-95 transition-all shadow-md shadow-cyan-500/20"
           >
             <Send className="w-4 h-4" />
           </button>
