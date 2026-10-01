@@ -82,3 +82,32 @@ export interface ActivityDefinition {
   defaultMinutes: number;
   color: string;
 }
+
+export type NoteCategory = 'hidrasi' | 'olahraga' | 'makanan' | 'mood' | 'kesehatan' | 'umum';
+
+export interface HealthNote {
+  id: string;
+  date: string; // YYYY-MM-DD
+  time: string; // HH:mm
+  title: string;
+  content: string;
+  category: NoteCategory;
+  mood?: 'hebat' | 'sehat' | 'biasa' | 'lelah';
+  hasAlarm?: boolean;
+  alarmTime?: string; // HH:mm
+  isAlarmActive?: boolean;
+  completed?: boolean;
+  createdAt: string;
+}
+
+export interface HealthAlarm {
+  id: string;
+  label: string;
+  time: string; // HH:mm
+  days: string[]; // ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min']
+  isActive: boolean;
+  type: 'minum' | 'olahraga' | 'istirahat' | 'makan' | 'catatan';
+  noteId?: string;
+  soundEnabled: boolean;
+}
+

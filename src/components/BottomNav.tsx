@@ -1,7 +1,7 @@
 import React from 'react';
-import { Home, Droplets, Dumbbell, BarChart3, BookOpen } from 'lucide-react';
+import { Home, Droplets, Dumbbell, BarChart3, BookOpen, Calendar } from 'lucide-react';
 
-export type NavTab = 'home' | 'water' | 'workout' | 'stats' | 'education';
+export type NavTab = 'home' | 'water' | 'workout' | 'notes' | 'stats' | 'education';
 
 interface BottomNavProps {
   activeTab: NavTab;
@@ -18,9 +18,9 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab })
     },
     {
       id: 'water' as NavTab,
-      label: 'Air Putih',
+      label: 'Air',
       icon: Droplets,
-      badge: 'Minum',
+      badge: null,
     },
     {
       id: 'workout' as NavTab,
@@ -29,14 +29,20 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab })
       badge: null,
     },
     {
+      id: 'notes' as NavTab,
+      label: 'Catatan',
+      icon: Calendar,
+      badge: 'Alarm',
+    },
+    {
       id: 'stats' as NavTab,
-      label: 'AI & Grafik',
+      label: 'AI Grafik',
       icon: BarChart3,
       badge: 'AI',
     },
     {
       id: 'education' as NavTab,
-      label: 'Manfaat',
+      label: 'Edukasi',
       icon: BookOpen,
       badge: null,
     },
@@ -44,7 +50,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab })
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-xl border-t border-slate-800/90 pb-[env(safe-area-inset-bottom)] shadow-2xl">
-      <div className="max-w-md mx-auto grid grid-cols-5 py-2 px-1">
+      <div className="max-w-md mx-auto grid grid-cols-6 py-2 px-1">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;

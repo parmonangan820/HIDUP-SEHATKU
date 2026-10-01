@@ -19,6 +19,9 @@ import {
   Moon,
   BookOpen,
   Mic,
+  Calendar,
+  Bell,
+  BellRing,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -43,6 +46,9 @@ export const HomeTab: React.FC<HomeTabProps> = ({
     logWater,
     logWorkout,
     weeklySummary,
+    notes,
+    alarms,
+    selectedDate,
   } = useHealth();
 
   const totalWater = todayRecord.totalWaterMl;
@@ -295,6 +301,81 @@ export const HomeTab: React.FC<HomeTabProps> = ({
               Detail
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Widget Catatan Hari Ini & Alarm Pengingat */}
+      <div className="rounded-3xl bg-gradient-to-r from-slate-900 via-slate-900/95 to-cyan-950/30 border border-slate-800 p-4 shadow-xl">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center border border-cyan-500/30">
+              <Calendar className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
+                <span>Catatan & Alarm Hari Ini</span>
+              </h3>
+              <span className="text-[10px] text-slate-400">Jurnal kondisi tubuh & jadwal pengingat</span>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setActiveTab('notes')}
+            className="text-xs font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors"
+          >
+            <span>Buka</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Latest note preview */}
+        {notes.filter((n) => n.date === selectedDate).length > 0 ? (
+          <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800/80 mb-3">
+            <div className="flex items-center justify-between text-xs mb-1">
+              <span className="font-bold text-white truncate mr-2">
+                {notes.filter((n) => n.date === selectedDate)[0].title}
+              </span>
+              <span className="text-[10px] text-cyan-400 font-mono">
+                {notes.filter((n) => n.date === selectedDate)[0].time}
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">
+              {notes.filter((n) => n.date === selectedDate)[0].content}
+            </p>
+          </div>
+        ) : (
+          <div className="p-3 rounded-2xl bg-slate-950/60 border border-dashed border-slate-800 mb-3 text-center">
+            <p className="text-xs text-slate-400 mb-1.5">Belum ada catatan kesehatan hari ini</p>
+            <button
+              onClick={() => setActiveTab('notes')}
+              className="px-3 py-1 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/30 text-cyan-300 text-xs font-bold transition-colors"
+            >
+              + Tulis Catatan Hari Ini
+            </button>
+          </div>
+        )}
+
+        {/* Next Alarm & Action */}
+        <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-800/60">
+          <div className="flex items-center gap-2 min-w-0">
+            <BellRing className="w-3.5 h-3.5 text-amber-400 animate-pulse flex-shrink-0" />
+            <span className="text-xs text-slate-300 truncate">
+              {alarms.find((a) => a.isActive) ? (
+                <>
+                  Alarm Aktif: <strong className="text-amber-400">{alarms.find((a) => a.isActive)?.time}</strong> - {alarms.find((a) => a.isActive)?.label}
+                </>
+              ) : (
+                'Tidak ada alarm aktif'
+              )}
+            </span>
+          </div>
+
+          <button
+            onClick={() => setActiveTab('notes')}
+            className="flex-shrink-0 px-2.5 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition-colors"
+          >
+            Atur Alarm
+          </button>
         </div>
       </div>
 

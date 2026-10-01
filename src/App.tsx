@@ -6,11 +6,13 @@ import { BottomNav, NavTab } from './components/BottomNav';
 import { HomeTab } from './components/HomeTab';
 import { WaterTab } from './components/WaterTab';
 import { WorkoutTab } from './components/WorkoutTab';
+import { NotesTab } from './components/NotesTab';
 import { AIStatsTab } from './components/AIStatsTab';
 import { EducationTab } from './components/EducationTab';
 import { ProfileModal } from './components/ProfileModal';
 import { AIChatModal } from './components/AIChatModal';
 import { VoiceDrinkModal } from './components/VoiceDrinkModal';
+import { AlarmRingingModal } from './components/AlarmRingingModal';
 import { RunningBanner } from './components/RunningBanner';
 import { Footer } from './components/Footer';
 import { Mic, Droplet } from 'lucide-react';
@@ -54,6 +56,8 @@ function MainApp() {
 
           {activeTab === 'workout' && <WorkoutTab />}
 
+          {activeTab === 'notes' && <NotesTab />}
+
           {activeTab === 'stats' && (
             <AIStatsTab onOpenAiChat={() => setIsAiChatOpen(true)} />
           )}
@@ -96,6 +100,7 @@ function MainApp() {
           isOpen={isVoiceDrinkOpen}
           onClose={() => setIsVoiceDrinkOpen(false)}
         />
+        <AlarmRingingModal />
       </div>
     </AppShell>
   );

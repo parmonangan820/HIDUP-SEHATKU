@@ -7,8 +7,11 @@ import {
   DayRecord,
   TimePeriod,
   ActivityCategory,
+  HealthNote,
+  HealthAlarm,
 } from '../types';
 import { calculateCalories } from '../data/activities';
+import { playAlarmChime, stopAlarmChime, playNotificationBlip } from '../utils/sound';
 
 interface HealthContextType {
   profile: UserProfile;
@@ -38,6 +41,17 @@ interface HealthContextType {
   runAiAnalysis: () => Promise<AIHealthAnalysis | null>;
   selectedDate: string;
   setSelectedDate: (date: string) => void;
+  notes: HealthNote[];
+  addNote: (note: Omit<HealthNote, 'id' | 'createdAt'>) => void;
+  updateNote: (id: string, updated: Partial<HealthNote>) => void;
+  deleteNote: (id: string) => void;
+  alarms: HealthAlarm[];
+  addAlarm: (alarm: Omit<HealthAlarm, 'id'>) => void;
+  toggleAlarm: (id: string) => void;
+  deleteAlarm: (id: string) => void;
+  activeRingingAlarm: { alarm: HealthAlarm; note?: HealthNote } | null;
+  dismissRingingAlarm: () => void;
+  testAlarmSound: () => void;
   weeklySummary: {
     dates: string[];
     days: {
@@ -327,6 +341,117 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const [isAiAnalyzing, setIsAiAnalyzing] = useState(false);
 
+  // Health Notes state
+  const [notes, setNotes] = useState<HealthNote[]>(() => {
+    try {
+      const saved = localStorage.getItem('hidup_sehatku_notes');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+    return [
+      {
+        id: 'note-init-1',
+        date: getTodayDateString(),
+        time: '07:00',
+        title: 'Minum Air Hangat Pagi & Sarapan Sehat',
+        content:
+          'Pagi ini minum 400 ml air hangat segera setelah bangun tidur. Perut terasa sangat nyaman dan tubuh langsung terasa berenergi sepanjang pagi.',
+        category: 'hidrasi',
+        mood: 'hebat',
+        completed: true,
+        createdAt: new Date().toISOString(),
+      },
+      {
+        id: 'note-init-2',
+        date: getTodayDateString(),
+        time: '12:15',
+        title: 'Jalan Santai Keliling Kantor 15 Menit',
+        content:
+          'Saat jeda siang meluangkan waktu jalan kaki santai 15 menit agar tidak terlalu lama duduk di meja kerja ber-AC. Otot kaki lebih rileks!',
+        category: 'olahraga',
+        mood: 'sehat',
+        hasAlarm: true,
+        alarmTime: '12:30',
+        isAlarmActive: true,
+        completed: false,
+        createdAt: new Date().toISOString(),
+      },
+    ];
+  });
+
+  // Health Alarms state
+  const [alarms, setAlarms] = useState<HealthAlarm[]>(() => {
+    try {
+      const saved = localStorage.getItem('hidup_sehatku_alarms');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+    return [
+      {
+        id: 'alarm-1',
+        label: 'Minum Air Hangat Pagi',
+        time: '06:30',
+        days: ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'],
+        isActive: true,
+        type: 'minum',
+        soundEnabled: true,
+      },
+      {
+        id: 'alarm-2',
+        label: 'Hidrasi Jam Kantor Pagi',
+        time: '09:30',
+        days: ['Sen', 'Sel', 'Rab', 'Kam', 'Jum'],
+        isActive: true,
+        type: 'minum',
+        soundEnabled: true,
+      },
+      {
+        id: 'alarm-3',
+        label: 'Minum Air & Istirahat Siang',
+        time: '12:30',
+        days: ['Sen', 'Sel', 'Rab', 'Kam', 'Jum'],
+        isActive: true,
+        type: 'minum',
+        soundEnabled: true,
+      },
+      {
+        id: 'alarm-4',
+        label: 'Peregangan & Hidrasi Sore',
+        time: '15:30',
+        days: ['Sen', 'Sel', 'Rab', 'Kam', 'Jum'],
+        isActive: true,
+        type: 'istirahat',
+        soundEnabled: true,
+      },
+      {
+        id: 'alarm-5',
+        label: 'Waktunya Olahraga Sore',
+        time: '17:30',
+        days: ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'],
+        isActive: true,
+        type: 'olahraga',
+        soundEnabled: true,
+      },
+      {
+        id: 'alarm-6',
+        label: 'Minum 1 Gelas Sebelum Tidur',
+        time: '21:00',
+        days: ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'],
+        isActive: true,
+        type: 'minum',
+        soundEnabled: true,
+      },
+    ];
+  });
+
+  const [activeRingingAlarm, setActiveRingingAlarm] = useState<{
+    alarm: HealthAlarm;
+    note?: HealthNote;
+  } | null>(null);
+  const [lastTriggeredMinute, setLastTriggeredMinute] = useState<string>('');
+
   // Sync to localStorage
   useEffect(() => {
     localStorage.setItem('hidup_sehatku_profile', JSON.stringify(profile));
@@ -341,6 +466,141 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       localStorage.setItem('hidup_sehatku_ai_analysis', JSON.stringify(aiAnalysis));
     }
   }, [aiAnalysis]);
+
+  useEffect(() => {
+    localStorage.setItem('hidup_sehatku_notes', JSON.stringify(notes));
+  }, [notes]);
+
+  useEffect(() => {
+    localStorage.setItem('hidup_sehatku_alarms', JSON.stringify(alarms));
+  }, [alarms]);
+
+  // Request browser notification permission once if possible
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'default') {
+        try {
+          Notification.requestPermission().catch(() => {});
+        } catch (e) {
+          // ignore
+        }
+      }
+    }
+  }, []);
+
+  // Live Alarm Runner (runs every 4 seconds)
+  useEffect(() => {
+    const checkAlarms = () => {
+      const now = new Date();
+      const currentH = String(now.getHours()).padStart(2, '0');
+      const currentM = String(now.getMinutes()).padStart(2, '0');
+      const currentTimeStr = `${currentH}:${currentM}`;
+
+      const dayNames = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+      const currentDay = dayNames[now.getDay()];
+
+      if (currentTimeStr === lastTriggeredMinute) return;
+
+      // 1. Check custom note alarms for today
+      const todayDate = getTodayDateString();
+      const matchingNote = notes.find(
+        (n) =>
+          n.hasAlarm &&
+          n.isAlarmActive &&
+          n.alarmTime === currentTimeStr &&
+          n.date === todayDate &&
+          !n.completed
+      );
+
+      // 2. Check system recurring alarms
+      const matchingAlarm = alarms.find(
+        (a) =>
+          a.isActive &&
+          a.time === currentTimeStr &&
+          (!a.days || a.days.length === 0 || a.days.includes(currentDay))
+      );
+
+      if (matchingNote || matchingAlarm) {
+        setLastTriggeredMinute(currentTimeStr);
+
+        const ringAlarm: HealthAlarm = matchingAlarm || {
+          id: matchingNote!.id,
+          label: matchingNote!.title,
+          time: matchingNote!.alarmTime || currentTimeStr,
+          days: [currentDay],
+          isActive: true,
+          type: 'catatan',
+          soundEnabled: true,
+        };
+
+        setActiveRingingAlarm({ alarm: ringAlarm, note: matchingNote });
+        playAlarmChime(true);
+
+        if (
+          typeof window !== 'undefined' &&
+          'Notification' in window &&
+          Notification.permission === 'granted'
+        ) {
+          try {
+            new Notification(`⏰ Alarm: ${ringAlarm.label}`, {
+              body: `Waktu: ${currentTimeStr} - Tetap jaga pola hidup sehat Anda!`,
+            });
+          } catch (e) {
+            // ignore
+          }
+        }
+      }
+    };
+
+    const timer = setInterval(checkAlarms, 4000);
+    return () => clearInterval(timer);
+  }, [alarms, notes, lastTriggeredMinute]);
+
+  const dismissRingingAlarm = () => {
+    stopAlarmChime();
+    setActiveRingingAlarm(null);
+  };
+
+  const testAlarmSound = () => {
+    playAlarmChime(false);
+  };
+
+  const addNote = (newNote: Omit<HealthNote, 'id' | 'createdAt'>) => {
+    const noteObj: HealthNote = {
+      ...newNote,
+      id: `note-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
+      createdAt: new Date().toISOString(),
+    };
+    setNotes((prev) => [noteObj, ...prev]);
+    playNotificationBlip();
+  };
+
+  const updateNote = (id: string, updated: Partial<HealthNote>) => {
+    setNotes((prev) => prev.map((n) => (n.id === id ? { ...n, ...updated } : n)));
+  };
+
+  const deleteNote = (id: string) => {
+    setNotes((prev) => prev.filter((n) => n.id !== id));
+  };
+
+  const addAlarm = (newAlarm: Omit<HealthAlarm, 'id'>) => {
+    const alarmObj: HealthAlarm = {
+      ...newAlarm,
+      id: `alarm-${Date.now()}`,
+    };
+    setAlarms((prev) => [...prev, alarmObj]);
+    playNotificationBlip();
+  };
+
+  const toggleAlarm = (id: string) => {
+    setAlarms((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, isActive: !a.isActive } : a))
+    );
+  };
+
+  const deleteAlarm = (id: string) => {
+    setAlarms((prev) => prev.filter((a) => a.id !== id));
+  };
 
   // Ensure selected date exists in history
   const todayRecord: DayRecord = history[selectedDate] || {
@@ -694,6 +954,17 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         runAiAnalysis,
         selectedDate,
         setSelectedDate,
+        notes,
+        addNote,
+        updateNote,
+        deleteNote,
+        alarms,
+        addAlarm,
+        toggleAlarm,
+        deleteAlarm,
+        activeRingingAlarm,
+        dismissRingingAlarm,
+        testAlarmSound,
         weeklySummary: calculateWeeklySummary(),
         monthlySummary: calculateMonthlySummary(),
         todayWaterByPeriod,
