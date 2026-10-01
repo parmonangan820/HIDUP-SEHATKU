@@ -198,9 +198,191 @@ app.delete('/api/supabase/config', async (_req: Request, res: Response) => {
   }
 });
 
-// Supabase Pull (Ambil data dari Supabase ke aplikasi)
-app.get('/api/supabase/pull', async (_req: Request, res: Response) => {
+// Ambil seluruh akun terdaftar untuk fitur Switch / Ganti Akun & Login
+app.get('/api/accounts', async (_req: Request, res: Response) => {
   const supabase = getSupabaseClient();
+  if (!supabase) {
+    return res.json({ configured: false, accounts: [] });
+  }
+
+  try {
+    const { data: profiles, error } = await supabase
+      .from('profiles')
+      .select('id, name, phone, age, gender, weight, height, target_water_ml, daily_workout_minutes_target, is_registered, created_at')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    const accounts = (profiles || []).map((p: any) => ({
+      id: p.id,
+      name: p.name || 'Pengguna Hidup Sehat',
+      phone: p.phone || '-',
+      age: p.age || 25,
+      gender: p.gender || 'pria',
+      weight: p.weight || 60,
+      height: p.height || 165,
+      targetWaterMl: p.target_water_ml || 2100,
+      dailyWorkoutMinutesTarget: p.daily_workout_minutes_target || 30,
+      isRegistered: Boolean(p.is_registered),
+      createdAt: p.created_at,
+    }));
+
+    return res.json({ configured: true, accounts });
+  } catch (err: any) {
+    return res.status(500).json({ error: err?.message || 'Gagal memuat akun' });
+  }
+});
+
+// Login / Pindah ke akun tertentu (berdasarkan profileId atau Nomor HP / Nama)
+app.post('/api/accounts/login', async (req: Request, res: Response) => {
+  const supabase = getSupabaseClient();
+  const { profileId, identifier } = req.body || {};
+
+  if (!supabase) {
+    return res.status(500).json({ success: false, message: 'Supabase belum terhubung.' });
+  }
+
+  try {
+    let query = supabase.from('profiles').select('*');
+    if (profileId) {
+      query = query.eq('id', profileId);
+    } else if (identifier) {
+      const clean = String(identifier).trim();
+      query = query.or(`phone.eq.${clean},name.ilike.%${clean}%`);
+    } else {
+      return res.status(400).json({ success: false, message: 'ID akun atau nomor telepon wajib diisi.' });
+    }
+
+    const { data: profiles, error } = await query.limit(1);
+    if (error) throw error;
+
+    if (!profiles || profiles.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Akun tidak ditemukan. Silakan periksa nomor telepon / nama Anda atau buat akun baru.',
+      });
+    }
+
+    const profile = profiles[0];
+
+    // Load logs untuk akun ini
+    const [waterRes, workoutRes, notesRes, alarmsRes, aiRes] = await Promise.all([
+      supabase
+        .from('water_logs')
+        .select('*')
+        .eq('profile_id', profile.id)
+        .order('created_at', { ascending: false })
+        .limit(60),
+      supabase
+        .from('workout_logs')
+        .select('*')
+        .eq('profile_id', profile.id)
+        .order('created_at', { ascending: false })
+        .limit(60),
+      supabase
+        .from('health_notes')
+        .select('*')
+        .eq('profile_id', profile.id)
+        .order('created_at', { ascending: false })
+        .limit(60),
+      supabase.from('health_alarms').select('*').eq('profile_id', profile.id),
+      supabase
+        .from('ai_health_analyses')
+        .select('*')
+        .eq('profile_id', profile.id)
+        .order('created_at', { ascending: false })
+        .limit(1),
+    ]);
+
+    const formattedProfile = {
+      id: profile.id,
+      name: profile.name,
+      phone: profile.phone || '',
+      age: profile.age,
+      gender: profile.gender,
+      weight: profile.weight,
+      height: profile.height,
+      targetWaterMl: profile.target_water_ml,
+      dailyWorkoutMinutesTarget: profile.daily_workout_minutes_target,
+      isRegistered: true,
+      isLoggedIn: true,
+    };
+
+    return res.json({
+      success: true,
+      message: `Berhasil login sebagai ${profile.name}!`,
+      profile: formattedProfile,
+      waterLogs: (waterRes.data || []).map((w: any) => ({
+        id: w.id,
+        amountMl: w.amount_ml,
+        timestamp: w.created_at,
+        time: w.time,
+        period: w.period,
+        containerType: w.container_type,
+        note: w.note,
+      })),
+      workoutLogs: (workoutRes.data || []).map((wk: any) => ({
+        id: wk.id,
+        timestamp: wk.created_at,
+        time: wk.time,
+        activityType: wk.activity_type,
+        activityName: wk.activity_name,
+        durationMinutes: wk.duration_minutes,
+        caloriesBurned: wk.calories_burned,
+        distanceKm: wk.distance_km,
+        steps: wk.steps,
+        intensity: wk.intensity,
+        period: wk.period,
+        notes: wk.notes,
+      })),
+      notes: (notesRes.data || []).map((n: any) => ({
+        id: n.id,
+        date: n.date,
+        time: n.time,
+        title: n.title,
+        content: n.content,
+        category: n.category,
+        mood: n.mood,
+        hasAlarm: n.has_alarm,
+        alarmTime: n.alarm_time,
+        isAlarmActive: n.is_alarm_active,
+        completed: n.completed,
+        createdAt: n.created_at,
+      })),
+      alarms: (alarmsRes.data || []).map((a: any) => ({
+        id: a.id,
+        label: a.label,
+        time: a.time,
+        days: a.days,
+        isActive: a.is_active,
+        type: a.type,
+        soundEnabled: a.sound_enabled,
+      })),
+      aiAnalysis:
+        aiRes.data && aiRes.data[0]
+          ? {
+              category: aiRes.data[0].category,
+              waterStatus: aiRes.data[0].water_status,
+              waterFeedback: aiRes.data[0].water_feedback,
+              workoutStatus: aiRes.data[0].workout_status,
+              workoutFeedback: aiRes.data[0].workout_feedback,
+              overallScore: aiRes.data[0].overall_score,
+              recommendations: aiRes.data[0].recommendations || [],
+              healthTips: aiRes.data[0].health_tips,
+              analyzedAt: aiRes.data[0].analyzed_at,
+            }
+          : null,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err?.message || 'Gagal login akun' });
+  }
+});
+
+// Supabase Pull (Ambil data dari Supabase ke aplikasi)
+app.get('/api/supabase/pull', async (req: Request, res: Response) => {
+  const supabase = getSupabaseClient();
+  const profileId = req.query.profileId as string | undefined;
+
   if (!supabase) {
     return res.json({
       configured: false,
@@ -210,7 +392,11 @@ app.get('/api/supabase/pull', async (_req: Request, res: Response) => {
   }
 
   try {
-    const { data: profiles, error: pErr } = await supabase.from('profiles').select('*').limit(1);
+    let query = supabase.from('profiles').select('*');
+    if (profileId) {
+      query = query.eq('id', profileId);
+    }
+    const { data: profiles, error: pErr } = await query.order('created_at', { ascending: false }).limit(1);
     if (pErr) throw pErr;
 
     const profile = profiles && profiles[0] ? profiles[0] : null;
@@ -346,12 +532,11 @@ app.post('/api/supabase/push', async (req: Request, res: Response) => {
   const { profile, waterLogs, workoutLogs, notes, alarms, aiAnalysis } = req.body || {};
 
   try {
-    let profileId: string | null = null;
-    const { data: existingProfiles } = await supabase.from('profiles').select('id').limit(1);
+    let profileId: string | null = profile?.id || null;
 
-    if (existingProfiles && existingProfiles.length > 0) {
-      profileId = existingProfiles[0].id;
-      if (profile) {
+    if (profileId) {
+      const { data: existing } = await supabase.from('profiles').select('id').eq('id', profileId).single();
+      if (existing) {
         await supabase
           .from('profiles')
           .update({
@@ -365,8 +550,35 @@ app.post('/api/supabase/push', async (req: Request, res: Response) => {
             daily_workout_minutes_target: profile.dailyWorkoutMinutesTarget,
           })
           .eq('id', profileId);
+      } else {
+        profileId = null;
       }
-    } else if (profile) {
+    }
+
+    if (!profileId && profile?.phone && profile.phone !== '-') {
+      const { data: existingByPhone } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('phone', profile.phone)
+        .limit(1);
+      if (existingByPhone && existingByPhone.length > 0) {
+        profileId = existingByPhone[0].id;
+        await supabase
+          .from('profiles')
+          .update({
+            name: profile.name,
+            age: profile.age,
+            gender: profile.gender,
+            weight: profile.weight,
+            height: profile.height,
+            target_water_ml: profile.targetWaterMl,
+            daily_workout_minutes_target: profile.dailyWorkoutMinutesTarget,
+          })
+          .eq('id', profileId);
+      }
+    }
+
+    if (!profileId && profile) {
       const { data: newProfile } = await supabase
         .from('profiles')
         .insert({
@@ -378,10 +590,22 @@ app.post('/api/supabase/push', async (req: Request, res: Response) => {
           height: profile.height || 170,
           target_water_ml: profile.targetWaterMl || 2500,
           daily_workout_minutes_target: profile.dailyWorkoutMinutesTarget || 30,
+          is_registered: true,
         })
         .select('id')
         .single();
       if (newProfile) profileId = newProfile.id;
+    }
+
+    if (!profileId) {
+      const { data: fallbackProfiles } = await supabase
+        .from('profiles')
+        .select('id')
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (fallbackProfiles && fallbackProfiles.length > 0) {
+        profileId = fallbackProfiles[0].id;
+      }
     }
 
     if (!profileId) {
@@ -494,35 +718,48 @@ app.post('/api/supabase/reset', async (req: Request, res: Response) => {
   const { profile } = req.body || {};
 
   try {
-    // Bersihkan semua data lama
-    await supabase.from('water_logs').delete().not('id', 'is', null);
-    await supabase.from('workout_logs').delete().not('id', 'is', null);
-    await supabase.from('health_notes').delete().not('id', 'is', null);
-    await supabase.from('health_alarms').delete().not('id', 'is', null);
-    await supabase.from('ai_health_analyses').delete().not('id', 'is', null);
-    await supabase.from('profiles').delete().not('id', 'is', null);
+    let profileId = profile?.id;
 
-    // Buat profil bersih untuk akun baru
-    if (profile) {
-      const { error: insErr } = await supabase.from('profiles').insert({
-        name: profile.name || 'Pengguna Baru',
-        phone: profile.phone || '',
-        age: profile.age || 25,
-        gender: profile.gender || 'pria',
-        weight: profile.weight || 60,
-        height: profile.height || 165,
-        target_water_ml: profile.targetWaterMl || 2100,
-        daily_workout_minutes_target: profile.dailyWorkoutMinutesTarget || 30,
-        is_registered: true,
-      });
-      if (insErr) {
-        console.error('Error inserting new profile in reset:', insErr);
+    if (profileId) {
+      // Bersihkan riwayat khusus untuk akun ini saja
+      await Promise.all([
+        supabase.from('water_logs').delete().eq('profile_id', profileId),
+        supabase.from('workout_logs').delete().eq('profile_id', profileId),
+        supabase.from('health_notes').delete().eq('profile_id', profileId),
+        supabase.from('health_alarms').delete().eq('profile_id', profileId),
+        supabase.from('ai_health_analyses').delete().eq('profile_id', profileId),
+      ]);
+    } else {
+      // Buat akun baru tanpa menghapus akun pengguna lain
+      if (profile) {
+        const { data: newProfile, error: insErr } = await supabase
+          .from('profiles')
+          .insert({
+            name: profile.name || 'Pengguna Baru',
+            phone: profile.phone || '',
+            age: profile.age || 25,
+            gender: profile.gender || 'pria',
+            weight: profile.weight || 60,
+            height: profile.height || 165,
+            target_water_ml: profile.targetWaterMl || 2100,
+            daily_workout_minutes_target: profile.dailyWorkoutMinutesTarget || 30,
+            is_registered: true,
+          })
+          .select('id')
+          .single();
+
+        if (insErr) {
+          console.error('Error inserting new profile in reset:', insErr);
+        } else if (newProfile) {
+          profileId = newProfile.id;
+        }
       }
     }
 
     return res.json({
       success: true,
-      message: 'Semua data di Supabase PostgreSQL berhasil direset ke 0 untuk akun baru!',
+      message: 'Akun dan data di Supabase PostgreSQL berhasil disiapkan!',
+      profileId,
     });
   } catch (err: any) {
     console.error('Error in /api/supabase/reset:', err);

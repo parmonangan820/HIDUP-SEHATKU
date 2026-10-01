@@ -14,6 +14,7 @@ export type ActivityCategory =
   | 'lainnya';
 
 export interface UserProfile {
+  id?: string;
   name: string;
   phone: string;
   age: number;
@@ -23,6 +24,8 @@ export interface UserProfile {
   targetWaterMl: number; // default calculated as weight * 35ml
   dailyWorkoutMinutesTarget: number;
   isRegistered: boolean;
+  isLoggedIn?: boolean;
+  role?: 'admin' | 'user';
 }
 
 export interface WaterLog {

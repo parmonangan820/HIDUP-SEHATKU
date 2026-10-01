@@ -16,6 +16,7 @@ import { AlarmRingingModal } from './components/AlarmRingingModal';
 import { SupabaseSyncModal } from './components/SupabaseSyncModal';
 import { AdminPanelModal } from './components/AdminPanelModal';
 import { AdminLoginModal } from './components/AdminLoginModal';
+import { AccountSwitchModal } from './components/AccountSwitchModal';
 import { RunningBanner } from './components/RunningBanner';
 import { Footer } from './components/Footer';
 import { Mic, Droplet, Megaphone, X } from 'lucide-react';
@@ -142,6 +143,7 @@ function MainApp() {
         />
         <AdminPanelModal />
         <AdminLoginModal />
+        <AccountSwitchModal onOpenRegister={() => setIsProfileOpen(true)} />
       </div>
     </AppShell>
   );

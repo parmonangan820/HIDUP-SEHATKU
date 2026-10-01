@@ -16,6 +16,10 @@ import {
   Edit3,
   ShieldCheck,
   ShieldAlert,
+  LogIn,
+  LogOut,
+  ArrowLeftRight,
+  Users,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -35,6 +39,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
     setIsAdminModalOpen,
     setIsAdminLoginModalOpen,
     logoutAdmin,
+    isAccountModalOpen,
+    setIsAccountModalOpen,
+    logoutAccount,
   } = useHealth();
 
   // Mode: 'register' (buat akun baru & reset ke 0) vs 'edit' (ubah profil saja)
@@ -159,6 +166,69 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
               ? 'Mulai perjalanan hidup sehat Anda dengan riwayat bersih dari 0.'
               : 'Perbarui data berat, tinggi, atau target hidrasi Anda.'}
           </p>
+        </div>
+
+        {/* Account Bar: Ganti Akun, Login, Logout */}
+        <div className="p-3 rounded-2xl bg-slate-950/90 border border-slate-800 mb-4 flex items-center justify-between gap-2 shadow-inner">
+          <div className="min-w-0 flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-slate-900 border border-slate-750 flex items-center justify-center text-cyan-300 font-extrabold text-xs flex-shrink-0">
+              {profile.name ? profile.name.charAt(0).toUpperCase() : 'U'}
+            </div>
+            <div className="min-w-0">
+              <span className="text-xs font-extrabold text-white block truncate">
+                {profile.isRegistered || profile.isLoggedIn ? profile.name : 'Tamu (Belum Login)'}
+              </span>
+              <span className="text-[10px] text-slate-400 block truncate font-mono">
+                {profile.phone ? profile.phone : 'Penyimpanan Lokal'}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {/* Tombol Ganti / Pindah Akun */}
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                setIsAccountModalOpen(true);
+              }}
+              className="py-1.5 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-cyan-300 text-xs font-bold flex items-center gap-1.5 border border-slate-700 transition-colors"
+              title="Ganti / Pindah Akun Lain"
+            >
+              <ArrowLeftRight className="w-3.5 h-3.5" />
+              <span>Ganti Akun</span>
+            </button>
+
+            {/* Tombol Logout atau Login */}
+            {profile.isRegistered || profile.isLoggedIn ? (
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm(`Apakah Anda yakin ingin keluar dari akun "${profile.name}"?`)) {
+                    logoutAccount();
+                  }
+                }}
+                className="py-1.5 px-2.5 rounded-xl bg-rose-950/40 hover:bg-rose-900/50 text-rose-300 text-xs font-bold flex items-center gap-1 border border-rose-500/30 transition-colors"
+                title="Keluar dari Akun Ini"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>Logout</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  setIsAccountModalOpen(true);
+                }}
+                className="py-1.5 px-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-black flex items-center gap-1 shadow-md shadow-cyan-500/20 transition-all"
+                title="Masuk ke Akun Terdaftar"
+              >
+                <LogIn className="w-3.5 h-3.5 stroke-[2.5]" />
+                <span>Login</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Mode Selector Tabs */}

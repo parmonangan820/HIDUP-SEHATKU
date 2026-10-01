@@ -26,6 +26,11 @@ import {
   verifyAdminPin,
   fetchActiveAnnouncement,
 } from '../services/adminService';
+import {
+  AccountSummary,
+  fetchRegisteredAccounts,
+  loginToAccount,
+} from '../services/accountService';
 
 interface HealthContextType {
   profile: UserProfile;
@@ -44,6 +49,16 @@ interface HealthContextType {
   setIsAdminModalOpen: (open: boolean) => void;
   isAdminLoginModalOpen: boolean;
   setIsAdminLoginModalOpen: (open: boolean) => void;
+  isAccountModalOpen: boolean;
+  setIsAccountModalOpen: (open: boolean) => void;
+  registeredAccounts: AccountSummary[];
+  loadRegisteredAccounts: () => Promise<void>;
+  loginWithAccount: (params: {
+    profileId?: string;
+    identifier?: string;
+  }) => Promise<{ success: boolean; message: string }>;
+  logoutAccount: () => void;
+  switchAccount: (account: AccountSummary) => Promise<{ success: boolean; message: string }>;
   activeAnnouncement: AnnouncementItem | null;
   dismissAnnouncement: () => void;
   refreshAnnouncement: () => Promise<void>;
@@ -688,6 +703,122 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setIsAdminModalOpen(false);
   };
 
+  // Account Switching & Multi-User Login State
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
+  const [registeredAccounts, setRegisteredAccounts] = useState<AccountSummary[]>([]);
+
+  const loadRegisteredAccounts = async () => {
+    try {
+      const accs = await fetchRegisteredAccounts();
+      setRegisteredAccounts(accs);
+    } catch (e) {
+      console.error('Error fetching accounts:', e);
+    }
+  };
+
+  useEffect(() => {
+    loadRegisteredAccounts();
+  }, []);
+
+  const loginWithAccount = async (params: { profileId?: string; identifier?: string }) => {
+    setIsSyncingSupabase(true);
+    try {
+      const res = await loginToAccount(params);
+      if (res.success && res.profile) {
+        setProfile(res.profile);
+        localStorage.setItem('hidup_sehatku_profile', JSON.stringify(res.profile));
+
+        // Format history with waterLogs and workoutLogs
+        const todayDate = getTodayDateString();
+        const cleanHistory: Record<string, DayRecord> = {
+          [todayDate]: {
+            date: todayDate,
+            waterLogs: res.waterLogs || [],
+            workoutLogs: res.workoutLogs || [],
+            totalWaterMl: (res.waterLogs || []).reduce(
+              (acc: number, curr: any) => acc + (curr.amountMl || 0),
+              0
+            ),
+            totalWorkoutMinutes: (res.workoutLogs || []).reduce(
+              (acc: number, curr: any) => acc + (curr.durationMinutes || 0),
+              0
+            ),
+            totalCalories: (res.workoutLogs || []).reduce(
+              (acc: number, curr: any) => acc + (curr.caloriesBurned || 0),
+              0
+            ),
+          },
+        };
+        setHistory(cleanHistory);
+        localStorage.setItem('hidup_sehatku_history', JSON.stringify(cleanHistory));
+
+        if (res.notes) {
+          setNotes(res.notes);
+          localStorage.setItem('hidup_sehatku_notes', JSON.stringify(res.notes));
+        }
+
+        if (res.alarms && res.alarms.length > 0) {
+          setAlarms(res.alarms);
+          localStorage.setItem('hidup_sehatku_alarms', JSON.stringify(res.alarms));
+        }
+
+        if (res.aiAnalysis) {
+          setAiAnalysis(res.aiAnalysis);
+          localStorage.setItem('hidup_sehatku_ai_analysis', JSON.stringify(res.aiAnalysis));
+        }
+
+        setIsAccountModalOpen(false);
+        loadRegisteredAccounts();
+        return { success: true, message: res.message };
+      }
+      return { success: false, message: res.message || 'Akun tidak ditemukan' };
+    } finally {
+      setIsSyncingSupabase(false);
+    }
+  };
+
+  const logoutAccount = () => {
+    const guestProfile: UserProfile = {
+      name: 'Pengunjung',
+      phone: '',
+      age: 25,
+      gender: 'pria',
+      weight: 60,
+      height: 165,
+      targetWaterMl: 2100,
+      dailyWorkoutMinutesTarget: 30,
+      isRegistered: false,
+      isLoggedIn: false,
+    };
+    setProfile(guestProfile);
+    localStorage.setItem('hidup_sehatku_profile', JSON.stringify(guestProfile));
+
+    // Clear session history
+    const todayDate = getTodayDateString();
+    const guestHistory: Record<string, DayRecord> = {
+      [todayDate]: {
+        date: todayDate,
+        waterLogs: [],
+        workoutLogs: [],
+        totalWaterMl: 0,
+        totalWorkoutMinutes: 0,
+        totalCalories: 0,
+      },
+    };
+    setHistory(guestHistory);
+    setNotes([]);
+    setAiAnalysis(null);
+    localStorage.removeItem('hidup_sehatku_history');
+    localStorage.removeItem('hidup_sehatku_notes');
+    localStorage.removeItem('hidup_sehatku_ai_analysis');
+
+    logoutAdmin();
+  };
+
+  const switchAccount = async (account: AccountSummary) => {
+    return await loginWithAccount({ profileId: account.id });
+  };
+
   const pullFromSupabase = async (): Promise<boolean> => {
     setIsSyncingSupabase(true);
     try {
@@ -875,7 +1006,13 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // Sync reset to Supabase if connected
     try {
-      await resetSupabaseData(fullProfile);
+      const resetRes = await resetSupabaseData(fullProfile);
+      const newId = (resetRes as any)?.profileId;
+      if (newId) {
+        fullProfile.id = newId;
+        setProfile(fullProfile);
+        localStorage.setItem('hidup_sehatku_profile', JSON.stringify(fullProfile));
+      }
       await pushDataToSupabase({
         profile: fullProfile,
         waterLogs: [],
@@ -886,6 +1023,7 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
       const st = await checkSupabaseStatus();
       setSupabaseStatus(st);
+      loadRegisteredAccounts();
     } catch (e) {
       console.error('Supabase reset error:', e);
     }
@@ -1295,6 +1433,13 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setIsAdminModalOpen,
         isAdminLoginModalOpen,
         setIsAdminLoginModalOpen,
+        isAccountModalOpen,
+        setIsAccountModalOpen,
+        registeredAccounts,
+        loadRegisteredAccounts,
+        loginWithAccount,
+        logoutAccount,
+        switchAccount,
         activeAnnouncement,
         dismissAnnouncement,
         refreshAnnouncement,
