@@ -53,6 +53,10 @@ interface HealthContextType {
   setIsAdminLoginModalOpen: (open: boolean) => void;
   isAccountModalOpen: boolean;
   setIsAccountModalOpen: (open: boolean) => void;
+  isPro: boolean;
+  isProModalOpen: boolean;
+  setIsProModalOpen: (open: boolean) => void;
+  upgradeToPro: (plan: 'monthly' | 'annual') => void;
   registeredAccounts: AccountSummary[];
   loadRegisteredAccounts: () => Promise<void>;
   loginWithAccount: (params: {
@@ -741,6 +745,20 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Account Switching & Multi-User Login State
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
+  const [isPro, setIsPro] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem('hidupsehat_is_pro');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return false;
+  });
+  const [isProModalOpen, setIsProModalOpen] = useState<boolean>(false);
+
+  const upgradeToPro = (plan: 'monthly' | 'annual') => {
+    setIsPro(true);
+    localStorage.setItem('hidupsehat_is_pro', JSON.stringify(true));
+  };
+
   const [registeredAccounts, setRegisteredAccounts] = useState<AccountSummary[]>([]);
 
   const loadRegisteredAccounts = async () => {
@@ -1533,6 +1551,10 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setIsAdminLoginModalOpen,
         isAccountModalOpen,
         setIsAccountModalOpen,
+        isPro,
+        isProModalOpen,
+        setIsProModalOpen,
+        upgradeToPro,
         registeredAccounts,
         loadRegisteredAccounts,
         loginWithAccount,

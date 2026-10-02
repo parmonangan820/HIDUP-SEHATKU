@@ -1,6 +1,6 @@
 import React from 'react';
 import { useHealth } from '../context/HealthContext';
-import { Droplets, Sparkles, User, Bell, Smartphone, Monitor, Mic, Database, Cloud, Shield } from 'lucide-react';
+import { Droplets, Sparkles, User, Bell, Smartphone, Monitor, Mic, Database, Cloud, Shield, Crown } from 'lucide-react';
 
 interface TopHeaderProps {
   onOpenProfile: () => void;
@@ -27,6 +27,8 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
     isSyncingSupabase,
     isAdmin,
     setIsAdminModalOpen,
+    isPro,
+    setIsProModalOpen,
   } = useHealth();
 
   const getGreeting = () => {
@@ -81,6 +83,20 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
 
         {/* Right: Quick actions & Device Mockup Switcher */}
         <div className="flex items-center gap-1.5">
+          {/* PRO Upgrade Button */}
+          <button
+            onClick={() => setIsProModalOpen(true)}
+            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl font-bold text-xs transition-all shadow-md active:scale-95 ${
+              isPro
+                ? 'bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 shadow-amber-500/30'
+                : 'bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-500/40 text-amber-300 hover:bg-amber-500/30 shadow-amber-500/10'
+            }`}
+            title="Hidup Sehatku PRO Features"
+          >
+            <Crown className="w-3.5 h-3.5 fill-current" />
+            <span>{isPro ? 'PRO' : '✨ PRO'}</span>
+          </button>
+
           {/* Quick Voice Drink Button */}
           <button
             onClick={onOpenVoiceDrink}

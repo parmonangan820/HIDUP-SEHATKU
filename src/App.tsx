@@ -17,13 +17,14 @@ import { SupabaseSyncModal } from './components/SupabaseSyncModal';
 import { AdminPanelModal } from './components/AdminPanelModal';
 import { AdminLoginModal } from './components/AdminLoginModal';
 import { AccountSwitchModal } from './components/AccountSwitchModal';
+import { ProUpgradeModal } from './components/ProUpgradeModal';
 import { RunningBanner } from './components/RunningBanner';
 import { BannerSlider } from './components/BannerSlider';
 import { Footer } from './components/Footer';
 import { Mic, Droplet, Megaphone, X } from 'lucide-react';
 
 function MainApp() {
-  const { activeAnnouncement, dismissAnnouncement } = useHealth();
+  const { activeAnnouncement, dismissAnnouncement, isProModalOpen, setIsProModalOpen } = useHealth();
   const [activeTab, setActiveTab] = useState<NavTab>('home');
   const [deviceMode, setDeviceMode] = useState<'android' | 'ios' | 'full'>('android');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -148,6 +149,7 @@ function MainApp() {
         <AdminPanelModal />
         <AdminLoginModal />
         <AccountSwitchModal onOpenRegister={() => setIsProfileOpen(true)} />
+        <ProUpgradeModal isOpen={isProModalOpen} onClose={() => setIsProModalOpen(false)} />
       </div>
     </AppShell>
   );
