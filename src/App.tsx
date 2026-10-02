@@ -27,7 +27,7 @@ import { Mic, Droplet, Megaphone, X } from 'lucide-react';
 function MainApp() {
   const { activeAnnouncement, dismissAnnouncement, isProModalOpen, setIsProModalOpen } = useHealth();
   const [activeTab, setActiveTab] = useState<NavTab>('home');
-  const [deviceMode, setDeviceMode] = useState<'android' | 'ios' | 'full'>('android');
+  const [deviceMode, setDeviceMode] = useState<'android' | 'ios' | 'full'>('full');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isAiChatOpen, setIsAiChatOpen] = useState(false);
   const [isVoiceDrinkOpen, setIsVoiceDrinkOpen] = useState(false);

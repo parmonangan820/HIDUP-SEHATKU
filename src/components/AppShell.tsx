@@ -78,7 +78,7 @@ export const AppShell: React.FC<AppShellProps> = ({
       <div
         className={`w-full transition-all duration-300 ${
           deviceMode === 'full'
-            ? 'max-w-2xl min-h-screen lg:min-h-[92vh] lg:rounded-3xl lg:border lg:border-slate-800 lg:shadow-2xl overflow-hidden'
+            ? 'max-w-3xl w-full min-h-screen lg:min-h-[92vh] lg:rounded-3xl lg:border lg:border-slate-800 lg:shadow-2xl overflow-hidden'
             : 'max-w-md min-h-screen lg:min-h-[860px] lg:max-h-[94vh] lg:rounded-[44px] lg:border-[8px] lg:border-slate-800 lg:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col bg-slate-950'
         } relative`}
       >
