@@ -18,6 +18,7 @@ import { AdminPanelModal } from './components/AdminPanelModal';
 import { AdminLoginModal } from './components/AdminLoginModal';
 import { AccountSwitchModal } from './components/AccountSwitchModal';
 import { RunningBanner } from './components/RunningBanner';
+import { BannerSlider } from './components/BannerSlider';
 import { Footer } from './components/Footer';
 import { Mic, Droplet, Megaphone, X } from 'lucide-react';
 
@@ -74,6 +75,9 @@ function MainApp() {
 
         {/* Modern Running Text Ticker */}
         <RunningBanner />
+
+        {/* 3-Slide Banner (1772px x 262px proportion) */}
+        <BannerSlider />
 
         {/* Dynamic Tab Body */}
         <main className="flex-1 p-4 max-w-md mx-auto w-full">
