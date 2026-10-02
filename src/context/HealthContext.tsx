@@ -779,6 +779,23 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     localStorage.setItem('hidupsehat_is_pro', JSON.stringify(true));
   };
 
+  // Pro Auto Cloud Sync Effect to Supabase
+  useEffect(() => {
+    if (isPro && supabaseStatus?.connected) {
+      const syncDebounce = setTimeout(() => {
+        pushDataToSupabase({
+          profile,
+          waterLogs: todayRecord.waterLogs,
+          workoutLogs: todayRecord.workoutLogs,
+          notes,
+          alarms,
+          aiAnalysis,
+        }).catch((e) => console.error('Pro Auto-sync error:', e));
+      }, 1500);
+      return () => clearTimeout(syncDebounce);
+    }
+  }, [isPro, profile, history, notes, alarms, supabaseStatus]);
+
   const [registeredAccounts, setRegisteredAccounts] = useState<AccountSummary[]>([]);
 
   const loadRegisteredAccounts = async () => {

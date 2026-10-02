@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useHealth } from '../context/HealthContext';
+import { printMedicalReport } from '../utils/generateMedicalPdfReport';
 import {
   Sparkles,
   BarChart3,
@@ -16,6 +17,8 @@ import {
   MessageSquare,
   ShieldCheck,
   ChevronRight,
+  FileText,
+  Crown,
 } from 'lucide-react';
 
 interface AIStatsTabProps {
@@ -32,13 +35,30 @@ export const AIStatsTab: React.FC<AIStatsTabProps> = ({ onOpenAiChat }) => {
     weeklySummary,
     monthlySummary,
     todayWaterByPeriod,
+    isPro,
+    setIsProModalOpen,
   } = useHealth();
 
   const [activeChartTab, setActiveChartTab] = useState<'water' | 'workout'>('water');
   const [activeRange, setActiveRange] = useState<'weekly' | 'monthly'>('weekly');
-  const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(6); // Default to today (last index)
+  const [selectedDayIndex, setSelectedDayIndex] = useState<number | null>(6);
 
   const selectedDay = selectedDayIndex !== null ? weeklySummary.days[selectedDayIndex] : null;
+
+  const handleDownloadPdfReport = () => {
+    if (!isPro) {
+      setIsProModalOpen(true);
+      return;
+    }
+    printMedicalReport(
+      profile,
+      todayRecord,
+      aiAnalysis,
+      todayWaterByPeriod,
+      weeklySummary,
+      monthlySummary
+    );
+  };
 
   return (
     <div className="space-y-5 pb-24">
@@ -157,6 +177,36 @@ export const AIStatsTab: React.FC<AIStatsTabProps> = ({ onOpenAiChat }) => {
             >
               <MessageSquare className="w-3.5 h-3.5" />
               Tanya AI
+            </button>
+          </div>
+
+          {/* Pro Benefit CTA: Unduh Laporan PDF Medis Dokter */}
+          <div className="mt-3 pt-3 border-t border-slate-800/80 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 bg-slate-950/60 p-3 rounded-2xl border border-slate-800">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 flex-shrink-0">
+                <FileText className="w-4 h-4" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                  <span>Laporan PDF Medis Dokter</span>
+                  {isPro && (
+                    <span className="px-1.5 py-0.2 rounded bg-amber-500/30 text-amber-300 text-[9px] font-black">
+                      PRO UNLOCKED
+                    </span>
+                  )}
+                </h4>
+                <p className="text-[10px] text-slate-400">
+                  Unduh rekam medis & hidrasi siap cetak untuk dokter
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={handleDownloadPdfReport}
+              className="py-2 px-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/20 hover:brightness-110 active:scale-95 transition-all cursor-pointer"
+            >
+              <FileText className="w-4 h-4 stroke-[2.5]" />
+              <span>{isPro ? '📄 Unduh PDF Medis' : '🔒 Buka PDF Medis (Pro)'}</span>
             </button>
           </div>
         </div>

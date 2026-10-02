@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useHealth } from '../context/HealthContext';
 import { signUpWithSupabase } from '../services/supabaseService';
+import { printMedicalReport } from '../utils/generateMedicalPdfReport';
 import {
   User,
   Phone,
@@ -24,6 +25,8 @@ import {
   ArrowLeftRight,
   Users,
   Share2,
+  Crown,
+  FileText,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -47,6 +50,13 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, onO
     isAccountModalOpen,
     setIsAccountModalOpen,
     logoutAccount,
+    isPro,
+    setIsProModalOpen,
+    todayRecord,
+    aiAnalysis,
+    todayWaterByPeriod,
+    weeklySummary,
+    monthlySummary,
   } = useHealth();
 
   // Mode: 'register' (buat akun baru & reset ke 0) vs 'edit' (ubah profil saja)
@@ -236,6 +246,57 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, onO
               </button>
             )}
           </div>
+        </div>
+
+        {/* Pro Member Benefit Bar */}
+        <div className="p-3 rounded-2xl bg-gradient-to-r from-amber-500/15 via-rose-500/15 to-purple-500/15 border border-amber-500/30 mb-4 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="p-2 rounded-xl bg-amber-500/20 text-amber-400 flex-shrink-0">
+              <Crown className="w-5 h-5 fill-amber-400/20" />
+            </div>
+            <div className="min-w-0">
+              <h4 className="text-xs font-extrabold text-white flex items-center gap-1.5 truncate">
+                <span>Status Akun:</span>
+                <span className="text-amber-300">{isPro ? 'MEMBER PRO (UNLOCKED)' : 'GRATIS'}</span>
+              </h4>
+              <p className="text-[10px] text-slate-300 truncate">
+                {isPro
+                  ? 'Akses AI Scanner Makanan, Dokter AI, PDF Medis, & Cloud Sync Aktif'
+                  : 'Aktifkan Pro untuk Laporan PDF Medis & AI Scanner Makanan'}
+              </p>
+            </div>
+          </div>
+
+          {!isPro ? (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                setIsProModalOpen(true);
+              }}
+              className="py-1.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 text-slate-950 text-xs font-black hover:brightness-110 active:scale-95 transition-all shadow-md shadow-amber-500/20 flex-shrink-0"
+            >
+              Aktifkan PRO
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                printMedicalReport(
+                  profile,
+                  todayRecord,
+                  aiAnalysis,
+                  todayWaterByPeriod,
+                  weeklySummary,
+                  monthlySummary
+                );
+              }}
+              className="py-1.5 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-rose-500 text-slate-950 text-xs font-black flex items-center gap-1 hover:brightness-110 active:scale-95 transition-all shadow-md shadow-amber-500/20 flex-shrink-0"
+            >
+              <FileText className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>PDF Medis</span>
+            </button>
+          )}
         </div>
 
         {/* Mode Selector Tabs */}
