@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
 import {
   UserProfile,
   WaterLog,
@@ -711,8 +711,21 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return localStorage.getItem('hidup_sehatku_last_synced') || null;
   });
 
-  // Admin Panel State (Langsung Aktif Tanpa Autentikasi / PIN)
-  const [isAdmin, setIsAdmin] = useState<boolean>(true);
+  // Admin Panel State (EKSKLUSIF HANYA UNTUK AKUN canggihmarbun DENGAN EMAIL canggihmarbun14@gmail.com)
+  const isAdmin = useMemo(() => {
+    if (!profile) return false;
+    const email = (profile.email || '').trim().toLowerCase();
+    const name = (profile.name || '').trim().toLowerCase();
+
+    // Diizinkan jika email adalah canggihmarbun14@gmail.com atau canggihemarbun14@gmail.com,
+    // atau jika nama Canggih Marbun dan email belum diisi
+    const allowedEmails = ['canggihmarbun14@gmail.com', 'canggihemarbun14@gmail.com'];
+    const isEmailAdmin = allowedEmails.includes(email);
+    const isNameAdmin = name === 'canggih marbun' || name === 'canggihmarbun';
+
+    return isEmailAdmin || (isNameAdmin && (email === '' || allowedEmails.includes(email)));
+  }, [profile]);
+
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState(false);
   const [activeAnnouncement, setActiveAnnouncement] = useState<AnnouncementItem | null>(null);
@@ -735,7 +748,12 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const loginAsAdmin = async (_pin?: string): Promise<{ success: boolean; message: string }> => {
-    setIsAdmin(true);
+    if (!isAdmin) {
+      return {
+        success: false,
+        message: 'Akses Ditolak: Tombol & halaman Admin Panel hanya dapat diakses oleh akun canggihmarbun (canggihmarbun14@gmail.com).',
+      };
+    }
     setIsAdminLoginModalOpen(false);
     setIsAdminModalOpen(true);
     return { success: true, message: 'Selamat datang di Panel Administrator!' };

@@ -129,7 +129,7 @@ export const AdminPanelModal: React.FC = () => {
     }
   }, [isAdminModalOpen]);
 
-  if (!isAdminModalOpen) return null;
+  if (!isAdminModalOpen || !isAdmin) return null;
 
   const filteredUsers = users.filter((u) => {
     const q = searchQuery.toLowerCase();

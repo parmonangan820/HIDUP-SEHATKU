@@ -14,6 +14,7 @@ import {
 
 export const AdminLoginModal: React.FC = () => {
   const {
+    isAdmin,
     isAdminLoginModalOpen,
     setIsAdminLoginModalOpen,
     loginAsAdmin,
@@ -24,7 +25,7 @@ export const AdminLoginModal: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  if (!isAdminLoginModalOpen) return null;
+  if (!isAdminLoginModalOpen || !isAdmin) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
