@@ -714,10 +714,8 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return localStorage.getItem('hidup_sehatku_last_synced') || null;
   });
 
-  // Admin Panel State
-  const [isAdmin, setIsAdmin] = useState<boolean>(() => {
-    return localStorage.getItem('hidup_sehatku_is_admin') === 'true';
-  });
+  // Admin Panel State (Langsung Aktif Tanpa Autentikasi / PIN)
+  const [isAdmin, setIsAdmin] = useState<boolean>(true);
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState(false);
   const [activeAnnouncement, setActiveAnnouncement] = useState<AnnouncementItem | null>(null);
@@ -739,21 +737,14 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     refreshAnnouncement();
   }, []);
 
-  const loginAsAdmin = async (pin: string): Promise<{ success: boolean; message: string }> => {
-    const res = await verifyAdminPin(pin);
-    if (res.success && res.isAdmin) {
-      setIsAdmin(true);
-      localStorage.setItem('hidup_sehatku_is_admin', 'true');
-      setIsAdminLoginModalOpen(false);
-      setIsAdminModalOpen(true);
-      return { success: true, message: 'Selamat datang, Administrator!' };
-    }
-    return { success: false, message: res.message || 'PIN Admin tidak valid' };
+  const loginAsAdmin = async (_pin?: string): Promise<{ success: boolean; message: string }> => {
+    setIsAdmin(true);
+    setIsAdminLoginModalOpen(false);
+    setIsAdminModalOpen(true);
+    return { success: true, message: 'Selamat datang di Panel Administrator!' };
   };
 
   const logoutAdmin = () => {
-    setIsAdmin(false);
-    localStorage.removeItem('hidup_sehatku_is_admin');
     setIsAdminModalOpen(false);
   };
 

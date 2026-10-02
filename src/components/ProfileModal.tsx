@@ -494,47 +494,22 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
 
         {/* Administrator Portal Switch */}
         <div className="mt-4 pt-3 border-t border-slate-800/80">
-          {!isAdmin ? (
-            <div className="text-center">
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  setIsAdminLoginModalOpen(true);
-                }}
-                className="text-[11px] text-slate-500 hover:text-amber-400 transition-colors inline-flex items-center gap-1.5 py-1 px-2.5 rounded-lg hover:bg-slate-800/60"
-              >
-                <ShieldAlert className="w-3.5 h-3.5 text-slate-500" />
-                <span>Masuk sebagai Administrator</span>
-              </button>
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              setIsAdminModalOpen(true);
+            }}
+            className="w-full py-2.5 px-3 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 hover:text-amber-200 transition-all flex items-center justify-between font-bold text-xs shadow-md shadow-amber-500/5 group"
+          >
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+              <span>Dasbor Panel Administrator</span>
             </div>
-          ) : (
-            <div className="p-2.5 rounded-2xl bg-amber-950/30 border border-amber-500/30 flex items-center justify-between">
-              <span className="text-xs text-amber-300 font-bold flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-amber-400" />
-                <span>Mode Admin Aktif</span>
-              </span>
-              <div className="flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => {
-                    onClose();
-                    setIsAdminModalOpen(true);
-                  }}
-                  className="px-2.5 py-1 rounded-xl bg-amber-500 text-slate-950 text-[11px] font-black hover:brightness-110 active:scale-95 transition-all"
-                >
-                  Buka Admin Panel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => logoutAdmin()}
-                  className="px-2 py-1 rounded-xl bg-slate-800 text-rose-300 text-[11px] font-semibold hover:bg-slate-700 transition-all"
-                >
-                  Keluar Admin
-                </button>
-              </div>
-            </div>
-          )}
+            <span className="text-[10px] px-2.5 py-1 rounded-xl bg-amber-500 text-slate-950 font-black flex items-center gap-1 group-hover:brightness-110">
+              Buka Langsung
+            </span>
+          </button>
         </div>
       </div>
     </div>

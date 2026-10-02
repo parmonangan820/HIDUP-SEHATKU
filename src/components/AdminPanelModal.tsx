@@ -124,12 +124,12 @@ export const AdminPanelModal: React.FC = () => {
   };
 
   useEffect(() => {
-    if (isAdminModalOpen && isAdmin) {
+    if (isAdminModalOpen) {
       loadData();
     }
-  }, [isAdminModalOpen, isAdmin]);
+  }, [isAdminModalOpen]);
 
-  if (!isAdminModalOpen || !isAdmin) return null;
+  if (!isAdminModalOpen) return null;
 
   const filteredUsers = users.filter((u) => {
     const q = searchQuery.toLowerCase();
@@ -357,22 +357,16 @@ export const AdminPanelModal: React.FC = () => {
             <button
               onClick={loadData}
               disabled={loading}
-              className="p-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition-colors"
+              className="p-2 rounded-xl bg-slate-800 text-slate-300 hover:text-white hover:bg-slate-700 transition-colors flex items-center gap-1.5 text-xs font-bold px-3"
               title="Perbarui Data"
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            </button>
-            <button
-              onClick={logoutAdmin}
-              className="px-2.5 py-1.5 rounded-xl bg-rose-950/40 text-rose-300 hover:bg-rose-900/50 border border-rose-500/30 text-xs font-bold flex items-center gap-1.5 transition-colors"
-              title="Keluar dari Akses Admin"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Keluar Admin</span>
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin text-amber-400' : ''}`} />
+              <span className="hidden sm:inline">Segarkan Data</span>
             </button>
             <button
               onClick={() => setIsAdminModalOpen(false)}
               className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+              title="Tutup Panel Admin"
             >
               <X className="w-4 h-4" />
             </button>
