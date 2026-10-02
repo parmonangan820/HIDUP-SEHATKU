@@ -444,3 +444,49 @@ export async function disconnectSupabase(): Promise<{ success: boolean; message:
 
   return { success: true, message: 'Koneksi Supabase diputus.' };
 }
+
+export async function signUpWithSupabase(email: string, password: string, userData: any): Promise<{ success: boolean; message: string; user?: any }> {
+  const client = getDirectClient();
+  if (!client) {
+    return { success: false, message: 'Supabase belum dikonfigurasi.' };
+  }
+  try {
+    const { data, error } = await client.auth.signUp({
+      email,
+      password,
+      options: {
+        data: userData,
+      },
+    });
+    if (error) {
+      return { success: false, message: error.message };
+    }
+    return { 
+      success: true, 
+      message: `Pendaftaran berhasil! Email konfirmasi telah dikirim ke ${email}. Silakan cek inbox/spam Gmail Anda.`, 
+      user: data.user 
+    };
+  } catch (err: any) {
+    return { success: false, message: err?.message || 'Gagal mendaftar dengan Supabase Auth.' };
+  }
+}
+
+export async function signInWithSupabase(email: string, password: string): Promise<{ success: boolean; message: string; user?: any }> {
+  const client = getDirectClient();
+  if (!client) {
+    return { success: false, message: 'Supabase belum dikonfigurasi.' };
+  }
+  try {
+    const { data, error } = await client.auth.signInWithPassword({
+      email,
+      password,
+    });
+    if (error) {
+      return { success: false, message: error.message };
+    }
+    return { success: true, message: 'Login Supabase berhasil!', user: data.user };
+  } catch (err: any) {
+    return { success: false, message: err?.message || 'Gagal login dengan Supabase Auth.' };
+  }
+}
+

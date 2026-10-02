@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useHealth } from '../context/HealthContext';
 import { AccountSummary } from '../services/accountService';
+import { signInWithSupabase } from '../services/supabaseService';
 import {
   Users,
   UserCheck,
@@ -8,6 +9,8 @@ import {
   LogIn,
   LogOut,
   Phone,
+  Mail,
+  Lock,
   Droplets,
   Flame,
   CheckCircle2,
@@ -37,7 +40,8 @@ export const AccountSwitchModal: React.FC<AccountSwitchModalProps> = ({ onOpenRe
   } = useHealth();
 
   const [activeTab, setActiveTab] = useState<'switch' | 'login'>('switch');
-  const [identifier, setIdentifier] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -76,15 +80,15 @@ export const AccountSwitchModal: React.FC<AccountSwitchModalProps> = ({ onOpenRe
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!identifier.trim()) return;
+    if (!email.trim() || !password.trim()) return;
 
     setLoading(true);
     setFeedback(null);
-    const res = await loginWithAccount({ identifier: identifier.trim() });
+    const res = await signInWithSupabase(email.trim(), password.trim());
     setLoading(false);
 
     if (res.success) {
-      setFeedback({ type: 'success', message: res.message });
+      setFeedback({ type: 'success', message: 'Login Supabase Berhasil! Selamat datang.' });
       try {
         confetti({
           particleCount: 50,
@@ -294,26 +298,43 @@ export const AccountSwitchModal: React.FC<AccountSwitchModalProps> = ({ onOpenRe
             </div>
           )}
 
-          {/* TAB 2: FORM MASUK / LOGIN DENGAN IDENTIFIER */}
+          {/* TAB 2: FORM MASUK / LOGIN DENGAN EMAIL & PASSWORD SUPABASE */}
           {activeTab === 'login' && (
             <form onSubmit={handleLoginSubmit} className="space-y-3.5 p-1">
               <div>
                 <label className="text-xs font-semibold text-slate-300 block mb-1">
-                  Nomor HP atau Nama Akun Terdaftar
+                  Email Akun Terdaftar <span className="text-cyan-400">*</span>
                 </label>
                 <div className="relative">
                   <input
-                    type="text"
+                    type="email"
                     required
-                    placeholder="Contoh: 08123456789 atau Budi"
-                    value={identifier}
-                    onChange={(e) => setIdentifier(e.target.value)}
+                    placeholder="namaanda@gmail.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
                     className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 font-medium"
                   />
-                  <Phone className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+                  <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-300 block mb-1">
+                  Password <span className="text-cyan-400">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="password"
+                    required
+                    placeholder="Masukkan password Anda"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 font-medium"
+                  />
+                  <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
                 </div>
                 <p className="text-[10px] text-slate-500 mt-1">
-                  Masukkan nomor telepon atau nama akun yang sebelumnya pernah didaftarkan.
+                  Masuk menggunakan kredensial Supabase Auth terdaftar.
                 </p>
               </div>
 
@@ -325,7 +346,7 @@ export const AccountSwitchModal: React.FC<AccountSwitchModalProps> = ({ onOpenRe
                 {loading ? (
                   <>
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Mencari Akun di Supabase...</span>
+                    <span>Autentikasi Supabase Auth...</span>
                   </>
                 ) : (
                   <>

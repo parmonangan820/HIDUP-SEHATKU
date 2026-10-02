@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
 import { useHealth } from '../context/HealthContext';
+import { signUpWithSupabase } from '../services/supabaseService';
 import {
   User,
   Phone,
+  Mail,
+  Lock,
   Scale,
   Ruler,
   Droplets,
@@ -49,6 +52,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
 
   const [name, setName] = useState(mode === 'register' ? '' : profile.name || '');
   const [phone, setPhone] = useState(mode === 'register' ? '' : profile.phone || '');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [authFeedback, setAuthFeedback] = useState<string | null>(null);
   const [age, setAge] = useState(profile.age || 25);
   const [gender, setGender] = useState<'pria' | 'wanita'>(profile.gender || 'pria');
   const [weight, setWeight] = useState(profile.weight || 60);
@@ -68,9 +74,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
 
   const handleModeChange = (newMode: 'register' | 'edit') => {
     setMode(newMode);
+    setAuthFeedback(null);
     if (newMode === 'register') {
       setName('');
       setPhone('');
+      setEmail('');
+      setPassword('');
     } else {
       setName(profile.name || '');
       setPhone(profile.phone || '');
@@ -87,6 +96,16 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
     if (!name.trim()) return;
 
     if (mode === 'register') {
+      if (email.trim() && password.trim()) {
+        const authRes = await signUpWithSupabase(email.trim(), password.trim(), {
+          name: name.trim(),
+          phone: phone.trim(),
+        });
+        if (authRes.message) {
+          setAuthFeedback(authRes.message);
+        }
+      }
+
       // Buat akun baru & reset semua data ke 0
       await createNewAccount({
         name: name.trim(),
@@ -126,8 +145,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
     setIsSuccess(true);
     setTimeout(() => {
       setIsSuccess(false);
-      onClose();
-    }, 1000);
+      if (!authFeedback) onClose();
+    }, authFeedback ? 2500 : 1000);
   };
 
   const handleManualReset = async () => {
@@ -307,6 +326,57 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
               <Phone className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
             </div>
           </div>
+
+          {/* Email Aktif & Password (khusus register) */}
+          {mode === 'register' && (
+            <div className="space-y-3 p-3.5 rounded-2xl bg-slate-950/80 border border-cyan-500/30">
+              <div className="text-[11px] font-bold text-cyan-300 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Kredensial Supabase & Konfirmasi Gmail</span>
+              </div>
+              <div>
+                <label className="font-semibold text-slate-300 block mb-1">
+                  Email Aktif (untuk Konfirmasi Gmail) <span className="text-cyan-400">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="email"
+                    required={mode === 'register'}
+                    placeholder="namaanda@gmail.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-900 border border-slate-750 text-white font-medium focus:border-cyan-500 focus:outline-none"
+                  />
+                  <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                </div>
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-300 block mb-1">
+                  Password Login <span className="text-cyan-400">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="password"
+                    required={mode === 'register'}
+                    placeholder="Minimal 6 karakter"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-900 border border-slate-750 text-white font-medium focus:border-cyan-500 focus:outline-none"
+                  />
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Auth Feedback Notice */}
+          {authFeedback && (
+            <div className="p-3 rounded-2xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs flex items-start gap-2 animate-in fade-in">
+              <Check className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
+              <p className="leading-relaxed">{authFeedback}</p>
+            </div>
+          )}
 
           {/* Jenis Kelamin & Usia */}
           <div className="grid grid-cols-2 gap-3">
