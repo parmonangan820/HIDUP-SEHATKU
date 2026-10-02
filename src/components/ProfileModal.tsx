@@ -23,15 +23,17 @@ import {
   LogOut,
   ArrowLeftRight,
   Users,
+  Share2,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 interface ProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onOpenAffiliate: () => void;
 }
 
-export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) => {
+export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, onOpenAffiliate }) => {
   const {
     profile,
     updateProfile,
@@ -560,6 +562,26 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
               </div>
             </div>
           )}
+        </div>
+
+        {/* Affiliate Hidup Sehatku Button */}
+        <div className="mt-4 pt-3 border-t border-slate-800/80">
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              onOpenAffiliate();
+            }}
+            className="w-full py-2.5 px-3 rounded-2xl bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-600/20 hover:from-amber-500/30 hover:to-amber-600/30 border border-amber-500/40 text-amber-300 hover:text-amber-200 transition-all flex items-center justify-between font-bold text-xs shadow-md shadow-amber-500/10 group"
+          >
+            <div className="flex items-center gap-2">
+              <Share2 className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+              <span>Affiliate Hidup Sehatku (Komisi 10%)</span>
+            </div>
+            <span className="text-[10px] px-2.5 py-1 rounded-xl bg-amber-500 text-slate-950 font-black flex items-center gap-1 group-hover:brightness-110">
+              Buka Dashboard
+            </span>
+          </button>
         </div>
 
         {/* Administrator Portal Switch - ONLY VISIBLE IF LOGGED IN AS ADMIN */}

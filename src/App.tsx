@@ -18,6 +18,7 @@ import { AdminPanelModal } from './components/AdminPanelModal';
 import { AdminLoginModal } from './components/AdminLoginModal';
 import { AccountSwitchModal } from './components/AccountSwitchModal';
 import { ProUpgradeModal } from './components/ProUpgradeModal';
+import { AffiliateModal } from './components/AffiliateModal';
 import { RunningBanner } from './components/RunningBanner';
 import { BannerSlider } from './components/BannerSlider';
 import { Footer } from './components/Footer';
@@ -31,6 +32,7 @@ function MainApp() {
   const [isAiChatOpen, setIsAiChatOpen] = useState(false);
   const [isVoiceDrinkOpen, setIsVoiceDrinkOpen] = useState(false);
   const [isSupabaseSyncOpen, setIsSupabaseSyncOpen] = useState(false);
+  const [isAffiliateOpen, setIsAffiliateOpen] = useState(false);
 
   return (
     <AppShell deviceMode={deviceMode} setDeviceMode={setDeviceMode}>
@@ -135,7 +137,11 @@ function MainApp() {
         <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
 
         {/* Modals */}
-        <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
+        <ProfileModal
+          isOpen={isProfileOpen}
+          onClose={() => setIsProfileOpen(false)}
+          onOpenAffiliate={() => setIsAffiliateOpen(true)}
+        />
         <AIChatModal isOpen={isAiChatOpen} onClose={() => setIsAiChatOpen(false)} />
         <VoiceDrinkModal
           isOpen={isVoiceDrinkOpen}
@@ -150,6 +156,7 @@ function MainApp() {
         <AdminLoginModal />
         <AccountSwitchModal onOpenRegister={() => setIsProfileOpen(true)} />
         <ProUpgradeModal isOpen={isProModalOpen} onClose={() => setIsProModalOpen(false)} />
+        <AffiliateModal isOpen={isAffiliateOpen} onClose={() => setIsAffiliateOpen(false)} />
       </div>
     </AppShell>
   );
