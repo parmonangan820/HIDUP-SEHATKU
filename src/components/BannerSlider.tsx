@@ -26,8 +26,8 @@ export const BannerSlider: React.FC = () => {
 
   return (
     <div className="w-full max-w-[1772px] mx-auto px-3 sm:px-4 my-4">
-      {/* Width 8cm x Height 3cm proportion -> aspect-[8/3] */}
-      <div className="relative w-full aspect-[8/3] min-h-[220px] max-h-[300px] rounded-3xl overflow-hidden shadow-2xl border border-white/10 group bg-slate-950 flex items-center justify-center">
+      {/* Width 8cm x Height 2cm proportion -> aspect-[8/2] */}
+      <div className="relative w-full aspect-[8/2] min-h-[160px] max-h-[260px] rounded-3xl overflow-hidden shadow-2xl border border-white/10 group bg-slate-950 flex items-center justify-center">
         {slide.imageUrl ? (
           <img
             src={slide.imageUrl}
