@@ -492,25 +492,27 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
           )}
         </div>
 
-        {/* Administrator Portal Switch */}
-        <div className="mt-4 pt-3 border-t border-slate-800/80">
-          <button
-            type="button"
-            onClick={() => {
-              onClose();
-              setIsAdminModalOpen(true);
-            }}
-            className="w-full py-2.5 px-3 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 hover:text-amber-200 transition-all flex items-center justify-between font-bold text-xs shadow-md shadow-amber-500/5 group"
-          >
-            <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
-              <span>Dasbor Panel Administrator</span>
-            </div>
-            <span className="text-[10px] px-2.5 py-1 rounded-xl bg-amber-500 text-slate-950 font-black flex items-center gap-1 group-hover:brightness-110">
-              Buka Langsung
-            </span>
-          </button>
-        </div>
+        {/* Administrator Portal Switch - ONLY VISIBLE IF LOGGED IN AS ADMIN */}
+        {isAdmin && (
+          <div className="mt-4 pt-3 border-t border-slate-800/80">
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                setIsAdminModalOpen(true);
+              }}
+              className="w-full py-2.5 px-3 rounded-2xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 hover:text-amber-200 transition-all flex items-center justify-between font-bold text-xs shadow-md shadow-amber-500/5 group"
+            >
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+                <span>Dasbor Panel Administrator</span>
+              </div>
+              <span className="text-[10px] px-2.5 py-1 rounded-xl bg-amber-500 text-slate-950 font-black flex items-center gap-1 group-hover:brightness-110">
+                Buka Langsung
+              </span>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
