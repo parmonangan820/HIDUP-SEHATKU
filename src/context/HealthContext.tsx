@@ -35,6 +35,8 @@ import {
 interface HealthContextType {
   profile: UserProfile;
   updateProfile: (newProfile: Partial<UserProfile>) => void;
+  bannerSlides: BannerSlide[];
+  updateBannerSlide: (index: number, updated: Partial<BannerSlide>) => void;
   createNewAccount: (newProfile: Omit<UserProfile, 'isRegistered'>) => Promise<void>;
   resetAllDataToZero: () => Promise<void>;
   configureSupabaseConnection: (
@@ -328,6 +330,39 @@ function generateInitialHistory(todayStr: string, profile: UserProfile): Record<
   return history;
 }
 
+export interface BannerSlide {
+  id: number;
+  title: string;
+  subtitle: string;
+  badge: string;
+  imageUrl?: string;
+  bgGradient: string;
+}
+
+const DEFAULT_BANNER_SLIDES: BannerSlide[] = [
+  {
+    id: 1,
+    title: 'Selamat Datang di Aplikasi Hidup Sehatku',
+    subtitle: 'Langkah kecil hari ini, untuk hidup yang lebih sehat esok hari.',
+    badge: '1/3',
+    bgGradient: 'from-cyan-600 via-sky-600 to-blue-700',
+  },
+  {
+    id: 2,
+    title: 'Minum Air Putih Secara Teratur',
+    subtitle: 'Jaga cairan tubuh, tingkatkan energi, dan dukung kesehatanmu setiap hari.',
+    badge: '2/3',
+    bgGradient: 'from-blue-700 via-sky-600 to-cyan-600',
+  },
+  {
+    id: 3,
+    title: 'Olahraga Teratur',
+    subtitle: 'Jaga kebugaran, kuatkan tubuh, dan tingkatkan kualitas hidup.',
+    badge: '3/3',
+    bgGradient: 'from-emerald-700 via-green-600 to-teal-700',
+  },
+];
+
 const DEFAULT_PROFILE: UserProfile = {
   name: 'Budi Pratama',
   phone: '0812-3456-7890',
@@ -352,6 +387,25 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   });
 
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString());
+
+  const [bannerSlides, setBannerSlides] = useState<BannerSlide[]>(() => {
+    try {
+      const saved = localStorage.getItem('hidupsehat_custom_banners');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+    return DEFAULT_BANNER_SLIDES;
+  });
+
+  const updateBannerSlide = (index: number, updated: Partial<BannerSlide>) => {
+    setBannerSlides((prev) => {
+      const newSlides = [...prev];
+      newSlides[index] = { ...newSlides[index], ...updated };
+      localStorage.setItem('hidupsehat_custom_banners', JSON.stringify(newSlides));
+      return newSlides;
+    });
+  };
 
   const [history, setHistory] = useState<Record<string, DayRecord>>(() => {
     try {
@@ -1508,6 +1562,8 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         weeklySummary: calculateWeeklySummary(),
         monthlySummary: calculateMonthlySummary(),
         todayWaterByPeriod,
+        bannerSlides,
+        updateBannerSlide,
       }}
     >
       {children}
