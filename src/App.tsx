@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { HealthProvider, useHealth } from './context/HealthContext';
 import { AppShell } from './components/AppShell';
 import { TopHeader } from './components/TopHeader';
@@ -25,7 +25,19 @@ import { Footer } from './components/Footer';
 import { Mic, Droplet, Megaphone, X } from 'lucide-react';
 
 function MainApp() {
-  const { activeAnnouncement, dismissAnnouncement, isProModalOpen, setIsProModalOpen } = useHealth();
+  const {
+    activeAnnouncement,
+    dismissAnnouncement,
+    isProModalOpen,
+    setIsProModalOpen,
+    isAdminModalOpen,
+    setIsAdminModalOpen,
+    isAdminLoginModalOpen,
+    setIsAdminLoginModalOpen,
+    isAccountModalOpen,
+    setIsAccountModalOpen,
+  } = useHealth();
+
   const [activeTab, setActiveTab] = useState<NavTab>('home');
   const [deviceMode, setDeviceMode] = useState<'android' | 'ios' | 'full'>('full');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -33,6 +45,142 @@ function MainApp() {
   const [isVoiceDrinkOpen, setIsVoiceDrinkOpen] = useState(false);
   const [isSupabaseSyncOpen, setIsSupabaseSyncOpen] = useState(false);
   const [isAffiliateOpen, setIsAffiliateOpen] = useState(false);
+
+  // Check if any modal is currently active
+  const isAnyModalOpen = Boolean(
+    isProfileOpen ||
+    isAiChatOpen ||
+    isVoiceDrinkOpen ||
+    isSupabaseSyncOpen ||
+    isAffiliateOpen ||
+    isAdminModalOpen ||
+    isAdminLoginModalOpen ||
+    isAccountModalOpen ||
+    isProModalOpen
+  );
+
+  // Ref to hold current state without stale closures in popstate listener
+  const modalStateRef = useRef({
+    isProfileOpen,
+    isAiChatOpen,
+    isVoiceDrinkOpen,
+    isSupabaseSyncOpen,
+    isAffiliateOpen,
+    isAdminModalOpen,
+    isAdminLoginModalOpen,
+    isAccountModalOpen,
+    isProModalOpen,
+    activeTab,
+  });
+
+  useEffect(() => {
+    modalStateRef.current = {
+      isProfileOpen,
+      isAiChatOpen,
+      isVoiceDrinkOpen,
+      isSupabaseSyncOpen,
+      isAffiliateOpen,
+      isAdminModalOpen,
+      isAdminLoginModalOpen,
+      isAccountModalOpen,
+      isProModalOpen,
+      activeTab,
+    };
+  }, [
+    isProfileOpen,
+    isAiChatOpen,
+    isVoiceDrinkOpen,
+    isSupabaseSyncOpen,
+    isAffiliateOpen,
+    isAdminModalOpen,
+    isAdminLoginModalOpen,
+    isAccountModalOpen,
+    isProModalOpen,
+    activeTab,
+  ]);
+
+  // Push history state whenever a modal opens
+  const prevModalOpenRef = useRef(false);
+  useEffect(() => {
+    if (isAnyModalOpen && !prevModalOpenRef.current) {
+      window.history.pushState({ isModal: true }, '');
+    }
+    prevModalOpenRef.current = isAnyModalOpen;
+  }, [isAnyModalOpen]);
+
+  // Tab change handler that pushes tab state to browser history
+  const handleTabChange = (newTab: NavTab) => {
+    if (newTab !== activeTab) {
+      setActiveTab(newTab);
+      window.history.pushState({ tab: newTab }, '');
+    }
+  };
+
+  // Hardware Back Button / Browser Back Button Listener
+  useEffect(() => {
+    // Replace initial state
+    if (!window.history.state) {
+      window.history.replaceState({ tab: 'home' }, '');
+    }
+
+    const handlePopState = (event: PopStateEvent) => {
+      const current = modalStateRef.current;
+
+      // 1. If any modal is open, close the active modal
+      if (current.isProfileOpen) {
+        setIsProfileOpen(false);
+        return;
+      }
+      if (current.isAffiliateOpen) {
+        setIsAffiliateOpen(false);
+        return;
+      }
+      if (current.isAiChatOpen) {
+        setIsAiChatOpen(false);
+        return;
+      }
+      if (current.isVoiceDrinkOpen) {
+        setIsVoiceDrinkOpen(false);
+        return;
+      }
+      if (current.isSupabaseSyncOpen) {
+        setIsSupabaseSyncOpen(false);
+        return;
+      }
+      if (current.isAdminModalOpen) {
+        setIsAdminModalOpen(false);
+        return;
+      }
+      if (current.isAdminLoginModalOpen) {
+        setIsAdminLoginModalOpen(false);
+        return;
+      }
+      if (current.isAccountModalOpen) {
+        setIsAccountModalOpen(false);
+        return;
+      }
+      if (current.isProModalOpen) {
+        setIsProModalOpen(false);
+        return;
+      }
+
+      // 2. If state contains a target tab, switch to it
+      if (event.state && event.state.tab) {
+        setActiveTab(event.state.tab);
+        return;
+      }
+
+      // 3. Otherwise if activeTab is not 'home', revert to 'home'
+      if (current.activeTab !== 'home') {
+        setActiveTab('home');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
 
   return (
     <AppShell deviceMode={deviceMode} setDeviceMode={setDeviceMode}>
@@ -86,7 +234,7 @@ function MainApp() {
         <main className="flex-1 p-4 max-w-md mx-auto w-full">
           {activeTab === 'home' && (
             <HomeTab
-              setActiveTab={setActiveTab}
+              setActiveTab={handleTabChange}
               onOpenAiChat={() => setIsAiChatOpen(true)}
               onOpenProfile={() => setIsProfileOpen(true)}
               onOpenVoiceDrink={() => setIsVoiceDrinkOpen(true)}
@@ -120,7 +268,7 @@ function MainApp() {
         <div className="fixed bottom-20 right-4 sm:right-6 lg:right-8 z-30 pointer-events-auto">
           <button
             onClick={() => setIsVoiceDrinkOpen(true)}
-            className="flex items-center gap-2 pl-3 pr-4 py-2.5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs shadow-xl shadow-cyan-500/30 hover:scale-105 active:scale-95 transition-all group"
+            className="flex items-center gap-2 pl-3 pr-4 py-2.5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs shadow-xl shadow-cyan-500/30 hover:scale-105 active:scale-95 transition-all group cursor-pointer"
             title="Tombol Minum Suara AI (Katakan 'Minum 100 ml', 'Minum satu gelas', dll)"
           >
             <div className="w-6 h-6 rounded-full bg-slate-950 flex items-center justify-center text-cyan-400 group-hover:scale-110 transition-transform">
@@ -134,7 +282,7 @@ function MainApp() {
         </div>
 
         {/* Bottom Navigation */}
-        <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
+        <BottomNav activeTab={activeTab} setActiveTab={handleTabChange} />
 
         {/* Modals */}
         <ProfileModal
