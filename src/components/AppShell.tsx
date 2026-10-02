@@ -82,32 +82,6 @@ export const AppShell: React.FC<AppShellProps> = ({
             : 'max-w-md min-h-screen lg:min-h-[860px] lg:max-h-[94vh] lg:rounded-[44px] lg:border-[8px] lg:border-slate-800 lg:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.9)] overflow-hidden flex flex-col bg-slate-950'
         } relative`}
       >
-        {/* Device Status Bar (Top Header for Android / iOS) */}
-        {deviceMode !== 'full' && (
-          <div className="w-full bg-slate-900/95 text-slate-300 text-xs px-6 pt-2 pb-1 flex items-center justify-between z-40 select-none border-b border-slate-800/60">
-            {/* Left: Time */}
-            <span className="font-bold text-[12px] tracking-tight text-white">{currentTime}</span>
-
-            {/* Center: Camera Punch hole (Android) or Dynamic Island (iOS) */}
-            {deviceMode === 'android' ? (
-              <div className="w-3.5 h-3.5 rounded-full bg-slate-950 border border-slate-800 flex items-center justify-center">
-                <div className="w-1.5 h-1.5 rounded-full bg-cyan-950"></div>
-              </div>
-            ) : (
-              <div className="w-20 h-4 rounded-full bg-black border border-slate-800 flex items-center justify-end px-2">
-                <div className="w-2 h-2 rounded-full bg-cyan-950"></div>
-              </div>
-            )}
-
-            {/* Right: Icons (Signal, Wifi, Battery) */}
-            <div className="flex items-center gap-1.5 text-slate-300">
-              <Signal className="w-3.5 h-3.5" />
-              <Wifi className="w-3.5 h-3.5" />
-              <Battery className="w-4 h-4 text-emerald-400" />
-            </div>
-          </div>
-        )}
-
         {/* Scrollable App Body */}
         <div className="flex-1 overflow-y-auto scroll-smooth">{children}</div>
 
