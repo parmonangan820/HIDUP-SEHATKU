@@ -466,18 +466,18 @@ export const AdminPanelModal: React.FC = () => {
           {activeTab === 'banners' && (
             <div className="space-y-4 max-w-2xl mx-auto">
               <div className="p-4 rounded-2xl bg-cyan-950/40 border border-cyan-500/30 text-xs text-cyan-200">
-                <strong>Kelola Banner Image Slider (Rasio 8:2 / Lebar 8cm x Tinggi 2cm):</strong> Upload gambar banner (Format: JPEG, JPG, PNG, GIF, dll.) untuk 3 slide banner beranda.
+                <strong>Kelola Banner Image Slider (Panjang 8 cm x Lebar 1 cm):</strong> Upload gambar banner (Format: JPEG, JPG, PNG, GIF, dll.) untuk 3 slide banner beranda.
               </div>
 
               {bannerForm.map((slide, index) => (
                 <div key={slide.id} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-cyan-400">Slide Banner #{index + 1}</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300">Rasio 8:2</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300">8 cm x 1 cm</span>
                   </div>
 
                   {/* Image Preview */}
-                  <div className="relative w-full aspect-[8/2] rounded-xl overflow-hidden bg-slate-900 border border-slate-800 flex items-center justify-center">
+                  <div className="relative w-full aspect-[8/1] rounded-xl overflow-hidden bg-slate-900 border border-slate-800 flex items-center justify-center">
                     {slide.imageUrl ? (
                       <img
                         src={slide.imageUrl}
