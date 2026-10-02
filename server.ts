@@ -1185,6 +1185,22 @@ function parseIndonesianWaterVoice(text: string): { amountMl: number; containerT
     return { amountMl: 2000, containerType: 'galon', note: '2 Liter air' };
   }
 
+  // Pattern: "X teguk" / "5 teguk" / "10 teguk"
+  const tegukMatch = lower.match(/(\d+)\s*teguk/);
+  if (tegukMatch && tegukMatch[1]) {
+    const teguks = parseInt(tegukMatch[1], 10);
+    if (teguks > 0) {
+      const ml = teguks * 10;
+      return { amountMl: ml, containerType: 'cangkir', note: `${teguks} Teguk air (${ml} ml)` };
+    }
+  }
+  if (lower.includes('5 teguk') || lower.includes('lima teguk')) {
+    return { amountMl: 50, containerType: 'cangkir', note: '5 Teguk air (50 ml)' };
+  }
+  if (lower.includes('10 teguk') || lower.includes('sepuluh teguk')) {
+    return { amountMl: 100, containerType: 'cangkir', note: '10 Teguk air (100 ml)' };
+  }
+
   // Pattern: "X gelas" / "segelas"
   if (lower.includes('tiga gelas') || lower.includes('3 gelas')) {
     return { amountMl: 750, containerType: 'gelas', note: '3 Gelas air' };

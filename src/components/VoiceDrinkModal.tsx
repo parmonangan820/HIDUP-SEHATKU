@@ -105,8 +105,8 @@ export const VoiceDrinkModal: React.FC<VoiceDrinkModalProps> = ({ isOpen, onClos
         }, 150);
       }
     } else {
-      setTranscript('Minum 100 ml');
-      handleProcessVoice('Minum 100 ml');
+      setTranscript('Minum 5 teguk');
+      handleProcessVoice('Minum 5 teguk');
     }
   };
 
@@ -123,6 +123,22 @@ export const VoiceDrinkModal: React.FC<VoiceDrinkModalProps> = ({ isOpen, onClos
 
   const parseVoiceLocally = (text: string) => {
     const lower = text.toLowerCase();
+
+    // Check "X teguk" (1 teguk = 10 ml)
+    const tegukMatch = lower.match(/(\d+)\s*teguk/);
+    if (tegukMatch && tegukMatch[1]) {
+      const teguks = parseInt(tegukMatch[1], 10);
+      if (teguks > 0) {
+        const ml = teguks * 10;
+        return { amountMl: ml, containerType: 'cangkir' as const, note: `${teguks} Teguk air (${ml} ml)` };
+      }
+    }
+    if (lower.includes('5 teguk') || lower.includes('lima teguk')) {
+      return { amountMl: 50, containerType: 'cangkir' as const, note: '5 Teguk air (50 ml)' };
+    }
+    if (lower.includes('10 teguk') || lower.includes('sepuluh teguk')) {
+      return { amountMl: 100, containerType: 'cangkir' as const, note: '10 Teguk air (100 ml)' };
+    }
 
     // Check explicit numbers with ml
     const mlMatch = lower.match(/(\d+)\s*(ml|mili|mililiter)?/);
@@ -155,7 +171,7 @@ export const VoiceDrinkModal: React.FC<VoiceDrinkModalProps> = ({ isOpen, onClos
     let container: 'gelas' | 'cangkir' | 'botol' | 'tumbler' | 'galon' | 'custom' = 'gelas';
     let note = 'Minum 250 ml';
 
-    // 1. Precise local parse first to ensure exact spoken values (e.g. 100 ml)
+    // 1. Precise local parse first to ensure exact spoken values (e.g. 5 teguk / 100 ml)
     const localParsed = parseVoiceLocally(textToParse);
     if (localParsed) {
       amount = localParsed.amountMl;
@@ -243,7 +259,7 @@ export const VoiceDrinkModal: React.FC<VoiceDrinkModalProps> = ({ isOpen, onClos
                 </span>
               </h3>
               <p className="text-xs text-slate-400">
-                Ucapkan atau ketik perintah suara untuk mendata air.
+                Ucapkan atau ketik perintah suara (termasuk teguk).
               </p>
             </div>
           </div>
@@ -321,11 +337,11 @@ export const VoiceDrinkModal: React.FC<VoiceDrinkModalProps> = ({ isOpen, onClos
                 ) : isListening ? (
                   <p className="text-xs text-slate-400 flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-rose-400 animate-ping"></span>
-                    Katakan: "Minum 100 ml", "Minum 200 ml"...
+                    Katakan: "5 teguk", "10 teguk", "Minum 100 ml"...
                   </p>
                 ) : (
                   <p className="text-xs text-slate-400">
-                    Contoh: "Minum 100 ml", "Minum satu gelas"
+                    Contoh: "5 teguk", "10 teguk", "Minum 100 ml"
                   </p>
                 )}
               </div>
@@ -368,7 +384,7 @@ export const VoiceDrinkModal: React.FC<VoiceDrinkModalProps> = ({ isOpen, onClos
                 type="text"
                 value={manualInputText}
                 onChange={(e) => setManualInputText(e.target.value)}
-                placeholder="Misal: 'Minum 100 ml' atau 'Minum 250 ml'..."
+                placeholder="Misal: '5 teguk', '10 teguk', 'Minum 100 ml'..."
                 className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
               />
               <button
@@ -387,49 +403,53 @@ export const VoiceDrinkModal: React.FC<VoiceDrinkModalProps> = ({ isOpen, onClos
             <span className="text-[11px] font-semibold text-slate-400 block mb-2">
               Atau Ketuk Contoh Perintah Suara:
             </span>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <button
-                onClick={() => handleQuickPreset(100, 'cangkir', 'Minum 100 ml')}
-                className="p-2 rounded-xl bg-slate-950/80 hover:bg-slate-800 border border-slate-800 text-left transition-colors flex items-center justify-between group"
+                onClick={() => handleQuickPreset(50, 'cangkir', '5 teguk')}
+                className="p-2 rounded-xl bg-slate-950/80 hover:bg-slate-800 border border-slate-800 text-left transition-colors flex flex-col justify-between group"
               >
-                <div>
-                  <span className="text-xs font-bold text-white block group-hover:text-cyan-300">"Minum 100 ml"</span>
-                  <span className="text-[10px] text-slate-400">Porsi kecil</span>
-                </div>
-                <span className="text-xs font-black text-cyan-400">100ml</span>
+                <span className="text-xs font-bold text-white group-hover:text-cyan-300">"5 Teguk"</span>
+                <span className="text-[10px] font-black text-cyan-400 mt-1">50 ml</span>
+              </button>
+
+              <button
+                onClick={() => handleQuickPreset(100, 'cangkir', '10 teguk')}
+                className="p-2 rounded-xl bg-slate-950/80 hover:bg-slate-800 border border-slate-800 text-left transition-colors flex flex-col justify-between group"
+              >
+                <span className="text-xs font-bold text-white group-hover:text-cyan-300">"10 Teguk"</span>
+                <span className="text-[10px] font-black text-cyan-400 mt-1">100 ml</span>
               </button>
 
               <button
                 onClick={() => handleQuickPreset(200, 'gelas', 'Minum 200 ml')}
-                className="p-2 rounded-xl bg-slate-950/80 hover:bg-slate-800 border border-slate-800 text-left transition-colors flex items-center justify-between group"
+                className="p-2 rounded-xl bg-slate-950/80 hover:bg-slate-800 border border-slate-800 text-left transition-colors flex flex-col justify-between group"
               >
-                <div>
-                  <span className="text-xs font-bold text-white block group-hover:text-cyan-300">"Minum 200 ml"</span>
-                  <span className="text-[10px] text-slate-400">1 Gelas sedang</span>
-                </div>
-                <span className="text-xs font-black text-cyan-400">200ml</span>
+                <span className="text-xs font-bold text-white group-hover:text-cyan-300">"200 ml"</span>
+                <span className="text-[10px] font-black text-cyan-400 mt-1">200 ml</span>
               </button>
 
               <button
                 onClick={() => handleQuickPreset(250, 'gelas', 'Minum satu gelas')}
-                className="p-2 rounded-xl bg-slate-950/80 hover:bg-slate-800 border border-slate-800 text-left transition-colors flex items-center justify-between group"
+                className="p-2 rounded-xl bg-slate-950/80 hover:bg-slate-800 border border-slate-800 text-left transition-colors flex flex-col justify-between group"
               >
-                <div>
-                  <span className="text-xs font-bold text-white block group-hover:text-cyan-300">"Minum satu gelas"</span>
-                  <span className="text-[10px] text-slate-400">Standar gelas</span>
-                </div>
-                <span className="text-xs font-black text-cyan-400">250ml</span>
+                <span className="text-xs font-bold text-white group-hover:text-cyan-300">"1 Gelas"</span>
+                <span className="text-[10px] font-black text-cyan-400 mt-1">250 ml</span>
               </button>
 
               <button
                 onClick={() => handleQuickPreset(500, 'gelas', 'Minum dua gelas')}
-                className="p-2 rounded-xl bg-slate-950/80 hover:bg-slate-800 border border-slate-800 text-left transition-colors flex items-center justify-between group"
+                className="p-2 rounded-xl bg-slate-950/80 hover:bg-slate-800 border border-slate-800 text-left transition-colors flex flex-col justify-between group"
               >
-                <div>
-                  <span className="text-xs font-bold text-white block group-hover:text-cyan-300">"Minum dua gelas"</span>
-                  <span className="text-[10px] text-slate-400">Botol sedang</span>
-                </div>
-                <span className="text-xs font-black text-cyan-400">500ml</span>
+                <span className="text-xs font-bold text-white group-hover:text-cyan-300">"2 Gelas"</span>
+                <span className="text-[10px] font-black text-cyan-400 mt-1">500 ml</span>
+              </button>
+
+              <button
+                onClick={() => handleQuickPreset(600, 'botol', '1 Botol')}
+                className="p-2 rounded-xl bg-slate-950/80 hover:bg-slate-800 border border-slate-800 text-left transition-colors flex flex-col justify-between group"
+              >
+                <span className="text-xs font-bold text-white group-hover:text-cyan-300">"1 Botol"</span>
+                <span className="text-[10px] font-black text-cyan-400 mt-1">600 ml</span>
               </button>
             </div>
           </div>
