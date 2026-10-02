@@ -364,8 +364,8 @@ const DEFAULT_BANNER_SLIDES: BannerSlide[] = [
 ];
 
 const DEFAULT_PROFILE: UserProfile = {
-  name: 'Budi Pratama',
-  phone: '0812-3456-7890',
+  name: 'Canggih Marbun',
+  phone: '085760525942',
   age: 26,
   gender: 'pria',
   weight: 64,

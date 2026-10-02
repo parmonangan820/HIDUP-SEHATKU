@@ -185,20 +185,6 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose }) =
           </div>
 
           <div className="flex items-center gap-1.5 flex-shrink-0">
-            {/* Tombol Ganti / Pindah Akun */}
-            <button
-              type="button"
-              onClick={() => {
-                onClose();
-                setIsAccountModalOpen(true);
-              }}
-              className="py-1.5 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-750 text-cyan-300 text-xs font-bold flex items-center gap-1.5 border border-slate-700 transition-colors"
-              title="Ganti / Pindah Akun Lain"
-            >
-              <ArrowLeftRight className="w-3.5 h-3.5" />
-              <span>Ganti Akun</span>
-            </button>
-
             {/* Tombol Logout atau Login */}
             {profile.isRegistered || profile.isLoggedIn ? (
               <button
