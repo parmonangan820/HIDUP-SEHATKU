@@ -112,13 +112,13 @@ export const AdminLoginModal: React.FC = () => {
               </button>
             </div>
             <div className="flex items-center justify-between text-[11px] text-slate-400 mt-2">
-              <span>PIN Standar Sistem:</span>
+              <span>PIN Admin Canggih Marbun:</span>
               <button
                 type="button"
-                onClick={() => handleQuickFill('8820')}
+                onClick={() => handleQuickFill('060319')}
                 className="text-amber-400 font-mono font-bold hover:underline"
               >
-                8820
+                060319
               </button>
             </div>
           </div>

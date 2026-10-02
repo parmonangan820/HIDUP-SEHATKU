@@ -17,6 +17,7 @@ export interface UserProfile {
   id?: string;
   name: string;
   phone: string;
+  email?: string;
   age: number;
   gender: 'pria' | 'wanita';
   weight: number; // in kg
