@@ -466,56 +466,51 @@ export const AdminPanelModal: React.FC = () => {
           {activeTab === 'banners' && (
             <div className="space-y-4 max-w-2xl mx-auto">
               <div className="p-4 rounded-2xl bg-cyan-950/40 border border-cyan-500/30 text-xs text-cyan-200">
-                <strong>Pengaturan Banner Slider (Rasio 8:3 / Lebar 8cm x Tinggi 3cm):</strong> Admin dapat memperbarui judul, subjudul, dan tautan gambar untuk 3 slide banner yang tampil di beranda pengguna.
+                <strong>Kelola Banner Image Slider (Rasio 8:3 / Lebar 8cm x Tinggi 3cm):</strong> Upload gambar banner (Format: JPEG, JPG, PNG, GIF, dll.) untuk 3 slide banner beranda.
               </div>
 
               {bannerForm.map((slide, index) => (
                 <div key={slide.id} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-cyan-400">Slide #{index + 1}</span>
+                    <span className="text-xs font-bold text-cyan-400">Slide Banner #{index + 1}</span>
                     <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300">Rasio 8:3</span>
                   </div>
 
-                  <div>
-                    <label className="text-[11px] font-semibold text-slate-300 block mb-1">Judul Banner</label>
-                    <input
-                      type="text"
-                      value={slide.title}
-                      onChange={(e) => {
-                        const updated = [...bannerForm];
-                        updated[index].title = e.target.value;
-                        setBannerForm(updated);
-                      }}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
-                    />
+                  {/* Image Preview */}
+                  <div className="relative w-full aspect-[8/3] rounded-xl overflow-hidden bg-slate-900 border border-slate-800 flex items-center justify-center">
+                    {slide.imageUrl ? (
+                      <img
+                        src={slide.imageUrl}
+                        alt={`Preview Slide ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="text-center p-4 text-slate-500 text-xs">
+                        Belum ada gambar yang di-upload untuk slide ini
+                      </div>
+                    )}
                   </div>
 
+                  {/* File Upload Input */}
                   <div>
-                    <label className="text-[11px] font-semibold text-slate-300 block mb-1">Subjudul / Deskripsi</label>
+                    <label className="text-[11px] font-semibold text-slate-300 block mb-1">Upload Gambar Banner (JPEG, JPG, PNG, GIF)</label>
                     <input
-                      type="text"
-                      value={slide.subtitle}
+                      type="file"
+                      accept="image/*"
                       onChange={(e) => {
-                        const updated = [...bannerForm];
-                        updated[index].subtitle = e.target.value;
-                        setBannerForm(updated);
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (event) => {
+                            const result = event.target?.result as string;
+                            const updated = [...bannerForm];
+                            updated[index].imageUrl = result;
+                            setBannerForm(updated);
+                          };
+                          reader.readAsDataURL(file);
+                        }
                       }}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-semibold text-slate-300 block mb-1">URL Gambar Latar (Opsional)</label>
-                    <input
-                      type="text"
-                      value={slide.imageUrl || ''}
-                      onChange={(e) => {
-                        const updated = [...bannerForm];
-                        updated[index].imageUrl = e.target.value;
-                        setBannerForm(updated);
-                      }}
-                      placeholder="https://example.com/banner-image.jpg"
-                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500"
+                      className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-cyan-500 file:text-slate-950 hover:file:bg-cyan-400 cursor-pointer"
                     />
                   </div>
 
@@ -523,12 +518,12 @@ export const AdminPanelModal: React.FC = () => {
                     <button
                       onClick={() => {
                         updateBannerSlide(index, bannerForm[index]);
-                        setActionFeedback({ type: 'success', message: `Slide #${index + 1} berhasil diperbarui!` });
+                        setActionFeedback({ type: 'success', message: `Gambar Slide #${index + 1} berhasil disimpan!` });
                         setTimeout(() => setActionFeedback(null), 3000);
                       }}
                       className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs shadow-md transition-colors"
                     >
-                      Simpan Perubahan Slide
+                      Simpan Gambar Slide
                     </button>
                   </div>
                 </div>

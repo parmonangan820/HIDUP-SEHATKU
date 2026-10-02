@@ -332,34 +332,25 @@ function generateInitialHistory(todayStr: string, profile: UserProfile): Record<
 
 export interface BannerSlide {
   id: number;
-  title: string;
-  subtitle: string;
-  badge: string;
   imageUrl?: string;
-  bgGradient: string;
+  badge: string;
 }
 
 const DEFAULT_BANNER_SLIDES: BannerSlide[] = [
   {
     id: 1,
-    title: 'Selamat Datang di Aplikasi Hidup Sehatku',
-    subtitle: 'Langkah kecil hari ini, untuk hidup yang lebih sehat esok hari.',
     badge: '1/3',
-    bgGradient: 'from-cyan-600 via-sky-600 to-blue-700',
+    imageUrl: '',
   },
   {
     id: 2,
-    title: 'Minum Air Putih Secara Teratur',
-    subtitle: 'Jaga cairan tubuh, tingkatkan energi, dan dukung kesehatanmu setiap hari.',
     badge: '2/3',
-    bgGradient: 'from-blue-700 via-sky-600 to-cyan-600',
+    imageUrl: '',
   },
   {
     id: 3,
-    title: 'Olahraga Teratur',
-    subtitle: 'Jaga kebugaran, kuatkan tubuh, dan tingkatkan kualitas hidup.',
     badge: '3/3',
-    bgGradient: 'from-emerald-700 via-green-600 to-teal-700',
+    imageUrl: '',
   },
 ];
 
