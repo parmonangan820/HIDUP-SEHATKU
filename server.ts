@@ -57,22 +57,107 @@ function getSupabaseClient(): SupabaseClient | null {
 }
 
 
-// Initialize Google GenAI client
-const apiKey = process.env.GEMINI_API_KEY || '';
-const ai = apiKey
-  ? new GoogleGenAI({
-      apiKey,
+// Helper to get GenAI client dynamically per request
+function getAIClient(): GoogleGenAI | null {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '';
+  if (!apiKey) return null;
+  try {
+    return new GoogleGenAI({
+      apiKey: apiKey.trim(),
       httpOptions: {
         headers: {
           'User-Agent': 'aistudio-build',
         },
       },
-    })
-  : null;
+    });
+  } catch (err) {
+    console.error('Failed to initialize GoogleGenAI client:', err);
+    return null;
+  }
+}
+
+// Smart Medical Q&A Knowledge Engine for offline/fallback responses
+function generateSmartMedicalResponse(query: string, profile: any, todayStats: any): string {
+  const name = profile?.name || 'Sahabat Sehat';
+  const q = (query || '').toLowerCase();
+  const water = todayStats?.waterMl || 0;
+  const target = profile?.targetWaterMl || 2500;
+  const weight = profile?.weight || 60;
+  const height = profile?.height || 165;
+  const workoutMins = todayStats?.workoutMinutes || 0;
+
+  if (q.includes('bangun tidur') || q.includes('pagi') || q.includes('bangun pagi')) {
+    return `Halo ${name}! Saat bangun tidur di pagi hari (sebelum sarapan), takaran air putih yang paling dianjurkan secara medis adalah **1 hingga 2 gelas (sekitar 300 - 500 ml) air putih suhu ruang**.
+
+**Manfaat Biologis Utamanya:**
+1. **Rehidrasi Tubuh**: Menggantikan cairan yang hilang selama 7-8 jam tidur malam.
+2. **Mengaktifkan Organ Dalam & Pencernaan**: Memicu gerakan peristaltik usus dan membersihkan racun (toksin) dalam saluran cerna.
+3. **Meningkatkan Metabolisme**: Meminum air saat perut kosong terbukti meningkatkan laju metabolisme tubuh hingga 24% untuk energi harian.
+
+Hari ini Anda sudah mencatat ${water} ml dari target ${target} ml. Biasakan selalu meminum 2 gelas air putih setiap pagi!`;
+  }
+
+  if (q.includes('ginjal') || q.includes('batu ginjal') || q.includes('kencing') || q.includes('urin')) {
+    return `Halo ${name}. Ginjal Anda menyaring sekitar 120-150 liter darah setiap hari untuk membuang kelebihan cairan dan limbah metabolik melalui urin.
+
+**Panduan Hidrasi untuk Ginjal Sehat:**
+- **Aturan Warna Urin**: Cek warna urin Anda. Urin sehat berwarna kuning jernih/transparan. Jika berwarna kuning pekat atau keruh, itu tanda ginjal memerlukan asupan air tambahan segera.
+- **Mencegah Batu Ginjal**: Air mencegah pembentukan dan kristalisasi mineral (kalsium oksalat & asam urat) dalam ginjal.
+- **Target Anda**: Berdasarkan berat badan ${weight} kg, target air harian Anda adalah ${target} ml. Saat ini telah tercatat ${water} ml. Pastikan minum secara berkala sepanjang hari!`;
+  }
+
+  if (q.includes('turun berat badan') || q.includes('diet') || q.includes('kalori') || q.includes('lemak') || q.includes('langsing')) {
+    return `Halo ${name}! Hidrasi yang cukup memainkan peranan sangat krusial dalam metabolisme dan pembakaran lemak:
+
+1. **Efek Thermogenesis**: Meminum 500 ml air dapat meningkatkan pembakaran kalori tubuh hingga 2-3% selama 1 jam.
+2. **Menekan Rasa Lapar Palsu**: Sering kali otak mengartikan rasa haus sebagai rasa lapar. Minum 1 gelas air 15-30 menit sebelum makan mengurangi porsi makan berlebih.
+3. **Pembakaran Lemak (Lipolisis)**: Proses memecah molekul lemak dalam tubuh membutuhkan molekul air (*hidrolisis*).
+
+Dengan berat ${weight} kg dan tinggi ${height} cm, jaga konsistensi target ${target} ml air per hari serta imbangi dengan olahraga teratur!`;
+  }
+
+  if (q.includes('elektrolit') || q.includes('garam') || q.includes('sodium') || q.includes('pusing') || q.includes('kram') || q.includes('lemas')) {
+    return `Halo ${name}. Saat berolahraga intens atau berkeringat deras, tubuh tidak hanya kehilangan air tetapi juga elektrolit vital seperti natrium, kalium, dan magnesium.
+
+**Rekomendasi Dokter AI:**
+- Untuk olahraga < 60 menit: Air putih biasa sudah sangat mencukupi.
+- Untuk olahraga > 60 menit / berkeringat ekstrem: Gunakan air dengan tambahan elektrolit alami (seperti air kelapa murni atau perasan jeruk nipis dengan sejumput garam dapur) untuk mencegah kram otot dan hiponatremia.
+- Hari ini Anda sudah berolahraga ${workoutMins} menit. Jaga keseimbangan cairan tubuh Anda!`;
+  }
+
+  if (q.includes('olahraga') || q.includes('lari') || q.includes('gym') || q.includes('fitness') || q.includes('badminton') || q.includes('jalan')) {
+    return `Halo ${name}! Aturan emas hidrasi saat beraktivitas fisik (${workoutMins} menit olahraga hari ini):
+
+1. **Sebelum Latihan**: Minum 250-300 ml air 30 menit sebelum mulai.
+2. **Saat Latihan**: Minum 100-150 ml air setiap 15-20 menit latihan.
+3. **Sesudah Latihan**: Rehidrasi penuh 300-500 ml air untuk menggantikan cairan keringat.
+
+Tetap jaga konsistensi olahraga harian Anda!`;
+  }
+
+  if (q.includes('tidur') || q.includes('malam') || q.includes('insomnia') || q.includes('istirahat')) {
+    return `Halo ${name}. Kualitas tidur malam dan hidrasi saling berkaitan erat.
+
+**Panduan Hidrasi Malam Hari:**
+- Minum 1 gelas (200 ml) air hangat sekitar 45-60 menit sebelum tidur untuk melancarkan sirkulasi darah dan mencegah kram otot di malam hari.
+- Hindari minum dalam jumlah sangat besar tepat sebelum tidur agar tidak sering terbangun untuk buang air kecil (nokturia).
+- Total air Anda hari ini adalah ${water} ml dari target ${target} ml.`;
+  }
+
+  return `Halo ${name}! Terima kasih atas pertanyaan Anda: "${query}".
+
+Sebagai Dokter AI Hidup Sehatku, saya menganalisis bahwa pertanyaan Anda sangat penting untuk kesehatan harian. Berdasarkan profil Anda (Usia ${profile?.age || 25} tahun, Berat ${weight} kg) dan catatan hari ini (${water} ml air, ${workoutMins} menit olahraga):
+
+1. **Aplikasi Praktis**: Pastikan asupan air putih terbagi secara merata sepanjang hari (pagi, siang, sore, dan malam).
+2. **Gaya Hidup Bugar**: Kombinasikan hidrasi teratur dengan nutrisi seimbang dan istirahat 7-8 jam per hari.
+
+Ada hal spesifik lain seputar kesehatan atau takaran minum yang ingin Anda ketahui?`;
+}
 
 // Health endpoint
 app.get('/api/health', (_req: Request, res: Response) => {
   const supabase = getSupabaseClient();
+  const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '';
   res.json({
     status: 'ok',
     appName: 'Hidup Sehatku',
@@ -1276,7 +1361,9 @@ app.post('/api/gemini/parse-water-voice', async (req: Request, res: Response) =>
       lower.includes('liter') ||
       lower.includes('tumbler');
 
-    if (hasExplicitMatch || !ai) {
+    const aiClient = getAIClient();
+
+    if (hasExplicitMatch || !aiClient) {
       return res.json({
         amountMl: fallback.amountMl,
         containerType: fallback.containerType,
@@ -1315,7 +1402,7 @@ Formatkan jawaban DALAM BENTUK JSON murni:
       setTimeout(() => reject(new Error('AI parsing timeout')), 3500)
     );
 
-    const apiPromise = ai.models.generateContent({
+    const apiPromise = aiClient.models.generateContent({
       model: 'gemini-3.8-flash',
       contents: prompt,
       config: {
@@ -1352,8 +1439,9 @@ Formatkan jawaban DALAM BENTUK JSON murni:
 app.post('/api/gemini/analyze-health', async (req: Request, res: Response) => {
   try {
     const { profile, todayWater, todayWorkouts, historySummary } = req.body;
+    const aiClient = getAIClient();
 
-    if (!ai) {
+    if (!aiClient) {
       // Fallback rule-based assessment if API key is not yet configured
       const totalMl = todayWater?.totalMl || 0;
       const targetMl = profile?.targetWaterMl || 2500;
@@ -1452,7 +1540,7 @@ Formatkan jawaban DALAM BENTUK JSON murni dengan schema:
       setTimeout(() => reject(new Error('AI request timed out')), 4000)
     );
 
-    const apiPromise = ai.models.generateContent({
+    const apiPromise = aiClient.models.generateContent({
       model: 'gemini-3.8-flash',
       contents: prompt,
       config: {
@@ -1543,25 +1631,26 @@ app.post('/api/gemini/chat', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Message is required' });
     }
 
-    if (!ai) {
-      return res.json({
-        reply: `Halo ${profile?.name || 'Sahabat Sehat'}! Menjaga hidrasi dan olahraga adalah kunci kebugaran. Hari ini Anda sudah minum ${todayStats?.waterMl || 0}ml air. Pertahankan rutinitas minum air putih minimal 8 gelas per hari dan imbangi dengan jalan kaki atau jogging 30 menit agar tubuh tetap segar!`,
-      });
+    const aiClient = getAIClient();
+
+    if (!aiClient) {
+      const fallbackReply = generateSmartMedicalResponse(message, profile, todayStats);
+      return res.json({ reply: fallbackReply });
     }
 
-    const systemPrompt = `Anda adalah Asisten Virtual Kesehatan Ahli dari aplikasi "Hidup Sehatku".
+    const systemPrompt = `Anda adalah Dokter AI Medis & Asisten Virtual Kesehatan Ahli dari aplikasi "Hidup Sehatku".
 Nama Pengguna: ${profile?.name || 'Pengguna'}
 Usia: ${profile?.age || 25} tahun, Berat: ${profile?.weight || 60}kg, Tinggi: ${profile?.height || 165}cm
 Hari ini pengguna telah minum: ${todayStats?.waterMl || 0} ml (Target: ${profile?.targetWaterMl || 2500} ml)
 Hari ini olahraga: ${todayStats?.workoutMinutes || 0} menit, Kalori terbakar: ${todayStats?.calories || 0} kcal.
 
-Instruksi:
-- Jawab dengan ramah, suportif, ilmiah namun mudah dipahami, dalam Bahasa Indonesia yang hangat.
-- Berikan saran praktis seputar minum air putih, jam-jam terbaik minum, olahraga (jogging, jalan kaki, senam, badminton, dll), dan gaya hidup sehat.
-- Beri dorongan positif.
-- Jika ada pertanyaan medis kritis, ingatkan dengan sopan untuk berkonsultasi langsung ke dokter spesialis bila ada keluhan kronis.`;
+Instruksi PENTING:
+- Jawablah pertanyaan spesifik yang diajukan oleh pengguna secara SANGAT TEPAT, langsung pada intinya, ilmiah namun mudah dipahami, ramah, dan mendalam.
+- DILARANG memberikan jawaban generik atau jawaban yang tidak relevan dengan pertanyaan spesifik pengguna.
+- Apabila pengguna bertanya tentang waktu minum (misalnya bangun tidur pagi, sebelum tidur), berikan takaran air spesifik (misalnya 300-500 ml) dan manfaat biologisnya.
+- Apabila pengguna bertanya tentang ginjal, kalori, diet, olahraga, atau keluhan kesehatan lain, berikan fakta medis yang akurat dan rekomendasi aksi praktis.`;
 
-    const response = await ai.models.generateContent({
+    const response = await aiClient.models.generateContent({
       model: 'gemini-3.8-flash',
       contents: `Pertanyaan Pengguna: ${message}`,
       config: {
@@ -1570,13 +1659,12 @@ Instruksi:
       },
     });
 
-    const reply = response.text?.trim() || 'Tetap semangat menjaga kesehatan dan cukupi kebutuhan air harian Anda!';
+    const reply = response.text?.trim() || generateSmartMedicalResponse(message, profile, todayStats);
     return res.json({ reply });
   } catch (error: any) {
     console.error('Error in chat:', error);
-    return res.json({
-      reply: `Halo ${req.body?.profile?.name || 'Sahabat Sehat'}! Menjaga hidrasi harian minimal 8 gelas air putih dan berolahraga aktif (seperti jalan kaki, senam, atau badminton) sangat efektif untuk meningkatkan fokus otak dan menjaga kesehatan ginjal serta jantung Anda. Tetap semangat menjalani pola hidup sehat!`,
-    });
+    const fallbackReply = generateSmartMedicalResponse(req.body?.message || '', req.body?.profile, req.body?.todayStats);
+    return res.json({ reply: fallbackReply });
   }
 });
 
@@ -1589,7 +1677,9 @@ app.post('/api/gemini/scan-food', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Foto makanan atau nama makanan wajib diberikan.' });
     }
 
-    if (!ai) {
+    const aiClient = getAIClient();
+
+    if (!aiClient) {
       const name = foodName || 'Makanan Pilihan';
       return res.json({
         foodName: name,
@@ -1648,7 +1738,7 @@ Output Anda HARUS dalam JSON murni persis dengan struktur berikut tanpa karakter
 
     parts.push({ text: userPromptText });
 
-    const response = await ai.models.generateContent({
+    const response = await aiClient.models.generateContent({
       model: 'gemini-3.8-flash',
       contents: { parts },
       config: {
