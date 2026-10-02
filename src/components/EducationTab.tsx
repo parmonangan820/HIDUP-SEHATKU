@@ -64,10 +64,10 @@ export const EducationTab: React.FC<EducationTabProps> = ({ onOpenAiChat }) => {
 
         <button
           onClick={onOpenAiChat}
-          className="mt-4 py-2 px-3 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 text-white font-bold text-xs flex items-center gap-2 shadow-md shadow-indigo-500/20 active:scale-95 transition-all"
+          className="mt-4 py-2 px-3.5 rounded-xl bg-gradient-to-r from-amber-500 via-rose-500 to-indigo-600 text-slate-950 font-black text-xs flex items-center gap-2 shadow-md shadow-amber-500/20 active:scale-95 transition-all"
         >
-          <Sparkles className="w-3.5 h-3.5" />
-          Tanya Dokter AI Seputar Kesehatan
+          <Sparkles className="w-3.5 h-3.5 stroke-[2.5]" />
+          <span>AI Health Scanner & Chat Dokter AI (Analisis Kalori Makanan)</span>
         </button>
       </div>
 

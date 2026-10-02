@@ -163,6 +163,39 @@ export const HomeTab: React.FC<HomeTabProps> = ({
         </div>
       </div>
 
+      {/* AI Health Scanner & Chat Banner */}
+      <div className="rounded-2xl bg-gradient-to-r from-amber-500 via-rose-500 to-indigo-600 p-[1px] shadow-xl shadow-amber-500/15">
+        <div className="rounded-2xl bg-slate-900/95 p-3.5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              onClick={onOpenAiChat}
+              className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-amber-400 to-rose-500 flex items-center justify-center text-slate-950 flex-shrink-0 shadow-lg shadow-amber-500/30 hover:scale-105 active:scale-95 transition-transform"
+              title="Ketuk untuk scan foto makanan atau konsultasi Dokter AI"
+            >
+              <Sparkles className="w-5 h-5 stroke-[2.5]" />
+            </button>
+            <div className="min-w-0">
+              <h3 className="text-xs sm:text-sm font-extrabold text-white flex items-center gap-1.5 truncate">
+                <span>AI Health Scanner & Chat</span>
+                <span className="text-[9px] px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 font-black">
+                  PRO UNLOCKED
+                </span>
+              </h3>
+              <p className="text-[11px] text-slate-300 truncate">
+                Analisis kalori & nutrisi foto makanan + Konsultasi Dokter AI
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={onOpenAiChat}
+            className="flex-shrink-0 py-2 px-3 rounded-xl bg-gradient-to-r from-amber-400 to-rose-400 text-slate-950 font-black text-xs hover:brightness-110 active:scale-95 transition-all shadow-md shadow-amber-500/20"
+          >
+            Pindai / Tanya AI
+          </button>
+        </div>
+      </div>
+
       {/* Main Dual Cards: Water Tracker & Workout Tracker */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
         {/* WATER CARD */}
