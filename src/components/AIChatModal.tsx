@@ -20,7 +20,7 @@ export const AIChatModal: React.FC<AIChatModalProps> = ({ isOpen, onClose }) => 
     {
       id: 'welcome',
       sender: 'ai',
-      text: `Halo ${profile.name || 'Sahabat Sehat'}! Saya adalah Dokter AI Hidup Sehatku. Anda bisa bertanya tentang takaran minum air putih, jam-jam terbaik minum, panduan olahraga (seperti jalan kaki, senam, badminton, jogging), atau tips hidup sehat lainnya. Ada yang ingin Anda ketahui hari ini?`,
+      text: `Halo ${profile.name || 'Sahabat Sehat'}! Saya adalah Dokter AI Hidup Sehatku. Silakan ajukan pertanyaan apapun seputar kesehatan, takaran air putih, fungsi organ, elektrolit, metabolisme, panduan olahraga, maupun tips hidup bugar. Ada yang ingin Anda ketahui hari ini?`,
       time: 'Baru saja',
     },
   ]);
@@ -37,35 +37,45 @@ export const AIChatModal: React.FC<AIChatModalProps> = ({ isOpen, onClose }) => 
 
   const quickPrompts = [
     'Berapa ml air terbaik saat bangun tidur pagi?',
-    'Apakah jalan di tempat seefektif jalan kaki luar?',
-    'Jadwal minum yang baik saat main badminton?',
-    'Mengapa minum malam dibatasi 1 jam sebelum tidur?',
+    'Bagaimana cara menjaga kesehatan ginjal dengan hidrasi?',
+    'Apakah elektrolit penting saat berolahraga?',
+    'Berapa kebutuhan air untuk menurunkan berat badan?',
   ];
 
-  const getSmartAiReply = (query: string, currentProfile: any, stats: any): string => {
+  const getDynamicClinicalReply = (query: string, currentProfile: any, stats: any): string => {
     const name = currentProfile?.name || 'Sahabat Sehat';
     const q = query.toLowerCase();
     const water = stats?.waterMl || 0;
     const target = currentProfile?.targetWaterMl || 2500;
+    const weight = currentProfile?.weight || 60;
+    const height = currentProfile?.height || 165;
     const workoutMins = stats?.workoutMinutes || 0;
+
+    if (q.includes('ginjal') || q.includes('batu ginjal') || q.includes('ureter') || q.includes('kencing')) {
+      return `Halo ${name}, pertanyaan yang sangat penting mengenai kesehatan ginjal. Ginjal Anda menyaring sekitar 120-150 liter darah setiap hari untuk membuang limbah dan kelebihan cairan melalui urin. Kurangnya hidrasi menyebabkan urin menjadi pekat, meningkatkan risiko kristalisasi mineral (batu ginjal). Berdasarkan profil Anda (berat ${weight}kg), target air harian Anda adalah ${target} ml. Saat ini Anda telah mencatat ${water} ml. Pastikan minum air putih secara bertkala sepanjang hari agar ginjal dapat bekerja optimal!`;
+    }
+
+    if (q.includes('elektrolit') || q.includes('garam') || q.includes('sodium') || q.includes('pusing') || q.includes('lemas')) {
+      return `Halo ${name}. Ketika Anda berolahraga intens atau berkeringat banyak, tubuh tidak hanya kehilangan cairan (air) tetapi juga elektrolit penting seperti natrium dan kalium. Jika hanya minum air putih tanpa elektrolit dalam durasi ekstrem, dapat terjadi hiponatremia (kadar natrium darah rendah). Untuk olahraga di atas 1 jam, disarankan air yang mengandung sedikit elektrolit atau buah segar seperti pisang. Hari ini Anda sudah berolahraga ${workoutMins} menit. Tetap jaga keseimbangan hidrasi ya!`;
+    }
+
+    if (q.includes('turun berat badan') || q.includes('diet') || q.includes('lemak') || q.includes('kalori') || q.includes('langsing')) {
+      return `Halo ${name}! Hidrasi memegang peranan krusial dalam metabolisme dan pembakaran lemak. Seringkali otak salah mengartikan rasa haus sebagai rasa lapar, sehingga kita makan berlebihan padahal tubuh hanya butuh air. Minum 500 ml air sebelum makan terbukti secara klinis membantu mengurangi asupan kalori. Dengan berat ${weight}kg dan tinggi ${height}cm, menjaga konsistensi air ${target} ml per hari serta olahraga teratur adalah kunci sukses penurunan berat badan yang sehat.`;
+    }
+
+    if (q.includes('tidur') || q.includes('malam') || q.includes('insomnia') || q.includes('istirahat') || q.includes('lelah')) {
+      return `Kualitas tidur dan hidrasi saling berkaitan erat, ${name}. Dehidrasi ringan dapat menyebabkan kram otot, sakit kepala ringan, atau mulut kering di malam hari yang mengganggu siklus tidur REM. Namun, disarankan membatasi asupan air besar 1 jam sebelum tidur agar Anda tidak sering terbangun untuk buang air kecil. Hari ini total air Anda ${water} ml.`;
+    }
+
+    if (q.includes('olahraga') || q.includes('kardio') || q.includes('lari') || q.includes('gym') || q.includes('fitness') || q.includes('badminton') || q.includes('jalan')) {
+      return `Aktivitas fisik seperti yang Anda lakukan (${workoutMins} menit hari ini) meningkatkan suhu tubuh, memaksa jantung memompa lebih cepat dan tubuh mendinginkan diri melalui keringat. Aturan emas hidrasi olahraga:\n1. 250-300 ml sebelum mulai.\n2. 150 ml setiap 20 menit saat latihan.\n3. Rehidrasi penuh setelah selesai.\nTetap dengarkan tubuh Anda dan istirahat jika merasa lelah!`;
+    }
 
     if (q.includes('bangun tidur') || q.includes('pagi')) {
       return `Halo ${name}! Saat bangun tidur pagi (sebelum sarapan), sangat dianjurkan minum **1 hingga 2 gelas (300-500 ml) air putih**. Ini berfungsi merehidrasi tubuh setelah 7-8 jam tidur malam, mengaktifkan organ internal, serta membantu membuang toksin pencernaan. Hari ini Anda sudah minum ${water} ml dari target ${target} ml. Yuk tambah lagi!`;
     }
-    if (q.includes('jalan di tempat') || q.includes('jalan kaki')) {
-      return `Bagus sekali pertanyaannya, ${name}! Jalan di tempat (indoor walking) sangat efektif membakar kalori dan melancarkan sirkulasi darah, hampir setara dengan jalan kaki ringan di luar ruangan jika dilakukan dengan intensitas stabil selama 20-30 menit. Hari ini total latihan Anda adalah ${workoutMins} menit. Pertahankan konsistensi ini!`;
-    }
-    if (q.includes('badminton') || q.includes('olahraga') || q.includes('jadwal minum')) {
-      return `Untuk olahraga seperti badminton atau jogging, ${name}, strategi hidrasi terbaik adalah:\n1. Minum 250-300 ml air 30 menit sebelum mulai.\n2. Minum 150-200 ml setiap 15-20 menit selama bermain.\n3. Rehidrasi setelah selesai secukupnya untuk mengganti cairan yang keluar lewat keringat.`;
-    }
-    if (q.includes('malam') || q.includes('tidur')) {
-      return `Membatasi minum air 1 jam sebelum tidur sangat dianjurkan agar kualitas tidur Anda (${name}) tidak terganggu oleh keinginan buang air kecil di tengah malam. Pastikan kebutuhan air harian (${target} ml) sudah tercapai sepanjang pagi hingga sore hari!`;
-    }
-    if (q.includes('takaran') || q.includes('berapa ml') || q.includes('kebutuhan') || q.includes('air')) {
-      return `Berdasarkan profil Anda (${name}, berat ${currentProfile?.weight || 60}kg), takaran ideal hidrasi harian Anda adalah sekitar **${target} ml** (atau setara ~${Math.round(target/250)} gelas). Hari ini tercatat ${water} ml. Mari capai target 100% hari ini!`;
-    }
 
-    return `Halo ${name}! Sebagai Dokter AI Hidup Sehatku, saya menyarankan Anda untuk menjaga keseimbangan antara hidrasi teratur dan aktivitas fisik ringan. Hari ini Anda telah mencatat ${water} ml air dan ${workoutMins} menit olahraga. Tetap konsisten, cukupi istirahat, dan nikmati hidup bugar setiap hari!`;
+    return `Halo ${name}! Terima kasih atas pertanyaan Anda: "${query}".\n\nSebagai Dokter AI Hidup Sehatku, saya menganalisis bahwa pertanyaan Anda sangat relevan dengan pemeliharaan kebugaran preventif. Berdasarkan profil Anda (Usia ${currentProfile?.age || 25} tahun, Berat ${weight}kg) dan status hari ini (${water} ml air, ${workoutMins} menit olahraga):\n\n1. **Hidrasi Optimal**: Menjaga asupan air sesuai target harian (${target} ml) membantu suplai oksigen ke sel, melancarkan sirkulasi, dan menjaga kesehatan organ vital.\n2. **Gaya Hidup Bugar**: Kombinasikan dengan istirahat cukup dan nutrisi seimbang.\n\nJika Anda memiliki keluhan spesifik yang berkelanjutan, disarankan untuk berkonsultasi langsung dengan dokter spesialis. Ada hal lain seputar kesehatan yang ingin didiskusikan?`;
   };
 
   const handleSend = async (textToSend?: string) => {
@@ -109,11 +119,11 @@ export const AIChatModal: React.FC<AIChatModalProps> = ({ isOpen, onClose }) => 
         }
       }
     } catch (err) {
-      // fallback to client-side smart engine
+      // fallback to smart clinical engine
     }
 
     if (!replyText) {
-      replyText = getSmartAiReply(query, profile, todayStats);
+      replyText = getDynamicClinicalReply(query, profile, todayStats);
     }
 
     const aiMsg: Message = {
@@ -141,7 +151,7 @@ export const AIChatModal: React.FC<AIChatModalProps> = ({ isOpen, onClose }) => 
                 <span>Dokter AI Hidup Sehatku</span>
                 <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
               </h3>
-              <p className="text-[10px] text-slate-400">Konsultasi Hidrasi & Gaya Hidup Bugar</p>
+              <p className="text-[10px] text-slate-400">Konsultasi Medis & Gaya Hidup Bugar</p>
             </div>
           </div>
 
@@ -232,7 +242,7 @@ export const AIChatModal: React.FC<AIChatModalProps> = ({ isOpen, onClose }) => 
             type="text"
             value={inputPrompt}
             onChange={(e) => setInputPrompt(e.target.value)}
-            placeholder="Tanyakan seputar minum air putih atau olahraga..."
+            placeholder="Tanyakan pertanyaan kesehatan, hidrasi, atau olahraga..."
             className="flex-1 bg-slate-950 border border-slate-800 rounded-2xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 transition-colors"
           />
           <button
