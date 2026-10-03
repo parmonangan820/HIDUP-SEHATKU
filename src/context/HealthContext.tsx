@@ -25,7 +25,11 @@ import {
   AnnouncementItem,
   verifyAdminPin,
   fetchActiveAnnouncement,
+  fetchGlobalBanners,
+  saveGlobalBanners,
+  saveGlobalBannerSlide,
 } from '../services/adminService';
+import { DEFAULT_GLOBAL_BANNERS } from '../utils/defaultBanners';
 import {
   AccountSummary,
   fetchRegisteredAccounts,
@@ -36,7 +40,9 @@ interface HealthContextType {
   profile: UserProfile;
   updateProfile: (newProfile: Partial<UserProfile>) => void;
   bannerSlides: BannerSlide[];
-  updateBannerSlide: (index: number, updated: Partial<BannerSlide>) => void;
+  updateBannerSlide: (index: number, updated: Partial<BannerSlide>) => Promise<void> | void;
+  saveAllBannerSlides: (slides: BannerSlide[]) => Promise<{ success: boolean; message: string }>;
+  refreshBannersFromServer: () => Promise<void>;
   createNewAccount: (newProfile: Omit<UserProfile, 'isRegistered'>) => Promise<void>;
   resetAllDataToZero: () => Promise<void>;
   configureSupabaseConnection: (
@@ -388,20 +394,78 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [bannerSlides, setBannerSlides] = useState<BannerSlide[]>(() => {
     try {
       const saved = localStorage.getItem('hidupsehat_custom_banners');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
     } catch (e) {
       console.error(e);
     }
-    return DEFAULT_BANNER_SLIDES;
+    return DEFAULT_GLOBAL_BANNERS;
   });
 
-  const updateBannerSlide = (index: number, updated: Partial<BannerSlide>) => {
-    setBannerSlides((prev) => {
-      const newSlides = [...prev];
-      newSlides[index] = { ...newSlides[index], ...updated };
-      localStorage.setItem('hidupsehat_custom_banners', JSON.stringify(newSlides));
-      return newSlides;
-    });
+  // Global banner synchronization with server
+  const refreshBannersFromServer = async () => {
+    try {
+      const globalBanners = await fetchGlobalBanners();
+      if (Array.isArray(globalBanners) && globalBanners.length > 0) {
+        const localSaved = localStorage.getItem('hidupsehat_custom_banners');
+        let localSlides: BannerSlide[] = [];
+        try {
+          if (localSaved) localSlides = JSON.parse(localSaved);
+        } catch {}
+
+        const serverHasCustomImages = globalBanners.some((b) => Boolean(b.imageUrl && b.imageUrl.trim()));
+        const localHasCustomImages = localSlides.some((b) => Boolean(b.imageUrl && b.imageUrl.trim()));
+
+        // If this browser (e.g. Admin) already has custom images that server doesn't have yet, auto-push to server!
+        if (localHasCustomImages && !serverHasCustomImages) {
+          await saveGlobalBanners(localSlides);
+          setBannerSlides(localSlides);
+          return;
+        }
+
+        // Otherwise adopt global server banners
+        if (serverHasCustomImages || !localHasCustomImages) {
+          setBannerSlides(globalBanners);
+          localStorage.setItem('hidupsehat_custom_banners', JSON.stringify(globalBanners));
+        }
+      }
+    } catch (err) {
+      console.error('Error refreshing banners from server:', err);
+    }
+  };
+
+  useEffect(() => {
+    refreshBannersFromServer();
+    // Re-check periodically so other browsers see new banners automatically
+    const interval = setInterval(refreshBannersFromServer, 25000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const updateBannerSlide = async (index: number, updated: Partial<BannerSlide>) => {
+    const newSlides = [...bannerSlides];
+    newSlides[index] = { ...newSlides[index], ...updated };
+    setBannerSlides(newSlides);
+    localStorage.setItem('hidupsehat_custom_banners', JSON.stringify(newSlides));
+
+    try {
+      await saveGlobalBannerSlide(index, newSlides[index]);
+    } catch (e) {
+      console.error('Error saving banner slide to server:', e);
+    }
+  };
+
+  const saveAllBannerSlides = async (slidesToSave: BannerSlide[]) => {
+    setBannerSlides(slidesToSave);
+    localStorage.setItem('hidupsehat_custom_banners', JSON.stringify(slidesToSave));
+    try {
+      const res = await saveGlobalBanners(slidesToSave);
+      return res;
+    } catch (e: any) {
+      console.error('Error saving all banners to server:', e);
+      return { success: false, message: e?.message || 'Gagal menyimpan banner ke server' };
+    }
   };
 
   const [history, setHistory] = useState<Record<string, DayRecord>>(() => {
@@ -1605,6 +1669,8 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         todayWaterByPeriod,
         bannerSlides,
         updateBannerSlide,
+        saveAllBannerSlides,
+        refreshBannersFromServer,
       }}
     >
       {children}

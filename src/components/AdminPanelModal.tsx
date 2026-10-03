@@ -63,10 +63,15 @@ export const AdminPanelModal: React.FC = () => {
     activeAnnouncement,
     bannerSlides,
     updateBannerSlide,
+    saveAllBannerSlides,
+    refreshBannersFromServer,
   } = useHealth();
 
   const [activeTab, setActiveTab] = useState<'users' | 'analytics' | 'broadcast' | 'banners' | 'security'>('users');
   const [bannerForm, setBannerForm] = useState(bannerSlides);
+  const [savingSlideIndex, setSavingSlideIndex] = useState<number | null>(null);
+  const [isSavingAllBanners, setIsSavingAllBanners] = useState(false);
+  const [isRefreshingBanners, setIsRefreshingBanners] = useState(false);
 
   useEffect(() => {
     if (bannerSlides) {
@@ -465,15 +470,63 @@ export const AdminPanelModal: React.FC = () => {
           {/* ======================================================== */}
           {activeTab === 'banners' && (
             <div className="space-y-4 max-w-2xl mx-auto">
-              <div className="p-4 rounded-2xl bg-cyan-950/40 border border-cyan-500/30 text-xs text-cyan-200">
-                <strong>Kelola Banner Image Slider (Panjang 8 cm x Lebar 1 cm):</strong> Upload gambar banner (Format: JPEG, JPG, PNG, GIF, dll.) untuk 3 slide banner beranda.
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-cyan-950/60 to-blue-950/60 border border-cyan-500/40 text-xs text-cyan-200 space-y-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h4 className="font-extrabold text-sm text-white flex items-center gap-1.5">
+                      <span>Kelola Banner Image Slider Beranda (Rasio 8:1)</span>
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold">
+                        Sinkronisasi Global Multi-Browser
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">
+                      Upload dan atur gambar banner beranda (Panjang 8 cm x Lebar 1 cm / Rasio 8:1). Setiap perubahan yang Anda simpan akan <strong>otomatis tersimpan di server dan langsung tampil di semua browser, perangkat handphone, maupun pengunjung lain</strong> tanpa perlu pengaturan manual lagi.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-cyan-500/20">
+                  <button
+                    onClick={async () => {
+                      setIsSavingAllBanners(true);
+                      const res = await saveAllBannerSlides(bannerForm);
+                      setIsSavingAllBanners(false);
+                      if (res.success) {
+                        setActionFeedback({ type: 'success', message: 'Semua 3 slide banner berhasil disimpan secara global dan langsung tampil di semua browser!' });
+                      } else {
+                        setActionFeedback({ type: 'error', message: res.message || 'Gagal menyimpan banner' });
+                      }
+                      setTimeout(() => setActionFeedback(null), 4000);
+                    }}
+                    disabled={isSavingAllBanners}
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs shadow-lg shadow-cyan-500/20 flex items-center gap-2 disabled:opacity-50 transition-all cursor-pointer"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isSavingAllBanners ? 'animate-spin' : ''}`} />
+                    <span>{isSavingAllBanners ? 'Menyimpan ke Server...' : 'Simpan Semua Slide (Aktif di Semua Browser)'}</span>
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      setIsRefreshingBanners(true);
+                      await refreshBannersFromServer();
+                      setIsRefreshingBanners(false);
+                      setActionFeedback({ type: 'success', message: 'Data banner terbaru berhasil disegarkan dari server!' });
+                      setTimeout(() => setActionFeedback(null), 3000);
+                    }}
+                    disabled={isRefreshingBanners}
+                    className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs border border-slate-700 flex items-center gap-1.5 transition-colors cursor-pointer"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isRefreshingBanners ? 'animate-spin' : ''}`} />
+                    <span>Segarkan dari Server</span>
+                  </button>
+                </div>
               </div>
 
               {bannerForm.map((slide, index) => (
-                <div key={slide.id} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+                <div key={slide.id} className="p-4 rounded-2xl bg-slate-950 border border-slate-800 space-y-3 relative">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-cyan-400">Slide Banner #{index + 1}</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300">8 cm x 1 cm</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-mono">Rasio 8:1 (Panjang 8 cm x 1 cm)</span>
                   </div>
 
                   {/* Image Preview */}
@@ -493,7 +546,9 @@ export const AdminPanelModal: React.FC = () => {
 
                   {/* File Upload Input */}
                   <div>
-                    <label className="text-[11px] font-semibold text-slate-300 block mb-1">Upload Gambar Banner (JPEG, JPG, PNG, GIF)</label>
+                    <label className="text-[11px] font-semibold text-slate-300 block mb-1">
+                      Pilih Gambar Banner Baru (Format: JPEG, JPG, PNG, GIF, SVG)
+                    </label>
                     <input
                       type="file"
                       accept="image/*"
@@ -504,7 +559,7 @@ export const AdminPanelModal: React.FC = () => {
                           reader.onload = (event) => {
                             const result = event.target?.result as string;
                             const updated = [...bannerForm];
-                            updated[index].imageUrl = result;
+                            updated[index] = { ...updated[index], imageUrl: result };
                             setBannerForm(updated);
                           };
                           reader.readAsDataURL(file);
@@ -514,16 +569,42 @@ export const AdminPanelModal: React.FC = () => {
                     />
                   </div>
 
-                  <div className="flex justify-end pt-2">
+                  <div className="flex items-center justify-between pt-2">
+                    {slide.imageUrl ? (
+                      <button
+                        onClick={async () => {
+                          const updated = [...bannerForm];
+                          updated[index] = { ...updated[index], imageUrl: '' };
+                          setBannerForm(updated);
+                          await updateBannerSlide(index, updated[index]);
+                          setActionFeedback({ type: 'success', message: `Gambar Slide #${index + 1} berhasil dikosongkan.` });
+                          setTimeout(() => setActionFeedback(null), 3000);
+                        }}
+                        className="text-xs text-rose-400 hover:text-rose-300 font-semibold"
+                      >
+                        Hapus Gambar Slide
+                      </button>
+                    ) : <div />}
+
                     <button
-                      onClick={() => {
-                        updateBannerSlide(index, bannerForm[index]);
-                        setActionFeedback({ type: 'success', message: `Gambar Slide #${index + 1} berhasil disimpan!` });
-                        setTimeout(() => setActionFeedback(null), 3000);
+                      onClick={async () => {
+                        setSavingSlideIndex(index);
+                        await updateBannerSlide(index, bannerForm[index]);
+                        setSavingSlideIndex(null);
+                        setActionFeedback({ type: 'success', message: `Gambar Slide #${index + 1} berhasil disimpan ke server dan tampil di semua browser!` });
+                        setTimeout(() => setActionFeedback(null), 3500);
                       }}
-                      className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs shadow-md transition-colors"
+                      disabled={savingSlideIndex === index}
+                      className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                     >
-                      Simpan Gambar Slide
+                      {savingSlideIndex === index ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Menyimpan ke Server...</span>
+                        </>
+                      ) : (
+                        <span>Simpan Gambar Slide #{index + 1}</span>
+                      )}
                     </button>
                   </div>
                 </div>

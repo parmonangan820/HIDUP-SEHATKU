@@ -15,7 +15,8 @@ const CONFIG_FILE = path.join(__dirname, 'supabase-config.json');
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Helper to get Supabase credentials from .env or runtime config file
 function getSupabaseConfig(): { url: string; key: string } {
@@ -894,6 +895,58 @@ function saveAdminConfig(cfg: AdminConfig) {
   }
 }
 
+// ==========================================
+// BANNER IMAGE SLIDER PERSISTENCE (8:1)
+// ==========================================
+const BANNERS_CONFIG_FILE = path.join(__dirname, 'banners-config.json');
+
+export interface BannerSlideConfig {
+  id: number;
+  imageUrl?: string;
+  badge: string;
+}
+
+const DEFAULT_BANNER_SLIDES: BannerSlideConfig[] = [
+  { id: 1, badge: '1/3', imageUrl: '' },
+  { id: 2, badge: '2/3', imageUrl: '' },
+  { id: 3, badge: '3/3', imageUrl: '' },
+];
+
+function getBannersConfig(): BannerSlideConfig[] {
+  try {
+    if (fs.existsSync(BANNERS_CONFIG_FILE)) {
+      const content = fs.readFileSync(BANNERS_CONFIG_FILE, 'utf-8');
+      const parsed = JSON.parse(content);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.error('Error reading banners-config.json:', e);
+  }
+
+  // Also fallback to check admin-config.json if banners was stored there
+  const adminCfg = getAdminConfig();
+  if (Array.isArray((adminCfg as any).banners) && (adminCfg as any).banners.length > 0) {
+    return (adminCfg as any).banners;
+  }
+
+  return DEFAULT_BANNER_SLIDES;
+}
+
+function saveBannersConfig(banners: BannerSlideConfig[]) {
+  try {
+    fs.writeFileSync(BANNERS_CONFIG_FILE, JSON.stringify(banners, null, 2));
+    
+    // Also save in admin-config.json for redundancy
+    const adminCfg = getAdminConfig();
+    (adminCfg as any).banners = banners;
+    saveAdminConfig(adminCfg);
+  } catch (e) {
+    console.error('Error saving banners-config.json:', e);
+  }
+}
+
 // 1. Verifikasi PIN Admin
 app.post('/api/admin/verify', (req: Request, res: Response) => {
   const { pin } = req.body || {};
@@ -1253,6 +1306,71 @@ app.post('/api/admin/pin', (req: Request, res: Response) => {
   cfg.adminPin = String(newPin).trim();
   saveAdminConfig(cfg);
   return res.json({ success: true, message: 'PIN Admin berhasil diubah!' });
+});
+
+// 10. Global Banner Image Slider Endpoints (8:1)
+app.get('/api/banners', (_req: Request, res: Response) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  const banners = getBannersConfig();
+  return res.json({ banners });
+});
+
+app.post('/api/admin/banners', (req: Request, res: Response) => {
+  try {
+    const { banners, slide, index } = req.body || {};
+    let currentBanners = getBannersConfig();
+
+    if (Array.isArray(banners) && banners.length > 0) {
+      currentBanners = banners;
+    } else if (typeof index === 'number' && index >= 0 && slide) {
+      currentBanners = [...currentBanners];
+      currentBanners[index] = { ...currentBanners[index], ...slide };
+    } else {
+      return res.status(400).json({ success: false, message: 'Data banner tidak valid.' });
+    }
+
+    saveBannersConfig(currentBanners);
+    return res.json({
+      success: true,
+      message: 'Banner image slider berhasil disimpan secara global untuk semua browser!',
+      banners: currentBanners,
+    });
+  } catch (err: any) {
+    console.error('Error saving banners:', err);
+    return res.status(500).json({ success: false, message: err?.message || 'Gagal menyimpan banner' });
+  }
+});
+
+app.put('/api/admin/banners/:index', (req: Request, res: Response) => {
+  try {
+    const index = parseInt(req.params.index, 10);
+    if (isNaN(index) || index < 0) {
+      return res.status(400).json({ success: false, message: 'Index slide tidak valid' });
+    }
+    const slide = req.body;
+    const currentBanners = [...getBannersConfig()];
+    currentBanners[index] = { ...currentBanners[index], ...slide };
+    saveBannersConfig(currentBanners);
+    return res.json({
+      success: true,
+      message: `Slide banner #${index + 1} berhasil disimpan secara global!`,
+      banners: currentBanners,
+    });
+  } catch (err: any) {
+    console.error('Error updating banner slide:', err);
+    return res.status(500).json({ success: false, message: err?.message || 'Gagal memperbarui slide banner' });
+  }
+});
+
+app.delete('/api/admin/banners', (_req: Request, res: Response) => {
+  saveBannersConfig(DEFAULT_BANNER_SLIDES);
+  return res.json({
+    success: true,
+    message: 'Banner berhasil direset ke konfigurasi default.',
+    banners: DEFAULT_BANNER_SLIDES,
+  });
 });
 
 // Helper rule-based parser for Indonesian drink voice queries

@@ -170,3 +170,52 @@ export async function changeAdminPin(currentPin: string, newPin: string): Promis
     return { success: false, message: err?.message || 'Gagal mengubah PIN Admin' };
   }
 }
+
+// ==========================================
+// BANNER IMAGE SLIDER SERVICES (8:1)
+// ==========================================
+export interface BannerSlideItem {
+  id: number;
+  imageUrl?: string;
+  badge: string;
+}
+
+export async function fetchGlobalBanners(): Promise<BannerSlideItem[]> {
+  try {
+    const res = await fetch('/api/banners', {
+      headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' },
+    });
+    if (!res.ok) throw new Error('Failed to fetch banners');
+    const data = await res.json();
+    return data.banners || [];
+  } catch (err) {
+    console.error('Error fetching global banners:', err);
+    return [];
+  }
+}
+
+export async function saveGlobalBanners(banners: BannerSlideItem[]): Promise<{ success: boolean; message: string; banners?: BannerSlideItem[] }> {
+  try {
+    const res = await fetch('/api/admin/banners', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ banners }),
+    });
+    return await res.json();
+  } catch (err: any) {
+    return { success: false, message: err?.message || 'Gagal menyimpan banner ke server' };
+  }
+}
+
+export async function saveGlobalBannerSlide(index: number, slide: BannerSlideItem): Promise<{ success: boolean; message: string; banners?: BannerSlideItem[] }> {
+  try {
+    const res = await fetch('/api/admin/banners', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ index, slide }),
+    });
+    return await res.json();
+  } catch (err: any) {
+    return { success: false, message: err?.message || 'Gagal menyimpan slide banner ke server' };
+  }
+}
