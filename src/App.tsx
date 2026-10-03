@@ -20,6 +20,7 @@ import { AccountSwitchModal } from './components/AccountSwitchModal';
 import { ProUpgradeModal } from './components/ProUpgradeModal';
 import { AffiliateModal } from './components/AffiliateModal';
 import { AIDietSuccessModal } from './components/AIDietSuccessModal';
+import { PwaInstallModal } from './components/PwaInstallModal';
 import { RunningBanner } from './components/RunningBanner';
 import { BannerSlider } from './components/BannerSlider';
 import { Footer } from './components/Footer';
@@ -47,6 +48,7 @@ function MainApp() {
   const [isVoiceDrinkOpen, setIsVoiceDrinkOpen] = useState(false);
   const [isSupabaseSyncOpen, setIsSupabaseSyncOpen] = useState(false);
   const [isAffiliateOpen, setIsAffiliateOpen] = useState(false);
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
 
   // Check if any modal is currently active
   const isAnyModalOpen = Boolean(
@@ -56,6 +58,7 @@ function MainApp() {
     isVoiceDrinkOpen ||
     isSupabaseSyncOpen ||
     isAffiliateOpen ||
+    isInstallModalOpen ||
     isAdminModalOpen ||
     isAdminLoginModalOpen ||
     isAccountModalOpen ||
@@ -70,6 +73,7 @@ function MainApp() {
     isVoiceDrinkOpen,
     isSupabaseSyncOpen,
     isAffiliateOpen,
+    isInstallModalOpen,
     isAdminModalOpen,
     isAdminLoginModalOpen,
     isAccountModalOpen,
@@ -85,6 +89,7 @@ function MainApp() {
       isVoiceDrinkOpen,
       isSupabaseSyncOpen,
       isAffiliateOpen,
+      isInstallModalOpen,
       isAdminModalOpen,
       isAdminLoginModalOpen,
       isAccountModalOpen,
@@ -98,6 +103,7 @@ function MainApp() {
     isVoiceDrinkOpen,
     isSupabaseSyncOpen,
     isAffiliateOpen,
+    isInstallModalOpen,
     isAdminModalOpen,
     isAdminLoginModalOpen,
     isAccountModalOpen,
@@ -201,6 +207,7 @@ function MainApp() {
           onOpenAiChat={() => setIsAiChatOpen(true)}
           onOpenVoiceDrink={() => setIsVoiceDrinkOpen(true)}
           onOpenSupabaseSync={() => setIsSupabaseSyncOpen(true)}
+          onOpenInstallModal={() => setIsInstallModalOpen(true)}
           deviceMode={deviceMode}
           setDeviceMode={setDeviceMode}
         />
@@ -325,6 +332,7 @@ function MainApp() {
         <ProUpgradeModal isOpen={isProModalOpen} onClose={() => setIsProModalOpen(false)} />
         <AIDietSuccessModal isOpen={isDietModalOpen} onClose={() => setIsDietModalOpen(false)} />
         <AffiliateModal isOpen={isAffiliateOpen} onClose={() => setIsAffiliateOpen(false)} />
+        <PwaInstallModal isOpen={isInstallModalOpen} onClose={() => setIsInstallModalOpen(false)} />
       </div>
     </AppShell>
   );

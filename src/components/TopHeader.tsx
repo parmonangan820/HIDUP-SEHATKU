@@ -1,12 +1,13 @@
 import React from 'react';
 import { useHealth } from '../context/HealthContext';
-import { Droplets, Sparkles, User, Bell, Smartphone, Monitor, Mic, Database, Cloud, Shield, Crown } from 'lucide-react';
+import { Droplets, Sparkles, User, Bell, Smartphone, Monitor, Mic, Database, Cloud, Shield, Crown, Download } from 'lucide-react';
 
 interface TopHeaderProps {
   onOpenProfile: () => void;
   onOpenAiChat: () => void;
   onOpenVoiceDrink: () => void;
   onOpenSupabaseSync: () => void;
+  onOpenInstallModal: () => void;
   deviceMode: 'android' | 'ios' | 'full';
   setDeviceMode: (mode: 'android' | 'ios' | 'full') => void;
 }
@@ -16,6 +17,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   onOpenAiChat,
   onOpenVoiceDrink,
   onOpenSupabaseSync,
+  onOpenInstallModal,
   deviceMode,
   setDeviceMode,
 }) => {
@@ -166,22 +168,34 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
             </button>
           )}
 
-          {/* Supabase Cloud Sync Trigger */}
-          <button
-            onClick={onOpenSupabaseSync}
-            className={`relative p-2 rounded-lg border transition-all active:scale-95 flex items-center justify-center ${
-              supabaseStatus?.connected
-                ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
-                : 'bg-slate-800 border-slate-750 text-slate-400 hover:text-white hover:bg-slate-700'
-            }`}
-            title="Status Sinkronisasi Supabase PostgreSQL"
-          >
-            <Database className="w-4 h-4" />
-            <span
-              className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full ${
-                supabaseStatus?.connected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-500'
+          {/* Supabase Cloud Sync Trigger - ONLY VISIBLE IF ADMIN */}
+          {isAdmin && (
+            <button
+              onClick={onOpenSupabaseSync}
+              className={`relative p-2 rounded-lg border transition-all active:scale-95 flex items-center justify-center ${
+                supabaseStatus?.connected
+                  ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20'
+                  : 'bg-slate-800 border-slate-750 text-slate-400 hover:text-white hover:bg-slate-700'
               }`}
-            />
+              title="Status Sinkronisasi Supabase PostgreSQL"
+            >
+              <Database className="w-4 h-4" />
+              <span
+                className={`absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full ${
+                  supabaseStatus?.connected ? 'bg-emerald-400 animate-pulse' : 'bg-amber-500'
+                }`}
+              />
+            </button>
+          )}
+
+          {/* Install App Button */}
+          <button
+            onClick={onOpenInstallModal}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/30 font-bold text-xs transition-all active:scale-95 shadow-sm"
+            title="Install Aplikasi di Ponsel"
+          >
+            <Download className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span className="hidden sm:inline">Install App</span>
           </button>
 
           {/* Profile Trigger */}
