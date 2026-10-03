@@ -1,3 +1,6 @@
+import { generateNationalQRIS } from './qrisHelper';
+import { instanpayOrderStore } from './store';
+
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -11,7 +14,15 @@ export default async function handler(req: any, res: any) {
     const instanpayApiKey = process.env.INSTANPAY_API_KEY || '';
     const instanpayMerchantId = process.env.INSTANPAY_MERCHANT_ID || '';
 
-    let qrisString = `00020101021226660014ID.CO.INSTANPAY.WWW011893600914ID10293847568100215${orderId}0303UMI5204581253033605802ID5919PT HIDUP SEHATKU IND6007JAKARTA6304${Math.floor(Math.random() * 8999 + 1000)}`;
+    // Generate genuine QRIS Standar Nasional Indonesia (EMVCo with CRC16-CCITT)
+    let qrisString = generateNationalQRIS({
+      orderId,
+      amount: finalAmount,
+      merchantName: 'HIDUP SEHATKU PRO',
+      merchantCity: 'JAKARTA PUSAT',
+      postalCode: '10110',
+      nmid: 'ID1029384756810',
+    });
     let checkoutUrl = `https://app.instanpay.co.id/pay/${orderId}`;
 
     if (instanpayApiKey && instanpayMerchantId) {
@@ -42,13 +53,28 @@ export default async function handler(req: any, res: any) {
       }
     }
 
+    const orderRecord = {
+      orderId,
+      amount: finalAmount,
+      plan: plan || 'annual',
+      customerName: customerName || 'Sahabat Sehat',
+      customerEmail: customerEmail || 'user@hidupsehatku.my.id',
+      status: 'pending',
+      createdAt: Date.now(),
+      expiresAt: Date.now() + 300000, // 5 minutes
+      qrisString,
+      checkoutUrl,
+    };
+
+    instanpayOrderStore.set(orderId, orderRecord);
+
     return res.status(200).json({
       success: true,
       orderId,
       amount: finalAmount,
       qrisString,
       checkoutUrl,
-      qrImageUrl: `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrisString)}`,
+      qrImageUrl: `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(qrisString)}`,
       status: 'pending',
       expiresInSeconds: 300,
     });

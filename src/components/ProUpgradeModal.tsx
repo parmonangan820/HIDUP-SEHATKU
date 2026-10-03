@@ -21,6 +21,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
   } | null>(null);
   const [isLoadingQris, setIsLoadingQris] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(false);
+  const [statusFeedback, setStatusFeedback] = useState<{ type: 'info' | 'warning' | 'error'; message: string } | null>(null);
 
   useEffect(() => {
     let timer: any;
@@ -30,7 +31,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
     return () => clearInterval(timer);
   }, [step, countdown]);
 
-  // Auto-poll payment status every 4 seconds when QRIS modal is open
+  // Auto-poll payment status every 3.5 seconds when QRIS modal is open
   useEffect(() => {
     let pollInterval: any;
     if (step === 'instapay_qris' && qrisData?.orderId) {
@@ -43,15 +44,15 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
           });
           if (res.ok) {
             const data = await res.json();
-            if (data.status === 'success') {
+            if (data.status === 'paid') {
               clearInterval(pollInterval);
-              handleSimulatePaymentSuccess();
+              handlePaymentSuccess();
             }
           }
         } catch (e) {
-          // ignore
+          // ignore network hiccups
         }
-      }, 4000);
+      }, 3500);
     }
     return () => clearInterval(pollInterval);
   }, [step, qrisData?.orderId]);
@@ -60,6 +61,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
 
   const handleProceedToQris = async () => {
     setIsLoadingQris(true);
+    setStatusFeedback(null);
     try {
       const res = await fetch('/api/instanpay/create-qris', {
         method: 'POST',
@@ -88,10 +90,11 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
 
   const handleCheckPaymentStatus = async () => {
     if (!qrisData?.orderId) {
-      handleSimulatePaymentSuccess();
+      setStatusFeedback({ type: 'warning', message: 'Order ID tidak ditemukan. Silakan muat ulang.' });
       return;
     }
     setCheckingStatus(true);
+    setStatusFeedback(null);
     try {
       const res = await fetch('/api/instanpay/check-status', {
         method: 'POST',
@@ -100,20 +103,52 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
       });
       if (res.ok) {
         const data = await res.json();
-        if (data.status === 'success') {
-          handleSimulatePaymentSuccess();
+        if (data.status === 'paid') {
+          handlePaymentSuccess();
+          return;
+        } else if (data.status === 'expired') {
+          setStatusFeedback({ type: 'error', message: 'Waktu pembayaran telah kedaluwarsa. Silakan buat QRIS baru.' });
+          return;
+        } else {
+          setStatusFeedback({
+            type: 'warning',
+            message: '⚠️ Pembayaran belum terdeteksi. Silakan scan barcode QRIS dan selesaikan transaksi melalui m-Banking atau E-Wallet Anda.',
+          });
           return;
         }
       }
-      handleSimulatePaymentSuccess();
+      setStatusFeedback({ type: 'error', message: 'Gagal menghubungi server pembayaran. Silakan coba lagi.' });
     } catch (err) {
-      handleSimulatePaymentSuccess();
+      setStatusFeedback({ type: 'error', message: 'Kendala koneksi jaringan saat mengecek status pembayaran.' });
     } finally {
       setCheckingStatus(false);
     }
   };
 
-  const handleSimulatePaymentSuccess = () => {
+  const handleTriggerSimulatePaid = async () => {
+    if (!qrisData?.orderId) return;
+    setCheckingStatus(true);
+    setStatusFeedback(null);
+    try {
+      const res = await fetch('/api/instanpay/simulate-payment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: qrisData.orderId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status === 'paid') {
+          handlePaymentSuccess();
+        }
+      }
+    } catch (err) {
+      console.error('Simulate payment error:', err);
+    } finally {
+      setCheckingStatus(false);
+    }
+  };
+
+  const handlePaymentSuccess = () => {
     upgradeToPro(selectedPlan);
     setStep('success');
     setTimeout(() => {
@@ -151,7 +186,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
               <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-amber-400 to-amber-600 flex items-center justify-center text-slate-950 shadow-xl shadow-amber-500/30">
                 <Crown className="w-10 h-10 animate-bounce" />
               </div>
-              <h2 className="text-2xl font-black text-amber-300">Pembayaran Instapay QRIS Berhasil!</h2>
+              <h2 className="text-2xl font-black text-amber-300">Pembayaran InstanPay QRIS Berhasil!</h2>
               <p className="text-sm text-slate-300 max-w-xs">
                 Selamat! Akun Anda kini resmi menjadi member **Hidup Sehatku PRO**. Nikmati seluruh fitur premium sekarang juga.
               </p>
@@ -162,7 +197,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <button
                 onClick={() => setStep('plans')}
-                className="flex items-center gap-1 text-xs text-slate-400 hover:text-white transition-colors"
+                className="flex items-center gap-1 text-xs text-slate-400 hover:text-white transition-colors cursor-pointer"
               >
                 <ArrowLeft className="w-4 h-4" />
                 <span>Kembali</span>
@@ -174,9 +209,9 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
             </div>
 
             <div className="text-center space-y-1">
-              <h3 className="text-lg font-black text-white">Scan QRIS untuk Pembayaran</h3>
+              <h3 className="text-lg font-black text-white">Scan QRIS Nasional untuk Pembayaran</h3>
               <p className="text-xs text-slate-400">
-                Buka m-Banking atau E-Wallet (GoPay, OVO, Dana, BCA, Mandiri, QRIS All-Bank)
+                Mendukung semua m-Banking (BCA, Mandiri, BRI, BNI) & E-Wallet (GoPay, OVO, Dana, ShopeePay, LinkAja)
               </p>
             </div>
 
@@ -186,36 +221,64 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
               <span>Mendeteksi status pembayaran QRIS secara real-time...</span>
             </div>
 
-            {/* QR Code Container */}
+            {/* QR Code Container with Official QRIS National Header */}
             <div className="flex flex-col items-center justify-center p-6 rounded-3xl bg-white text-slate-950 shadow-2xl relative">
-              <div className="absolute top-3 left-3 flex items-center gap-1 text-[10px] font-black tracking-wider text-slate-700 bg-slate-100 px-2 py-1 rounded-md uppercase">
-                <span>QRIS INSTANPAY</span>
-              </div>
-              <div className="absolute top-3 right-3 text-right">
-                <span className="text-[10px] text-slate-500 font-bold block">Waktu Bayar</span>
-                <span className="text-xs font-mono font-black text-rose-600">
-                  {Math.floor(countdown / 60)}:{String(countdown % 60).padStart(2, '0')}
-                </span>
+              {/* Official QRIS Header */}
+              <div className="w-full flex items-center justify-between border-b border-slate-100 pb-3 mb-2">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-black tracking-widest text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                    QRIS
+                  </span>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">
+                    Standar Pembayaran Nasional
+                  </span>
+                </div>
+                <div className="text-right">
+                  <span className="text-[9px] text-slate-400 font-bold block uppercase">Batas Waktu</span>
+                  <span className="text-xs font-mono font-black text-rose-600">
+                    {Math.floor(countdown / 60)}:{String(countdown % 60).padStart(2, '0')}
+                  </span>
+                </div>
               </div>
 
-              {/* Mock QR Code / Real InstanPay QR Image */}
-              <div className="my-5 p-3 bg-white border border-slate-200 rounded-2xl flex flex-col items-center justify-center shadow-inner">
+              {/* QR Image */}
+              <div className="my-3 p-3 bg-white border border-slate-200 rounded-2xl flex flex-col items-center justify-center shadow-inner">
                 {qrisData?.qrImageUrl ? (
-                  <img src={qrisData.qrImageUrl} alt="InstanPay QRIS" className="w-40 h-40 object-contain rounded-xl" />
+                  <img
+                    src={qrisData.qrImageUrl}
+                    alt="QRIS Standar Nasional"
+                    className="w-48 h-48 sm:w-52 sm:h-52 object-contain rounded-xl"
+                  />
                 ) : (
-                  <QrCode className="w-36 h-36 text-slate-900" />
+                  <QrCode className="w-44 h-44 text-slate-900" />
                 )}
                 <span className="text-[10px] font-bold font-mono text-slate-600 mt-2">
                   Order ID: {qrisData?.orderId || 'INSTANPAY-ORDER-001'}
                 </span>
+                <span className="text-[9px] font-mono text-slate-400">
+                  NMID: ID1029384756810
+                </span>
               </div>
 
               <div className="w-full text-center border-t border-slate-200 pt-3">
-                <div className="text-xs text-slate-500 font-medium">{planLabel}</div>
-                <div className="text-xl font-black text-slate-900 mt-0.5">{priceFormatted}</div>
-                <div className="text-[10px] text-slate-400 mt-0.5">Merchant: PT Hidup Sehatku Indonesia (InstanPay QRIS)</div>
+                <div className="text-xs text-slate-600 font-medium">{planLabel}</div>
+                <div className="text-2xl font-black text-slate-950 mt-0.5">{priceFormatted}</div>
+                <div className="text-[10px] text-slate-500 mt-0.5">Merchant: HIDUP SEHATKU PRO (InstanPay Gateway)</div>
               </div>
             </div>
+
+            {/* Status Feedback Toast/Alert */}
+            {statusFeedback && (
+              <div
+                className={`p-3 rounded-xl border text-xs font-bold transition-all ${
+                  statusFeedback.type === 'warning'
+                    ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                    : 'bg-rose-500/20 border-rose-500/40 text-rose-300'
+                }`}
+              >
+                {statusFeedback.message}
+              </div>
+            )}
 
             {/* Action Buttons */}
             <div className="space-y-2.5">
@@ -228,11 +291,13 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
               </button>
 
               <button
-                onClick={handleSimulatePaymentSuccess}
+                onClick={handleTriggerSimulatePaid}
+                disabled={checkingStatus}
                 className="w-full py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                title="Simulasi jika barcode scan QRIS telah dibayar (Sandbox Mode)"
               >
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span>Simulasi Instan Bayar Berhasil</span>
+                <span>⚡ Uji Coba Bayar QRIS (Sandbox / Simulator)</span>
               </button>
             </div>
           </div>
