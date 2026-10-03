@@ -186,14 +186,14 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
               <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-amber-400 to-amber-600 flex items-center justify-center text-slate-950 shadow-xl shadow-amber-500/30">
                 <Crown className="w-10 h-10 animate-bounce" />
               </div>
-              <h2 className="text-2xl font-black text-amber-300">Pembayaran InstanPay QRIS Berhasil!</h2>
+              <h2 className="text-2xl font-black text-amber-300">Pembayaran QRIS iPaymu / InstantPay Berhasil!</h2>
               <p className="text-sm text-slate-300 max-w-xs">
                 Selamat! Akun Anda kini resmi menjadi member **Hidup Sehatku PRO**. Nikmati seluruh fitur premium sekarang juga.
               </p>
             </div>
           ) : step === 'instapay_qris' ? (
           <div className="space-y-5">
-            {/* Header Instapay */}
+            {/* Header Instapay / iPaymu */}
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <button
                 onClick={() => setStep('plans')}
@@ -204,21 +204,21 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
               </button>
               <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-xs font-bold">
                 <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
-                <span>InstanPay Payment Gateway</span>
+                <span>iPaymu & InstantPay Gateway</span>
               </div>
             </div>
 
             <div className="text-center space-y-1">
-              <h3 className="text-lg font-black text-white">Scan QRIS Nasional untuk Pembayaran</h3>
+              <h3 className="text-lg font-black text-white">Scan QRIS untuk Pembayaran</h3>
               <p className="text-xs text-slate-400">
-                Mendukung semua m-Banking (BCA, Mandiri, BRI, BNI) & E-Wallet (GoPay, OVO, Dana, ShopeePay, LinkAja)
+                Pindai kode QRIS di bawah dengan aplikasi m-Banking (BCA, Mandiri, BRI, BNI) atau E-Wallet (GoPay, OVO, Dana, ShopeePay, LinkAja)
               </p>
             </div>
 
             {/* Live Polling Status Banner */}
             <div className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-xs font-bold animate-pulse">
               <span className="w-2.5 h-2.5 rounded-full bg-indigo-400"></span>
-              <span>Mendeteksi status pembayaran QRIS secara real-time...</span>
+              <span>Mendeteksi status pembayaran iPaymu / InstantPay secara real-time...</span>
             </div>
 
             {/* QR Code Container with Official QRIS National Header */}
@@ -263,7 +263,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
               <div className="w-full text-center border-t border-slate-200 pt-3">
                 <div className="text-xs text-slate-600 font-medium">{planLabel}</div>
                 <div className="text-2xl font-black text-slate-950 mt-0.5">{priceFormatted}</div>
-                <div className="text-[10px] text-slate-500 mt-0.5">Merchant: HIDUP SEHATKU PRO (InstanPay Gateway)</div>
+                <div className="text-[10px] text-slate-500 mt-0.5">Merchant: HIDUP SEHATKU PRO (iPaymu / InstantPay)</div>
               </div>
             </div>
 
@@ -287,7 +287,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
                 disabled={checkingStatus}
                 className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-indigo-500 to-blue-600 text-white font-bold text-xs sm:text-sm hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 cursor-pointer"
               >
-                {checkingStatus ? 'Memeriksa Status InstanPay...' : '🔄 Cek Status Pembayaran QRIS'}
+                {checkingStatus ? 'Memeriksa Status iPaymu / InstantPay...' : '🔄 Cek Status Pembayaran iPaymu / InstantPay'}
               </button>
 
               <button
@@ -392,18 +392,18 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
               </button>
             </div>
 
-            {/* Proceed to InstanPay QRIS Button */}
+            {/* Proceed to iPaymu / InstanPay QRIS Button */}
             <button
               onClick={handleProceedToQris}
               disabled={isLoadingQris}
               className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-slate-950 font-black text-sm hover:brightness-110 active:scale-95 transition-all shadow-xl shadow-amber-500/25 flex items-center justify-center gap-2 cursor-pointer"
             >
               <QrCode className="w-5 h-5" />
-              <span>{isLoadingQris ? 'Memproses InstanPay QRIS...' : 'Bayar dengan QRIS InstanPay'}</span>
+              <span>{isLoadingQris ? 'Memproses QRIS iPaymu...' : 'Bayar dengan iPaymu / InstantPay QRIS'}</span>
             </button>
 
             <p className="text-[10px] text-center text-slate-500">
-              Didukung oleh InstanPay Payment Gateway (QRIS All-Bank & E-Wallet).
+              Didukung oleh iPaymu & InstantPay Payment Gateway (QRIS All-Bank & E-Wallet Nasional).
             </p>
           </div>
         )}

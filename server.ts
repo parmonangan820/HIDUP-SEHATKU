@@ -2481,6 +2481,20 @@ app.post('/api/instanpay/webhook', async (req: Request, res: Response) => {
   }
 });
 
+// iPaymu alias route handlers
+app.post('/api/ipaymu/create-qris', (req: Request, res: Response) => {
+  return app._router.handle(Object.assign(req, { url: '/api/instanpay/create-qris' }), res, () => {});
+});
+app.post('/api/ipaymu/check-status', (req: Request, res: Response) => {
+  return app._router.handle(Object.assign(req, { url: '/api/instanpay/check-status' }), res, () => {});
+});
+app.post('/api/ipaymu/simulate-payment', (req: Request, res: Response) => {
+  return app._router.handle(Object.assign(req, { url: '/api/instanpay/simulate-payment' }), res, () => {});
+});
+app.post('/api/ipaymu/webhook', (req: Request, res: Response) => {
+  return app._router.handle(Object.assign(req, { url: '/api/instanpay/webhook' }), res, () => {});
+});
+
 // Setup Vite or Static File Serving
 async function startServer() {
   const isProduction = process.env.NODE_ENV === 'production';
