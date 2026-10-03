@@ -82,10 +82,10 @@ export const AdminPanelModal: React.FC = () => {
         return {
           mode: (parsed.mode || 'sandbox') as 'sandbox' | 'live',
           merchantId: parsed.merchantId || 'M-INSTANPAY-882910',
-          liveApiKey: parsed.liveApiKey || parsed.apiKey || 'itpay_live_sec_991823746501928374',
-          liveClientKey: parsed.liveClientKey || parsed.clientKey || 'itpay_live_cli_882910384756',
-          sandboxApiKey: parsed.sandboxApiKey || 'itpay_sandbox_sec_382910475829104829',
-          sandboxClientKey: parsed.sandboxClientKey || 'itpay_sandbox_cli_882910384756',
+          liveApiKey: parsed.liveApiKey || parsed.apiKey || 'sk_live_sec_991823746501928374',
+          liveClientKey: parsed.liveClientKey || parsed.clientKey || '',
+          sandboxApiKey: parsed.sandboxApiKey || 'sk_test_f477df17909b8f706efa39f1f6ac826c4fb7',
+          sandboxClientKey: parsed.sandboxClientKey || '',
           callbackUrl: parsed.callbackUrl || 'https://www.hidupsehatku.my.id/api/instanpay/callback',
           autoActivatePro: parsed.autoActivatePro ?? true,
         };
@@ -94,10 +94,10 @@ export const AdminPanelModal: React.FC = () => {
     return {
       mode: 'sandbox' as 'sandbox' | 'live',
       merchantId: 'M-INSTANPAY-882910',
-      liveApiKey: 'itpay_live_sec_991823746501928374',
-      liveClientKey: 'itpay_live_cli_882910384756',
-      sandboxApiKey: 'itpay_sandbox_sec_382910475829104829',
-      sandboxClientKey: 'itpay_sandbox_cli_882910384756',
+      liveApiKey: 'sk_live_sec_991823746501928374',
+      liveClientKey: '',
+      sandboxApiKey: 'sk_test_f477df17909b8f706efa39f1f6ac826c4fb7',
+      sandboxClientKey: '',
       callbackUrl: 'https://www.hidupsehatku.my.id/api/instanpay/callback',
       autoActivatePro: true,
     };
@@ -649,7 +649,7 @@ export const AdminPanelModal: React.FC = () => {
                         value={instanpayConfig.liveApiKey}
                         onChange={(e) => setInstanpayConfig((prev: any) => ({ ...prev, liveApiKey: e.target.value }))}
                         className="w-full px-3.5 py-2.5 pr-10 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-mono focus:outline-none focus:border-emerald-500"
-                        placeholder="itpay_live_sec_..."
+                        placeholder="sk_live_..."
                         required={instanpayConfig.mode === 'live'}
                       />
                       <button
@@ -713,7 +713,7 @@ export const AdminPanelModal: React.FC = () => {
                         value={instanpayConfig.sandboxApiKey}
                         onChange={(e) => setInstanpayConfig((prev: any) => ({ ...prev, sandboxApiKey: e.target.value }))}
                         className="w-full px-3.5 py-2.5 pr-10 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-mono focus:outline-none focus:border-amber-500"
-                        placeholder="itpay_sandbox_sec_..."
+                        placeholder="sk_test_..."
                         required={instanpayConfig.mode === 'sandbox'}
                       />
                       <button

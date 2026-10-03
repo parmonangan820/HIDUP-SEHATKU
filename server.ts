@@ -2290,33 +2290,36 @@ app.post('/api/instanpay/create-qris', async (req: Request, res: Response) => {
       postalCode: '10110',
       nmid: 'ID1029384756810',
     });
-    let checkoutUrl = `https://app.instanpay.co.id/pay/${orderId}`;
+    let checkoutUrl = `https://pay.instanlive.id/pay/${orderId}`;
+    let paymentUrl = '';
 
-    if (activeApiKey && activeMerchantId) {
+    if (activeApiKey) {
       try {
-        const instanpayRes = await fetch('https://api.instanpay.co.id/v1/charge', {
+        const instanliveRes = await fetch('https://pay.instanlive.id/api/v1/transaction/create', {
           method: 'POST',
           headers: {
+            'X-Api-Key': activeApiKey,
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${activeApiKey}`,
-            'X-Merchant-Id': activeMerchantId,
           },
           body: JSON.stringify({
-            order_id: orderId,
+            ref_id: orderId,
             amount: finalAmount,
-            payment_method: 'qris',
-            customer_name: customerName || 'Sahabat Sehat',
-            customer_email: customerEmail || 'user@hidupsehatku.my.id',
-            description: `Upgrade Hidup Sehatku PRO - ${plan === 'monthly' ? 'Bulanan' : 'Tahunan'}`,
           }),
         });
-        if (instanpayRes.ok) {
-          const data = await instanpayRes.json();
-          if (data?.qris_string) qrisString = data.qris_string;
-          if (data?.checkout_url) checkoutUrl = data.checkout_url;
+
+        if (instanliveRes.ok) {
+          const resData = await instanliveRes.json();
+          const liveData = resData?.data || resData;
+          if (liveData?.payment_url) {
+            paymentUrl = liveData.payment_url;
+            checkoutUrl = liveData.payment_url;
+          }
+          if (liveData?.qr_string || liveData?.qris_string) {
+            qrisString = liveData.qr_string || liveData.qris_string;
+          }
         }
       } catch (apiErr) {
-        console.warn('InstanPay API call warning:', apiErr);
+        console.warn('InstanLive transaction create error:', apiErr);
       }
     }
 
@@ -2331,18 +2334,22 @@ app.post('/api/instanpay/create-qris', async (req: Request, res: Response) => {
       expiresAt: Date.now() + 300000, // 5 minutes
       qrisString,
       checkoutUrl,
+      paymentUrl,
       mode,
     };
 
     instanpayOrders.set(orderId, orderRecord);
 
+    const finalQrData = qrisString || paymentUrl || checkoutUrl;
+
     return res.json({
       success: true,
       orderId,
       amount: finalAmount,
-      qrisString,
+      qrisString: finalQrData,
       checkoutUrl,
-      qrImageUrl: `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(qrisString)}`,
+      paymentUrl,
+      qrImageUrl: `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(finalQrData)}`,
       status: 'pending',
       expiresInSeconds: 300,
     });

@@ -307,12 +307,24 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
 
             {/* Action Buttons */}
             <div className="space-y-2.5">
+              {qrisData?.checkoutUrl && (
+                <a
+                  href={qrisData.checkoutUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-black text-xs sm:text-sm hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <span>Buka Halaman Pembayaran InstanLive</span>
+                  <span className="text-xs">↗</span>
+                </a>
+              )}
+
               <button
                 onClick={handleCheckPaymentStatus}
                 disabled={checkingStatus}
                 className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-indigo-500 to-blue-600 text-white font-bold text-xs sm:text-sm hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 cursor-pointer"
               >
-                {checkingStatus ? 'Memeriksa Status iPaymu / InstantPay...' : '🔄 Cek Status Pembayaran iPaymu / InstantPay'}
+                {checkingStatus ? 'Memeriksa Status Pembayaran...' : '🔄 Cek Status Pembayaran (Auto-Detect)'}
               </button>
 
               <button
@@ -322,7 +334,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
                 title="Simulasi jika barcode scan QRIS telah dibayar (Sandbox Mode)"
               >
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span>⚡ Uji Coba Bayar QRIS (Sandbox / Simulator)</span>
+                <span>⚡ Uji Coba Bayar QRIS Selesai (Sandbox Simulator)</span>
               </button>
             </div>
           </div>
