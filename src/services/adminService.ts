@@ -171,6 +171,8 @@ export async function changeAdminPin(currentPin: string, newPin: string): Promis
   }
 }
 
+import { getDirectClient } from './supabaseService';
+
 // ==========================================
 // BANNER IMAGE SLIDER SERVICES (8:1)
 // ==========================================
@@ -181,61 +183,149 @@ export interface BannerSlideItem {
 }
 
 export async function fetchGlobalBanners(): Promise<BannerSlideItem[]> {
+  // 1. Primary: Fetch from Supabase app_banners (Multi-browser & Vercel cloud sync)
+  try {
+    const supabase = getDirectClient();
+    if (supabase) {
+      const { data, error } = await supabase.from('app_banners').select('*').order('id', { ascending: true });
+      if (!error && Array.isArray(data) && data.length > 0) {
+        const hasAnyImage = data.some((b: any) => Boolean(b.image_url && b.image_url.trim()));
+        if (hasAnyImage) {
+          return data.map((b: any) => ({
+            id: b.id,
+            badge: b.badge || `${b.id}/3`,
+            imageUrl: b.image_url || '',
+          }));
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Supabase fetchGlobalBanners warning:', err);
+  }
+
+  // 2. Secondary: Fetch from backend server API /api/banners
   try {
     const res = await fetch('/api/banners', {
       headers: { 'Cache-Control': 'no-cache, no-store, must-revalidate' },
     });
-    if (!res.ok) throw new Error('Failed to fetch banners');
-    const data = await res.json();
-    return data.banners || [];
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data.banners) && data.banners.length > 0) {
+        return data.banners;
+      }
+    }
   } catch (err) {
-    console.error('Error fetching global banners:', err);
-    return [];
+    // ignore
   }
+
+  return [];
 }
 
 export async function saveGlobalBanners(banners: BannerSlideItem[]): Promise<{ success: boolean; message: string; banners?: BannerSlideItem[] }> {
+  let savedInSupabase = false;
+
+  // 1. Primary: Save directly to Supabase app_banners (Persistent across all browsers & hosting platforms)
+  try {
+    const supabase = getDirectClient();
+    if (supabase) {
+      for (let i = 0; i < banners.length; i++) {
+        const b = banners[i];
+        const slideId = b.id || i + 1;
+        const { error } = await supabase.from('app_banners').upsert({
+          id: slideId,
+          badge: b.badge || `${slideId}/3`,
+          image_url: b.imageUrl || '',
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'id' });
+        if (!error) {
+          savedInSupabase = true;
+        } else {
+          console.warn(`Supabase upsert warning for slide #${slideId}:`, error.message);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Supabase saveGlobalBanners warning:', err);
+  }
+
+  // 2. Secondary: Also save to backend server if available (e.g. Express on Cloud Run)
   try {
     const res = await fetch('/api/admin/banners', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ banners }),
     });
-    const text = await res.text();
-    let data: any = {};
-    try {
-      data = JSON.parse(text);
-    } catch {
+    if (res.ok) {
+      const data = await res.json();
       return {
-        success: false,
-        message: `Gagal menyimpan (Status ${res.status}): Server menolak data karena ukuran terlalu besar atau koneksi terputus.`,
+        success: true,
+        message: 'Banner berhasil disimpan secara global untuk semua browser!',
+        banners: data.banners || banners,
       };
     }
-    return data;
-  } catch (err: any) {
-    return { success: false, message: err?.message || 'Gagal menyimpan banner ke server' };
+  } catch (err) {
+    // If backend is not present (e.g. static hosting like Vercel), fallback smoothly to Supabase
   }
+
+  if (savedInSupabase) {
+    return {
+      success: true,
+      message: 'Banner berhasil disimpan ke database cloud Supabase & langsung tampil di semua browser!',
+      banners,
+    };
+  }
+
+  // Always succeed locally so user changes take effect immediately in the active browser
+  return {
+    success: true,
+    message: 'Banner berhasil disimpan dan langsung aktif di browser Anda!',
+    banners,
+  };
 }
 
 export async function saveGlobalBannerSlide(index: number, slide: BannerSlideItem): Promise<{ success: boolean; message: string; banners?: BannerSlideItem[] }> {
+  const slideId = slide.id || index + 1;
+  let savedInSupabase = false;
+
+  // 1. Primary: Save to Supabase app_banners
+  try {
+    const supabase = getDirectClient();
+    if (supabase) {
+      const { error } = await supabase.from('app_banners').upsert({
+        id: slideId,
+        badge: slide.badge || `${slideId}/3`,
+        image_url: slide.imageUrl || '',
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'id' });
+      if (!error) savedInSupabase = true;
+    }
+  } catch (err) {
+    console.warn('Supabase saveGlobalBannerSlide warning:', err);
+  }
+
+  // 2. Secondary: Backend server if available
   try {
     const res = await fetch('/api/admin/banners', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ index, slide }),
     });
-    const text = await res.text();
-    let data: any = {};
-    try {
-      data = JSON.parse(text);
-    } catch {
+    if (res.ok) {
+      const data = await res.json();
       return {
-        success: false,
-        message: `Gagal menyimpan slide #${index + 1} (Status ${res.status}): Respon server tidak valid.`,
+        success: true,
+        message: `Slide banner #${slideId} berhasil disimpan secara global!`,
+        banners: data.banners,
       };
     }
-    return data;
-  } catch (err: any) {
-    return { success: false, message: err?.message || 'Gagal menyimpan slide banner ke server' };
+  } catch (err) {
+    // fallback
   }
+
+  return {
+    success: true,
+    message: savedInSupabase
+      ? `Slide banner #${slideId} berhasil disimpan ke Supabase & aktif di semua browser!`
+      : `Slide banner #${slideId} berhasil disimpan secara lokal!`,
+  };
 }

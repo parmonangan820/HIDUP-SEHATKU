@@ -36,6 +36,15 @@ export const AlarmRingingModal: React.FC = () => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md animate-in fade-in">
       <div className="w-full max-w-sm rounded-3xl bg-gradient-to-b from-slate-900 to-slate-950 border-2 border-amber-500/60 p-6 text-center shadow-2xl relative overflow-hidden">
+        {/* Close Button X */}
+        <button
+          onClick={dismissRingingAlarm}
+          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors z-20"
+          aria-label="Tutup Alarm"
+        >
+          <X className="w-4 h-4" />
+        </button>
+
         {/* Pulsing ring background */}
         <div className="absolute -top-12 -left-12 w-40 h-40 bg-amber-500/20 rounded-full blur-2xl pointer-events-none animate-pulse"></div>
         <div className="absolute -bottom-12 -right-12 w-40 h-40 bg-cyan-500/20 rounded-full blur-2xl pointer-events-none animate-pulse"></div>
@@ -53,9 +62,13 @@ export const AlarmRingingModal: React.FC = () => {
           <span>Waktu Alarm Tiba: {alarm.time}</span>
         </div>
 
-        <h3 className="text-xl font-black text-white tracking-tight mb-1">
+        <h3 className="text-xl font-black text-white tracking-tight mb-0.5">
           {alarm.label}
         </h3>
+
+        <p className="text-[11px] text-amber-300/80 font-medium mb-2">
+          Pengingat Jadwal Rutin Hidup Sehat
+        </p>
 
         {/* Date Display */}
         <div className="flex items-center justify-center gap-1 text-xs text-slate-400 mb-4">
