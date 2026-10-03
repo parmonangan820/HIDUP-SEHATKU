@@ -41,8 +41,8 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
   const planLabel = selectedPlan === 'monthly' ? 'Paket Bulanan (1 Bulan)' : 'Paket Tahunan (1 Tahun)';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
-      <div className="relative w-full max-w-lg rounded-3xl bg-slate-900 border border-amber-500/40 shadow-2xl overflow-hidden text-white p-6 sm:p-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+      <div className="relative w-full max-w-lg max-h-[92vh] sm:max-h-[88vh] rounded-3xl bg-slate-900 border border-amber-500/40 shadow-2xl overflow-hidden text-white flex flex-col">
         {/* Background glow */}
         <div className="absolute -top-24 -right-24 w-64 h-64 bg-amber-500/20 rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-cyan-500/20 rounded-full blur-3xl pointer-events-none"></div>
@@ -53,22 +53,25 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
             setStep('plans');
             onClose();
           }}
-          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-colors z-20"
+          className="absolute top-3.5 right-3.5 w-8 h-8 rounded-full bg-slate-800/80 hover:bg-slate-700 flex items-center justify-center text-slate-400 hover:text-white transition-colors z-30 cursor-pointer shadow-lg border border-slate-700/60"
+          title="Tutup dialog"
         >
           <X className="w-4 h-4" />
         </button>
 
-        {step === 'success' ? (
-          <div className="py-12 flex flex-col items-center justify-center text-center space-y-4 animate-scaleUp">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-amber-400 to-amber-600 flex items-center justify-center text-slate-950 shadow-xl shadow-amber-500/30">
-              <Crown className="w-10 h-10 animate-bounce" />
+        {/* Scrollable Content Container */}
+        <div className="overflow-y-auto overscroll-contain flex-1 p-5 sm:p-8">
+          {step === 'success' ? (
+            <div className="py-12 flex flex-col items-center justify-center text-center space-y-4 animate-scaleUp">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-tr from-amber-400 to-amber-600 flex items-center justify-center text-slate-950 shadow-xl shadow-amber-500/30">
+                <Crown className="w-10 h-10 animate-bounce" />
+              </div>
+              <h2 className="text-2xl font-black text-amber-300">Pembayaran Instapay QRIS Berhasil!</h2>
+              <p className="text-sm text-slate-300 max-w-xs">
+                Selamat! Akun Anda kini resmi menjadi member **Hidup Sehatku PRO**. Nikmati seluruh fitur premium sekarang juga.
+              </p>
             </div>
-            <h2 className="text-2xl font-black text-amber-300">Pembayaran Instapay QRIS Berhasil!</h2>
-            <p className="text-sm text-slate-300 max-w-xs">
-              Selamat! Akun Anda kini resmi menjadi member **Hidup Sehatku PRO**. Nikmati seluruh fitur premium sekarang juga.
-            </p>
-          </div>
-        ) : step === 'instapay_qris' ? (
+          ) : step === 'instapay_qris' ? (
           <div className="space-y-5">
             {/* Header Instapay */}
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
@@ -231,6 +234,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
             </p>
           </div>
         )}
+        </div>
       </div>
     </div>
   );
