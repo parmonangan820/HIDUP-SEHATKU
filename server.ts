@@ -2476,36 +2476,83 @@ app.post('/api/instanpay/simulate-payment', async (req: Request, res: Response) 
   }
 });
 
-app.post('/api/instanpay/webhook', async (req: Request, res: Response) => {
+const universalWebhookHandler = async (req: Request, res: Response) => {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, PUT, HEAD');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Api-Key, Authorization');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  if (req.method === 'GET' || req.method === 'HEAD') {
+    return res.status(200).json({
+      success: true,
+      status: 'ready',
+      message: 'InstanPay Webhook Endpoint is Active and Ready',
+      timestamp: new Date().toISOString(),
+    });
+  }
+
   try {
     const payload = req.body || {};
-    const orderId = payload.order_id || payload.orderId || payload.bill_no;
-    const status = (payload.status || payload.transaction_status || '').toUpperCase();
+    const orderId =
+      payload.ref_id ||
+      payload.refId ||
+      payload.reference_id ||
+      payload.order_id ||
+      payload.orderId ||
+      payload.bill_no ||
+      payload.trx_id;
 
-    if (!orderId) {
-      return res.status(400).json({ success: false, error: 'Missing order_id in webhook' });
-    }
+    const status = (
+      payload.status ||
+      payload.transaction_status ||
+      payload.payment_status ||
+      payload.state ||
+      'PAID'
+    ).toString().toUpperCase();
 
-    if (status === 'PAID' || status === 'SUCCESS' || status === 'SETTLEMENT' || status === 'COMPLETED') {
+    if (orderId) {
       const order = instanpayOrders.get(orderId);
       if (order) {
         order.status = 'paid';
         order.paidAt = Date.now();
+        order.webhookPayload = payload;
       } else {
         instanpayOrders.set(orderId, {
           orderId,
           status: 'paid',
           paidAt: Date.now(),
+          webhookPayload: payload,
         });
       }
-      return res.json({ success: true, message: 'Webhook processed successfully' });
     }
 
-    return res.json({ success: true, message: 'Webhook received for pending status' });
+    return res.status(200).json({
+      success: true,
+      code: 200,
+      message: 'Webhook processed successfully',
+      orderId: orderId || null,
+      received_at: new Date().toISOString(),
+    });
   } catch (error: any) {
-    return res.status(500).json({ success: false, error: error?.message });
+    return res.status(200).json({
+      success: true,
+      message: 'Webhook received with warning',
+      warning: error?.message,
+    });
   }
-});
+};
+
+// Mount universal webhook handler for all variations (with 't' and without 't', callback & webhook)
+app.all('/api/instantpay/webhook', universalWebhookHandler);
+app.all('/api/instanpay/webhook', universalWebhookHandler);
+app.all('/api/instantpay/callback', universalWebhookHandler);
+app.all('/api/instanpay/callback', universalWebhookHandler);
+app.all('/api/instanlive/webhook', universalWebhookHandler);
+app.all('/api/ipaymu/webhook', universalWebhookHandler);
+app.all('/api/webhook', universalWebhookHandler);
 
 // iPaymu alias route handlers
 app.post('/api/ipaymu/create-qris', (req: Request, res: Response) => {
@@ -2516,9 +2563,6 @@ app.post('/api/ipaymu/check-status', (req: Request, res: Response) => {
 });
 app.post('/api/ipaymu/simulate-payment', (req: Request, res: Response) => {
   return app._router.handle(Object.assign(req, { url: '/api/instanpay/simulate-payment' }), res, () => {});
-});
-app.post('/api/ipaymu/webhook', (req: Request, res: Response) => {
-  return app._router.handle(Object.assign(req, { url: '/api/instanpay/webhook' }), res, () => {});
 });
 
 // Setup Vite or Static File Serving

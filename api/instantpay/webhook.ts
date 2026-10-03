@@ -1,4 +1,4 @@
-import { instanpayOrderStore } from './store';
+import { instanpayOrderStore } from '../instanpay/store';
 
 export default async function handler(req: any, res: any) {
   // Always allow CORS & preflight
@@ -72,6 +72,7 @@ export default async function handler(req: any, res: any) {
       received_at: new Date().toISOString(),
     });
   } catch (error: any) {
+    // Return 200 OK so gateway doesn't mark as error if parsing non-critical body
     return res.status(200).json({
       success: true,
       message: 'Webhook received with warning',

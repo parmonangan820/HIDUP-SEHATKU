@@ -729,14 +729,38 @@ export const AdminPanelModal: React.FC = () => {
                 </div>
 
                 {/* Callback URL */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300 block">Webhook / Callback URL</label>
+                <div className="space-y-1.5 p-3.5 rounded-2xl bg-slate-950/90 border border-slate-800">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-300 block">Webhook / Callback URL</label>
+                    {instanpayConfig.callbackUrl && (
+                      <button
+                        type="button"
+                        onClick={() => handleCopyField(instanpayConfig.callbackUrl, 'callbackUrl')}
+                        className="text-[10px] text-slate-400 hover:text-indigo-300 flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        {copiedField === 'callbackUrl' ? (
+                          <>
+                            <Check className="w-3 h-3 text-emerald-400" />
+                            <span className="text-emerald-400">Tersalin!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="w-3 h-3" />
+                            <span>Salin URL Webhook</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
                   <input
                     type="text"
                     value={instanpayConfig.callbackUrl}
                     onChange={(e) => setInstanpayConfig((prev: any) => ({ ...prev, callbackUrl: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs font-mono focus:outline-none focus:border-indigo-500"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-mono focus:outline-none focus:border-indigo-500"
                   />
+                  <p className="text-[10px] text-slate-400">
+                    Salin URL ini dan tempelkan ke menu <strong>Webhook & Log</strong> di dasbor InstanPay (mendukung <code className="text-indigo-400">/api/instantpay/webhook</code> & <code className="text-indigo-400">/api/instanpay/webhook</code>).
+                  </p>
                 </div>
 
                 {/* Auto activate PRO */}
