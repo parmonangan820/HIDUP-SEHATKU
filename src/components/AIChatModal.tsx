@@ -173,7 +173,29 @@ export const AIChatModal: React.FC<AIChatModalProps> = ({ isOpen, onClose, onOpe
         }
       }
     } catch (err) {
-      // fallback
+      // ignore server fetch error
+    }
+
+    if (!replyText) {
+      // Secondary fallback: Direct browser-side Gemini SDK call
+      try {
+        const apiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
+        if (apiKey) {
+          const { GoogleGenAI } = await import('@google/genai');
+          const ai = new GoogleGenAI({ apiKey });
+          const systemPrompt = `Anda adalah Dokter AI Medis & Asisten Virtual Kesehatan Ahli dari aplikasi "Hidup Sehatku". Jawablah pertanyaan pengguna secara tepat, langsung pada intinya, ramah, dan ilmiah.`;
+          const response = await ai.models.generateContent({
+            model: 'gemini-3.8-flash',
+            contents: `Pertanyaan Pengguna: ${query}`,
+            config: { systemInstruction: systemPrompt, temperature: 0.7 },
+          });
+          if (response.text) {
+            replyText = response.text.trim();
+          }
+        }
+      } catch (clientErr) {
+        // ignore
+      }
     }
 
     if (!replyText) {
