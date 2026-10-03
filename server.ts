@@ -2262,15 +2262,24 @@ function generateNationalQRIS(options: {
 
 const instanpayOrders = new Map<string, any>();
 
-// InstanPay Payment Gateway Endpoints
+// InstanPay & iPaymu Payment Gateway Endpoints
 app.post('/api/instanpay/create-qris', async (req: Request, res: Response) => {
   try {
-    const { plan, amount, customerName, customerEmail } = req.body || {};
+    const { plan, amount, customerName, customerEmail, adminConfig } = req.body || {};
     const orderId = `INSTANPAY-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const finalAmount = amount || (plan === 'monthly' ? 15000 : 100000);
 
-    const instanpayApiKey = process.env.INSTANPAY_API_KEY || '';
-    const instanpayMerchantId = process.env.INSTANPAY_MERCHANT_ID || '';
+    const mode = adminConfig?.mode || 'sandbox';
+    const activeApiKey =
+      (mode === 'live' ? adminConfig?.liveApiKey : adminConfig?.sandboxApiKey) ||
+      process.env.INSTANPAY_API_KEY ||
+      process.env.IPAYMU_API_KEY ||
+      '';
+    const activeMerchantId =
+      adminConfig?.merchantId ||
+      process.env.INSTANPAY_MERCHANT_ID ||
+      process.env.IPAYMU_VA ||
+      '';
 
     // Generate genuine QRIS Standar Nasional Indonesia (EMVCo with CRC16-CCITT)
     let qrisString = generateNationalQRIS({
@@ -2283,14 +2292,14 @@ app.post('/api/instanpay/create-qris', async (req: Request, res: Response) => {
     });
     let checkoutUrl = `https://app.instanpay.co.id/pay/${orderId}`;
 
-    if (instanpayApiKey && instanpayMerchantId) {
+    if (activeApiKey && activeMerchantId) {
       try {
         const instanpayRes = await fetch('https://api.instanpay.co.id/v1/charge', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${instanpayApiKey}`,
-            'X-Merchant-Id': instanpayMerchantId,
+            'Authorization': `Bearer ${activeApiKey}`,
+            'X-Merchant-Id': activeMerchantId,
           },
           body: JSON.stringify({
             order_id: orderId,
@@ -2322,6 +2331,7 @@ app.post('/api/instanpay/create-qris', async (req: Request, res: Response) => {
       expiresAt: Date.now() + 300000, // 5 minutes
       qrisString,
       checkoutUrl,
+      mode,
     };
 
     instanpayOrders.set(orderId, orderRecord);
@@ -2343,7 +2353,7 @@ app.post('/api/instanpay/create-qris', async (req: Request, res: Response) => {
 
 app.post('/api/instanpay/check-status', async (req: Request, res: Response) => {
   try {
-    const { orderId } = req.body || {};
+    const { orderId, adminConfig } = req.body || {};
     if (!orderId) {
       return res.status(400).json({ success: false, error: 'Order ID is required' });
     }
@@ -2351,16 +2361,25 @@ app.post('/api/instanpay/check-status', async (req: Request, res: Response) => {
     const order = instanpayOrders.get(orderId);
 
     // Live gateway check if API key exists
-    const instanpayApiKey = process.env.INSTANPAY_API_KEY || '';
-    const instanpayMerchantId = process.env.INSTANPAY_MERCHANT_ID || '';
+    const mode = adminConfig?.mode || order?.mode || 'sandbox';
+    const activeApiKey =
+      (mode === 'live' ? adminConfig?.liveApiKey : adminConfig?.sandboxApiKey) ||
+      process.env.INSTANPAY_API_KEY ||
+      process.env.IPAYMU_API_KEY ||
+      '';
+    const activeMerchantId =
+      adminConfig?.merchantId ||
+      process.env.INSTANPAY_MERCHANT_ID ||
+      process.env.IPAYMU_VA ||
+      '';
 
-    if (instanpayApiKey && instanpayMerchantId) {
+    if (activeApiKey && activeMerchantId) {
       try {
         const liveCheckRes = await fetch(`https://api.instanpay.co.id/v1/orders/${encodeURIComponent(orderId)}/status`, {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${instanpayApiKey}`,
-            'X-Merchant-Id': instanpayMerchantId,
+            'Authorization': `Bearer ${activeApiKey}`,
+            'X-Merchant-Id': activeMerchantId,
           },
         });
         if (liveCheckRes.ok) {
