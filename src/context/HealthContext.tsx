@@ -1015,73 +1015,94 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return await loginWithAccount({ profileId: account.id });
   };
 
-  const pullFromSupabase = async (): Promise<boolean> => {
+  const pullFromSupabase = async (overrideProfile?: UserProfile): Promise<boolean> => {
+    const activeProf = overrideProfile || profile;
+    if (!activeProf || (!activeProf.id && !activeProf.phone && !activeProf.email)) {
+      return false;
+    }
     setIsSyncingSupabase(true);
     try {
-      const data = await pullDataFromSupabase();
-      if (data.configured && data.hasData) {
-        if (data.profile) setProfile((prev) => ({ ...prev, ...data.profile, isLoggedIn: true }));
-        if (data.notes && data.notes.length > 0) setNotes(data.notes);
-        if (data.alarms && data.alarms.length > 0) setAlarms(data.alarms);
-        if (data.aiAnalysis) setAiAnalysis(data.aiAnalysis);
+      const data = await pullDataFromSupabase({
+        profileId: activeProf.id,
+        phone: activeProf.phone,
+        email: activeProf.email,
+      });
+      if (data.configured && data.hasData && data.profile) {
+        // Ensure the pulled profile belongs to the CURRENT user and never overwrites with another account
+        const isSameUser =
+          (activeProf.id && data.profile.id === activeProf.id) ||
+          (activeProf.phone && data.profile.phone === activeProf.phone) ||
+          (activeProf.email && data.profile.email === activeProf.email) ||
+          (!activeProf.id && !activeProf.phone && !activeProf.email);
 
-        const todayDate = getTodayDateString();
-        const waterLogs = (data.waterLogs || []).map((w: any) => ({
-          id: w.id,
-          amountMl: w.amount_ml,
-          timestamp: w.created_at || w.timestamp,
-          time: w.time,
-          period: w.period,
-          containerType: w.container_type || 'gelas',
-          note: w.note,
-        }));
-        const workoutLogs = (data.workoutLogs || []).map((wk: any) => ({
-          id: wk.id,
-          timestamp: wk.created_at || wk.timestamp,
-          time: wk.time,
-          activityType: wk.activity_type,
-          activityName: wk.activity_name,
-          durationMinutes: wk.duration_minutes,
-          caloriesBurned: wk.calories_burned,
-          distanceKm: wk.distance_km,
-          steps: wk.steps,
-          intensity: wk.intensity || 'sedang',
-          period: wk.period,
-          notes: wk.notes,
-        }));
-
-        if (waterLogs.length > 0 || workoutLogs.length > 0) {
-          setHistory((prev) => {
-            const existingToday = prev[todayDate] || {
-              date: todayDate,
-              waterLogs: [],
-              workoutLogs: [],
-              totalWaterMl: 0,
-              totalWorkoutMinutes: 0,
-              totalCalories: 0,
-            };
-            const totalWaterMl = waterLogs.reduce((acc: number, curr: any) => acc + (curr.amountMl || 0), 0);
-            const totalWorkoutMinutes = workoutLogs.reduce((acc: number, curr: any) => acc + (curr.durationMinutes || 0), 0);
-            const totalCalories = workoutLogs.reduce((acc: number, curr: any) => acc + (curr.caloriesBurned || 0), 0);
-
-            return {
-              ...prev,
-              [todayDate]: {
-                ...existingToday,
-                waterLogs: waterLogs.length > 0 ? waterLogs : existingToday.waterLogs,
-                workoutLogs: workoutLogs.length > 0 ? workoutLogs : existingToday.workoutLogs,
-                totalWaterMl: waterLogs.length > 0 ? totalWaterMl : existingToday.totalWaterMl,
-                totalWorkoutMinutes: workoutLogs.length > 0 ? totalWorkoutMinutes : existingToday.totalWorkoutMinutes,
-                totalCalories: workoutLogs.length > 0 ? totalCalories : existingToday.totalCalories,
-              },
-            };
+        if (isSameUser) {
+          setProfile((prev) => {
+            const merged = { ...prev, ...data.profile, isLoggedIn: true };
+            localStorage.setItem('hidup_sehatku_profile', JSON.stringify(merged));
+            return merged;
           });
-        }
+          if (data.notes && data.notes.length > 0) setNotes(data.notes);
+          if (data.alarms && data.alarms.length > 0) setAlarms(data.alarms);
+          if (data.aiAnalysis) setAiAnalysis(data.aiAnalysis);
 
-        const timeNow = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
-        setLastSyncedTime(timeNow);
-        localStorage.setItem('hidup_sehatku_last_synced', timeNow);
-        return true;
+          const todayDate = getTodayDateString();
+          const waterLogs = (data.waterLogs || []).map((w: any) => ({
+            id: w.id,
+            amountMl: w.amount_ml,
+            timestamp: w.created_at || w.timestamp,
+            time: w.time,
+            period: w.period,
+            containerType: w.container_type || 'gelas',
+            note: w.note,
+          }));
+          const workoutLogs = (data.workoutLogs || []).map((wk: any) => ({
+            id: wk.id,
+            timestamp: wk.created_at || wk.timestamp,
+            time: wk.time,
+            activityType: wk.activity_type,
+            activityName: wk.activity_name,
+            durationMinutes: wk.duration_minutes,
+            caloriesBurned: wk.calories_burned,
+            distanceKm: wk.distance_km,
+            steps: wk.steps,
+            intensity: wk.intensity || 'sedang',
+            period: wk.period,
+            notes: wk.notes,
+          }));
+
+          if (waterLogs.length > 0 || workoutLogs.length > 0) {
+            setHistory((prev) => {
+              const existingToday = prev[todayDate] || {
+                date: todayDate,
+                waterLogs: [],
+                workoutLogs: [],
+                totalWaterMl: 0,
+                totalWorkoutMinutes: 0,
+                totalCalories: 0,
+              };
+              const totalWaterMl = waterLogs.reduce((acc: number, curr: any) => acc + (curr.amountMl || 0), 0);
+              const totalWorkoutMinutes = workoutLogs.reduce((acc: number, curr: any) => acc + (curr.durationMinutes || 0), 0);
+              const totalCalories = workoutLogs.reduce((acc: number, curr: any) => acc + (curr.caloriesBurned || 0), 0);
+
+              return {
+                ...prev,
+                [todayDate]: {
+                  ...existingToday,
+                  waterLogs: waterLogs.length > 0 ? waterLogs : existingToday.waterLogs,
+                  workoutLogs: workoutLogs.length > 0 ? workoutLogs : existingToday.workoutLogs,
+                  totalWaterMl: waterLogs.length > 0 ? totalWaterMl : existingToday.totalWaterMl,
+                  totalWorkoutMinutes: workoutLogs.length > 0 ? totalWorkoutMinutes : existingToday.totalWorkoutMinutes,
+                  totalCalories: workoutLogs.length > 0 ? totalCalories : existingToday.totalCalories,
+                },
+              };
+            });
+          }
+
+          const timeNow = new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+          setLastSyncedTime(timeNow);
+          localStorage.setItem('hidup_sehatku_last_synced', timeNow);
+          return true;
+        }
       }
       return false;
     } catch (err) {
@@ -1098,6 +1119,7 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       .then((status) => {
         setSupabaseStatus(status);
         if (status.connected) {
+          // Sync current profile's data from server
           pullFromSupabase();
         }
       })

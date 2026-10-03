@@ -464,10 +464,12 @@ app.post('/api/accounts/login', async (req: Request, res: Response) => {
   }
 });
 
-// Supabase Pull (Ambil data dari Supabase ke aplikasi)
+// Supabase Pull (Ambil data dari Supabase ke aplikasi spesifik akun)
 app.get('/api/supabase/pull', async (req: Request, res: Response) => {
   const supabase = getSupabaseClient();
   const profileId = req.query.profileId as string | undefined;
+  const phone = req.query.phone as string | undefined;
+  const email = req.query.email as string | undefined;
 
   if (!supabase) {
     return res.json({
@@ -481,7 +483,19 @@ app.get('/api/supabase/pull', async (req: Request, res: Response) => {
     let query = supabase.from('profiles').select('*');
     if (profileId) {
       query = query.eq('id', profileId);
+    } else if (phone) {
+      query = query.eq('phone', phone);
+    } else if (email) {
+      query = query.eq('email', email);
+    } else {
+      // Do not pull a random account when no user filter is specified
+      return res.json({
+        configured: true,
+        hasData: false,
+        message: 'Filter pengguna diperlukan untuk memuat data profil.',
+      });
     }
+
     const { data: profiles, error: pErr } = await query.order('created_at', { ascending: false }).limit(1);
     if (pErr) throw pErr;
 
@@ -490,7 +504,7 @@ app.get('/api/supabase/pull', async (req: Request, res: Response) => {
       return res.json({
         configured: true,
         hasData: false,
-        message: 'Belum ada data profil pengguna di Supabase.',
+        message: 'Data profil pengguna tidak ditemukan di Supabase.',
       });
     }
 

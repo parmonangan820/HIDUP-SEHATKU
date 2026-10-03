@@ -232,7 +232,13 @@ export async function pushDataToSupabase(payload: SupabaseSyncPayload): Promise<
   }
 }
 
-export async function pullDataFromSupabase(): Promise<{
+export interface PullFilter {
+  profileId?: string;
+  phone?: string;
+  email?: string;
+}
+
+export async function pullDataFromSupabase(filter?: PullFilter): Promise<{
   configured: boolean;
   hasData?: boolean;
   profile?: any;
@@ -246,7 +252,13 @@ export async function pullDataFromSupabase(): Promise<{
 }> {
   // 1. Try backend server API first
   try {
-    const res = await fetch('/api/supabase/pull');
+    const params = new URLSearchParams();
+    if (filter?.profileId) params.set('profileId', filter.profileId);
+    if (filter?.phone) params.set('phone', filter.phone);
+    if (filter?.email) params.set('email', filter.email);
+
+    const queryStr = params.toString() ? `?${params.toString()}` : '';
+    const res = await fetch(`/api/supabase/pull${queryStr}`);
     if (res.ok) {
       const data = await res.json();
       if (data.configured) return data;
@@ -262,7 +274,19 @@ export async function pullDataFromSupabase(): Promise<{
   }
 
   try {
-    const { data: profiles, error: pErr } = await client.from('profiles').select('*').order('created_at', { ascending: false }).limit(1);
+    let query = client.from('profiles').select('*');
+    if (filter?.profileId) {
+      query = query.eq('id', filter.profileId);
+    } else if (filter?.phone) {
+      query = query.eq('phone', filter.phone);
+    } else if (filter?.email) {
+      query = query.eq('email', filter.email);
+    } else {
+      // Do not randomly select an account
+      return { configured: true, hasData: false, message: 'Filter akun diperlukan' };
+    }
+
+    const { data: profiles, error: pErr } = await query.order('created_at', { ascending: false }).limit(1);
     if (pErr) throw pErr;
     const profile = profiles && profiles[0] ? profiles[0] : null;
     if (!profile) {
@@ -284,6 +308,7 @@ export async function pullDataFromSupabase(): Promise<{
         id: profile.id,
         name: profile.name,
         phone: profile.phone,
+        email: profile.email,
         age: profile.age,
         gender: profile.gender,
         weight: profile.weight,
