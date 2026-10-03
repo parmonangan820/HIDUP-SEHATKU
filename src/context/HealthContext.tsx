@@ -83,6 +83,7 @@ interface HealthContextType {
     period?: TimePeriod,
     customTime?: string
   ) => void;
+  undoLastWaterLog: () => number;
   deleteWaterLog: (id: string) => void;
   logWorkout: (workout: {
     activityType: ActivityCategory;
@@ -652,9 +653,6 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     ];
   });
 
-  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
-  const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState(false);
-
   const [activeRingingAlarm, setActiveRingingAlarm] = useState<{
     alarm: HealthAlarm;
     note?: HealthNote;
@@ -700,9 +698,6 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Live Alarm Runner (runs every 4 seconds)
   useEffect(() => {
     const checkAlarms = () => {
-      // Do not interrupt admin while working inside the Admin Panel
-      if (isAdminModalOpen) return;
-
       const now = new Date();
       const currentH = String(now.getHours()).padStart(2, '0');
       const currentM = String(now.getMinutes()).padStart(2, '0');
@@ -766,20 +761,12 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const timer = setInterval(checkAlarms, 4000);
     return () => clearInterval(timer);
-  }, [alarms, notes, lastTriggeredMinute, isAdminModalOpen]);
+  }, [alarms, notes, lastTriggeredMinute]);
 
   const dismissRingingAlarm = () => {
     stopAlarmChime();
     setActiveRingingAlarm(null);
   };
-
-  // If Admin opens Admin Panel while an alarm was active, dismiss it immediately so admin is not blocked
-  useEffect(() => {
-    if (isAdminModalOpen && activeRingingAlarm) {
-      stopAlarmChime();
-      setActiveRingingAlarm(null);
-    }
-  }, [isAdminModalOpen, activeRingingAlarm]);
 
   const testAlarmSound = () => {
     playAlarmChime(false);
@@ -844,6 +831,8 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return isEmailAdmin || (isNameAdmin && (email === '' || allowedEmails.includes(email)));
   }, [profile]);
 
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+  const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState(false);
   const [activeAnnouncement, setActiveAnnouncement] = useState<AnnouncementItem | null>(null);
 
   const refreshAnnouncement = async () => {
@@ -1390,6 +1379,30 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     });
   };
 
+  const undoLastWaterLog = (): number => {
+    let removedAmount = 0;
+    setHistory((prev) => {
+      const current = prev[selectedDate];
+      if (!current || !current.waterLogs || current.waterLogs.length === 0) {
+        return prev;
+      }
+      const lastLog = current.waterLogs[0];
+      removedAmount = lastLog.amountMl;
+      const newLogs = current.waterLogs.slice(1);
+      const newTotal = newLogs.reduce((acc, curr) => acc + curr.amountMl, 0);
+
+      return {
+        ...prev,
+        [selectedDate]: {
+          ...current,
+          waterLogs: newLogs,
+          totalWaterMl: newTotal,
+        },
+      };
+    });
+    return removedAmount;
+  };
+
   const deleteWaterLog = (id: string) => {
     setHistory((prev) => {
       const current = prev[selectedDate];
@@ -1669,6 +1682,7 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         todayRecord,
         history,
         logWater,
+        undoLastWaterLog,
         deleteWaterLog,
         logWorkout,
         deleteWorkoutLog,

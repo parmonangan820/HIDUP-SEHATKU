@@ -14,6 +14,7 @@ import {
   Radio,
   Plus,
   Send,
+  RotateCcw,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -24,12 +25,13 @@ interface VoiceDrinkModalProps {
 }
 
 export const VoiceDrinkModal: React.FC<VoiceDrinkModalProps> = ({ isOpen, onClose, onOpenProfile }) => {
-  const { logWater, todayRecord, profile } = useHealth();
+  const { logWater, undoLastWaterLog, todayRecord, profile } = useHealth();
   const isRegistered = Boolean(profile.isRegistered);
 
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [undoMessage, setUndoMessage] = useState<string | null>(null);
   const [successInfo, setSuccessInfo] = useState<{
     amount: number;
     container: string;
@@ -297,6 +299,36 @@ export const VoiceDrinkModal: React.FC<VoiceDrinkModalProps> = ({ isOpen, onClos
               </span>
             </div>
           </div>
+
+          {/* Undo Last Water Log Button */}
+          {todayRecord.waterLogs && todayRecord.waterLogs.length > 0 && (
+            <div>
+              <button
+                type="button"
+                onClick={() => {
+                  const removed = undoLastWaterLog();
+                  if (removed > 0) {
+                    setUndoMessage(`Berhasil membatalkan catatan minum terakhir (-${removed} ml). Silakan masukkan kembali yang benar.`);
+                    setSuccessInfo(null);
+                    setTimeout(() => setUndoMessage(null), 4000);
+                  } else {
+                    setUndoMessage(`Tidak ada catatan minum hari ini untuk dibatalkan.`);
+                    setTimeout(() => setUndoMessage(null), 3000);
+                  }
+                }}
+                className="w-full py-2 px-3 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-300 font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-sm cursor-pointer"
+                title="Batalkan input atau pengucapan minum terakhir yang salah"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Batalkan Minum Terakhir ({todayRecord.waterLogs[0].amountMl} ml)</span>
+              </button>
+              {undoMessage && (
+                <p className="text-[11px] text-amber-300 font-medium mt-1.5 animate-fadeIn text-center">
+                  {undoMessage}
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Microphone Section */}
           <div className="rounded-2xl bg-gradient-to-b from-slate-950 to-slate-900 border border-cyan-500/30 p-5 text-center relative overflow-hidden shadow-inner">
