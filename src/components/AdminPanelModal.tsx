@@ -32,6 +32,8 @@ import {
   Edit,
   Trash2,
   Eye,
+  EyeOff,
+  Key,
   LogOut,
   Download,
   Send,
@@ -73,17 +75,33 @@ export const AdminPanelModal: React.FC = () => {
   const [instanpayConfig, setInstanpayConfig] = useState(() => {
     try {
       const saved = localStorage.getItem('hidupsehat_instanpay_admin_config');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          mode: (parsed.mode || 'sandbox') as 'sandbox' | 'live',
+          merchantId: parsed.merchantId || 'M-INSTANPAY-882910',
+          liveApiKey: parsed.liveApiKey || parsed.apiKey || 'itpay_live_sec_991823746501928374',
+          liveClientKey: parsed.liveClientKey || parsed.clientKey || 'itpay_live_cli_882910384756',
+          sandboxApiKey: parsed.sandboxApiKey || 'itpay_sandbox_sec_382910475829104829',
+          sandboxClientKey: parsed.sandboxClientKey || 'itpay_sandbox_cli_882910384756',
+          callbackUrl: parsed.callbackUrl || 'https://www.hidupsehatku.my.id/api/instanpay/callback',
+          autoActivatePro: parsed.autoActivatePro ?? true,
+        };
+      }
     } catch {}
     return {
       mode: 'sandbox' as 'sandbox' | 'live',
       merchantId: 'M-INSTANPAY-882910',
-      apiKey: 'itpay_live_sec_991823746501928374',
-      clientKey: 'itpay_cli_882910384756',
+      liveApiKey: 'itpay_live_sec_991823746501928374',
+      liveClientKey: 'itpay_live_cli_882910384756',
+      sandboxApiKey: 'itpay_sandbox_sec_382910475829104829',
+      sandboxClientKey: 'itpay_sandbox_cli_882910384756',
       callbackUrl: 'https://www.hidupsehatku.my.id/api/instanpay/callback',
       autoActivatePro: true,
     };
   });
+  const [showLiveSecret, setShowLiveSecret] = useState(false);
+  const [showSandboxSecret, setShowSandboxSecret] = useState(false);
   const [isSavingInstanpay, setIsSavingInstanpay] = useState(false);
   const [instanpaySaveMessage, setInstanpaySaveMessage] = useState<string | null>(null);
 
@@ -583,29 +601,114 @@ export const AdminPanelModal: React.FC = () => {
                   />
                 </div>
 
-                {/* API Key / Secret Key */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300 block">API Secret Key</label>
-                  <input
-                    type="password"
-                    value={instanpayConfig.apiKey}
-                    onChange={(e) => setInstanpayConfig((prev: any) => ({ ...prev, apiKey: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs font-mono focus:outline-none focus:border-indigo-500"
-                    placeholder="itpay_live_sec_..."
-                    required
-                  />
+                {/* ======================================================== */}
+                {/* SECTION 1: KUNCI LIVE (PRODUKSI) */}
+                {/* ======================================================== */}
+                <div className="p-4 rounded-2xl bg-slate-950/80 border border-emerald-500/30 space-y-3.5">
+                  <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                      <h5 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <Key className="w-3.5 h-3.5" />
+                        <span>Kunci Kredensial Mode Live (Produksi / Nyata)</span>
+                      </h5>
+                    </div>
+                    {instanpayConfig.mode === 'live' && (
+                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[9px] font-black uppercase">
+                        Sedang Aktif
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Live Secret Key */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300 block">Live API Secret Key</label>
+                    <div className="relative">
+                      <input
+                        type={showLiveSecret ? 'text' : 'password'}
+                        value={instanpayConfig.liveApiKey}
+                        onChange={(e) => setInstanpayConfig((prev: any) => ({ ...prev, liveApiKey: e.target.value }))}
+                        className="w-full px-3.5 py-2.5 pr-10 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-mono focus:outline-none focus:border-emerald-500"
+                        placeholder="itpay_live_sec_..."
+                        required={instanpayConfig.mode === 'live'}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowLiveSecret(!showLiveSecret)}
+                        className="absolute right-3 top-2.5 text-slate-400 hover:text-white cursor-pointer"
+                        title={showLiveSecret ? 'Sembunyikan' : 'Tampilkan'}
+                      >
+                        {showLiveSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Live Client Key */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300 block">Live Client / Public Key</label>
+                    <input
+                      type="text"
+                      value={instanpayConfig.liveClientKey}
+                      onChange={(e) => setInstanpayConfig((prev: any) => ({ ...prev, liveClientKey: e.target.value }))}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-mono focus:outline-none focus:border-emerald-500"
+                      placeholder="itpay_live_cli_..."
+                    />
+                  </div>
                 </div>
 
-                {/* Client Key */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300 block">Client Public Key</label>
-                  <input
-                    type="text"
-                    value={instanpayConfig.clientKey}
-                    onChange={(e) => setInstanpayConfig((prev: any) => ({ ...prev, clientKey: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs font-mono focus:outline-none focus:border-indigo-500"
-                    placeholder="itpay_cli_..."
-                  />
+                {/* ======================================================== */}
+                {/* SECTION 2: KUNCI SANDBOX (UJI COBA) */}
+                {/* ======================================================== */}
+                <div className="p-4 rounded-2xl bg-slate-950/80 border border-amber-500/30 space-y-3.5">
+                  <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+                      <h5 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <Key className="w-3.5 h-3.5" />
+                        <span>Kunci Kredensial Mode Sandbox (Uji Coba / Testing)</span>
+                      </h5>
+                    </div>
+                    {instanpayConfig.mode === 'sandbox' && (
+                      <span className="px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[9px] font-black uppercase">
+                        Sedang Aktif
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Sandbox Secret Key */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300 block">Sandbox API Secret Key</label>
+                    <div className="relative">
+                      <input
+                        type={showSandboxSecret ? 'text' : 'password'}
+                        value={instanpayConfig.sandboxApiKey}
+                        onChange={(e) => setInstanpayConfig((prev: any) => ({ ...prev, sandboxApiKey: e.target.value }))}
+                        className="w-full px-3.5 py-2.5 pr-10 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-mono focus:outline-none focus:border-amber-500"
+                        placeholder="itpay_sandbox_sec_..."
+                        required={instanpayConfig.mode === 'sandbox'}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowSandboxSecret(!showSandboxSecret)}
+                        className="absolute right-3 top-2.5 text-slate-400 hover:text-white cursor-pointer"
+                        title={showSandboxSecret ? 'Sembunyikan' : 'Tampilkan'}
+                      >
+                        {showSandboxSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Sandbox Client Key */}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300 block">Sandbox Client / Public Key</label>
+                    <input
+                      type="text"
+                      value={instanpayConfig.sandboxClientKey}
+                      onChange={(e) => setInstanpayConfig((prev: any) => ({ ...prev, sandboxClientKey: e.target.value }))}
+                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-mono focus:outline-none focus:border-amber-500"
+                      placeholder="itpay_sandbox_cli_..."
+                    />
+                  </div>
                 </div>
 
                 {/* Callback URL */}
