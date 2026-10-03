@@ -20,10 +20,12 @@ import confetti from 'canvas-confetti';
 interface VoiceDrinkModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onOpenProfile: () => void;
 }
 
-export const VoiceDrinkModal: React.FC<VoiceDrinkModalProps> = ({ isOpen, onClose }) => {
+export const VoiceDrinkModal: React.FC<VoiceDrinkModalProps> = ({ isOpen, onClose, onOpenProfile }) => {
   const { logWater, todayRecord, profile } = useHealth();
+  const isRegistered = Boolean(profile.isRegistered);
 
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
@@ -88,6 +90,11 @@ export const VoiceDrinkModal: React.FC<VoiceDrinkModalProps> = ({ isOpen, onClos
   if (!isOpen) return null;
 
   const startListening = () => {
+    if (!isRegistered) {
+      onClose();
+      onOpenProfile();
+      return;
+    }
     setSuccessInfo(null);
     setTranscript('');
     if (recognitionRef.current) {
@@ -293,6 +300,28 @@ export const VoiceDrinkModal: React.FC<VoiceDrinkModalProps> = ({ isOpen, onClos
 
           {/* Microphone Section */}
           <div className="rounded-2xl bg-gradient-to-b from-slate-950 to-slate-900 border border-cyan-500/30 p-5 text-center relative overflow-hidden shadow-inner">
+            {!isRegistered && (
+              <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-sm z-20 flex flex-col items-center justify-center p-4 text-center space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-400 to-rose-500 flex items-center justify-center text-slate-950 shadow-lg">
+                  <Sparkles className="w-6 h-6 stroke-[2.5]" />
+                </div>
+                <h4 className="text-sm font-bold text-white">Akun Baru Belum Dibuat</h4>
+                <p className="text-xs text-slate-300 max-w-xs leading-relaxed">
+                  Fitur mikrofon & perintah suara AI memerlukan akun baru. Silakan buat akun Anda terlebih dahulu!
+                </p>
+                <button
+                  onClick={() => {
+                    onClose();
+                    onOpenProfile();
+                  }}
+                  className="py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-400 via-yellow-400 to-emerald-400 text-slate-950 font-black text-xs shadow-lg shadow-amber-500/20 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <span>Buat Akun Baru Sekarang</span>
+                  <ArrowRight className="w-3.5 h-3.5 stroke-[2.5]" />
+                </button>
+              </div>
+            )}
+
             <div className="relative z-10 flex flex-col items-center">
               <div className="relative my-2">
                 {isListening && (

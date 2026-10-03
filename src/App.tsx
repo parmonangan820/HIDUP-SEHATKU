@@ -312,6 +312,7 @@ function MainApp() {
         <VoiceDrinkModal
           isOpen={isVoiceDrinkOpen}
           onClose={() => setIsVoiceDrinkOpen(false)}
+          onOpenProfile={() => setIsProfileOpen(true)}
         />
         <AlarmRingingModal />
         <SupabaseSyncModal
