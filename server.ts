@@ -899,6 +899,10 @@ function saveAdminConfig(cfg: AdminConfig) {
 // BANNER IMAGE SLIDER PERSISTENCE (8:1)
 // ==========================================
 const BANNERS_CONFIG_FILE = path.join(__dirname, 'banners-config.json');
+const UPLOAD_BANNERS_DIR = path.join(__dirname, 'uploads', 'banners');
+if (!fs.existsSync(UPLOAD_BANNERS_DIR)) {
+  fs.mkdirSync(UPLOAD_BANNERS_DIR, { recursive: true });
+}
 
 export interface BannerSlideConfig {
   id: number;
@@ -911,6 +915,29 @@ const DEFAULT_BANNER_SLIDES: BannerSlideConfig[] = [
   { id: 2, badge: '2/3', imageUrl: '' },
   { id: 3, badge: '3/3', imageUrl: '' },
 ];
+
+function processAndSaveSlideImage(slideId: number, imageUrl?: string): string {
+  if (!imageUrl || !imageUrl.startsWith('data:image/')) {
+    return imageUrl || '';
+  }
+
+  try {
+    const matches = imageUrl.match(/^data:image\/([a-zA-Z0-9+.-]+);base64,(.+)$/);
+    if (matches && matches[2]) {
+      const mimeSub = matches[1].toLowerCase();
+      const ext = mimeSub.includes('svg') ? 'svg' : mimeSub.includes('png') ? 'png' : mimeSub.includes('webp') ? 'webp' : 'jpg';
+      const buffer = Buffer.from(matches[2], 'base64');
+      const filename = `slide-${slideId}.${ext}`;
+      const filePath = path.join(UPLOAD_BANNERS_DIR, filename);
+      fs.writeFileSync(filePath, buffer);
+      return `/api/banners/image/${slideId}?v=${Date.now()}`;
+    }
+  } catch (err) {
+    console.error('Error saving banner image to file:', err);
+  }
+
+  return imageUrl;
+}
 
 function getBannersConfig(): BannerSlideConfig[] {
   try {
@@ -1317,16 +1344,53 @@ app.get('/api/banners', (_req: Request, res: Response) => {
   return res.json({ banners });
 });
 
+// Endpoint to stream binary banner image directly with standard caching
+app.get('/api/banners/image/:id', (req: Request, res: Response) => {
+  const slideId = parseInt(req.params.id, 10);
+  if (isNaN(slideId)) return res.status(400).send('Invalid slide id');
+
+  const exts = ['jpg', 'jpeg', 'png', 'webp', 'svg'];
+  for (const ext of exts) {
+    const filePath = path.join(UPLOAD_BANNERS_DIR, `slide-${slideId}.${ext}`);
+    if (fs.existsSync(filePath)) {
+      const mime = ext === 'svg' ? 'image/svg+xml' : ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
+      res.setHeader('Content-Type', mime);
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+      return fs.createReadStream(filePath).pipe(res);
+    }
+  }
+
+  // Fallback to banners config data uri if not stored as separate file
+  const banners = getBannersConfig();
+  const slide = banners.find((b) => b.id === slideId);
+  if (slide?.imageUrl && slide.imageUrl.startsWith('data:image/')) {
+    const matches = slide.imageUrl.match(/^data:image\/([a-zA-Z0-9+.-]+);base64,(.+)$/);
+    if (matches) {
+      const mime = matches[1].includes('svg') ? 'image/svg+xml' : `image/${matches[1]}`;
+      res.setHeader('Content-Type', mime);
+      return res.send(Buffer.from(matches[2], 'base64'));
+    }
+  }
+
+  return res.status(404).send('Banner not found');
+});
+
 app.post('/api/admin/banners', (req: Request, res: Response) => {
   try {
     const { banners, slide, index } = req.body || {};
     let currentBanners = getBannersConfig();
 
     if (Array.isArray(banners) && banners.length > 0) {
-      currentBanners = banners;
+      currentBanners = banners.map((s, idx) => {
+        const slideId = s.id || idx + 1;
+        const processedUrl = processAndSaveSlideImage(slideId, s.imageUrl);
+        return { ...s, imageUrl: processedUrl };
+      });
     } else if (typeof index === 'number' && index >= 0 && slide) {
       currentBanners = [...currentBanners];
-      currentBanners[index] = { ...currentBanners[index], ...slide };
+      const slideId = slide.id || index + 1;
+      const processedUrl = processAndSaveSlideImage(slideId, slide.imageUrl);
+      currentBanners[index] = { ...currentBanners[index], ...slide, imageUrl: processedUrl };
     } else {
       return res.status(400).json({ success: false, message: 'Data banner tidak valid.' });
     }
@@ -1351,7 +1415,9 @@ app.put('/api/admin/banners/:index', (req: Request, res: Response) => {
     }
     const slide = req.body;
     const currentBanners = [...getBannersConfig()];
-    currentBanners[index] = { ...currentBanners[index], ...slide };
+    const slideId = slide.id || index + 1;
+    const processedUrl = processAndSaveSlideImage(slideId, slide.imageUrl);
+    currentBanners[index] = { ...currentBanners[index], ...slide, imageUrl: processedUrl };
     saveBannersConfig(currentBanners);
     return res.json({
       success: true,

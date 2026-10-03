@@ -30,6 +30,7 @@ import {
   saveGlobalBannerSlide,
 } from '../services/adminService';
 import { DEFAULT_GLOBAL_BANNERS } from '../utils/defaultBanners';
+import { optimizeBannerImage } from '../utils/imageOptimizer';
 import {
   AccountSummary,
   fetchRegisteredAccounts,
@@ -420,8 +421,22 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
         // If this browser (e.g. Admin) already has custom images that server doesn't have yet, auto-push to server!
         if (localHasCustomImages && !serverHasCustomImages) {
-          await saveGlobalBanners(localSlides);
-          setBannerSlides(localSlides);
+          try {
+            const optimized = await Promise.all(
+              localSlides.map(async (s) => {
+                if (s.imageUrl && s.imageUrl.startsWith('data:image/')) {
+                  const opt = await optimizeBannerImage(s.imageUrl);
+                  return { ...s, imageUrl: opt };
+                }
+                return s;
+              })
+            );
+            await saveGlobalBanners(optimized);
+            setBannerSlides(optimized);
+            localStorage.setItem('hidupsehat_custom_banners', JSON.stringify(optimized));
+          } catch (err) {
+            console.warn('Auto sync banners error:', err);
+          }
           return;
         }
 
@@ -444,23 +459,48 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const updateBannerSlide = async (index: number, updated: Partial<BannerSlide>) => {
+    let slideToSave = { ...bannerSlides[index], ...updated };
+    if (slideToSave.imageUrl && slideToSave.imageUrl.startsWith('data:image/')) {
+      try {
+        const opt = await optimizeBannerImage(slideToSave.imageUrl);
+        slideToSave = { ...slideToSave, imageUrl: opt };
+      } catch (e) {
+        console.warn('Optimization fallback in updateBannerSlide:', e);
+      }
+    }
+
     const newSlides = [...bannerSlides];
-    newSlides[index] = { ...newSlides[index], ...updated };
+    newSlides[index] = slideToSave;
     setBannerSlides(newSlides);
     localStorage.setItem('hidupsehat_custom_banners', JSON.stringify(newSlides));
 
     try {
-      await saveGlobalBannerSlide(index, newSlides[index]);
+      await saveGlobalBannerSlide(index, slideToSave);
     } catch (e) {
       console.error('Error saving banner slide to server:', e);
     }
   };
 
   const saveAllBannerSlides = async (slidesToSave: BannerSlide[]) => {
-    setBannerSlides(slidesToSave);
-    localStorage.setItem('hidupsehat_custom_banners', JSON.stringify(slidesToSave));
+    let preparedSlides = slidesToSave;
     try {
-      const res = await saveGlobalBanners(slidesToSave);
+      preparedSlides = await Promise.all(
+        slidesToSave.map(async (s) => {
+          if (s.imageUrl && s.imageUrl.startsWith('data:image/')) {
+            const opt = await optimizeBannerImage(s.imageUrl);
+            return { ...s, imageUrl: opt };
+          }
+          return s;
+        })
+      );
+    } catch (e) {
+      console.warn('Failed to pre-optimize slides:', e);
+    }
+
+    setBannerSlides(preparedSlides);
+    localStorage.setItem('hidupsehat_custom_banners', JSON.stringify(preparedSlides));
+    try {
+      const res = await saveGlobalBanners(preparedSlides);
       return res;
     } catch (e: any) {
       console.error('Error saving all banners to server:', e);

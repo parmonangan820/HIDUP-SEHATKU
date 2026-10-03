@@ -201,7 +201,17 @@ export async function saveGlobalBanners(banners: BannerSlideItem[]): Promise<{ s
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ banners }),
     });
-    return await res.json();
+    const text = await res.text();
+    let data: any = {};
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return {
+        success: false,
+        message: `Gagal menyimpan (Status ${res.status}): Server menolak data karena ukuran terlalu besar atau koneksi terputus.`,
+      };
+    }
+    return data;
   } catch (err: any) {
     return { success: false, message: err?.message || 'Gagal menyimpan banner ke server' };
   }
@@ -214,7 +224,17 @@ export async function saveGlobalBannerSlide(index: number, slide: BannerSlideIte
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ index, slide }),
     });
-    return await res.json();
+    const text = await res.text();
+    let data: any = {};
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return {
+        success: false,
+        message: `Gagal menyimpan slide #${index + 1} (Status ${res.status}): Respon server tidak valid.`,
+      };
+    }
+    return data;
   } catch (err: any) {
     return { success: false, message: err?.message || 'Gagal menyimpan slide banner ke server' };
   }

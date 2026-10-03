@@ -14,6 +14,7 @@ import {
   deleteAnnouncement,
   changeAdminPin,
 } from '../services/adminService';
+import { optimizeBannerImage } from '../utils/imageOptimizer';
 import {
   Shield,
   ShieldAlert,
@@ -489,20 +490,35 @@ export const AdminPanelModal: React.FC = () => {
                   <button
                     onClick={async () => {
                       setIsSavingAllBanners(true);
-                      const res = await saveAllBannerSlides(bannerForm);
-                      setIsSavingAllBanners(false);
-                      if (res.success) {
-                        setActionFeedback({ type: 'success', message: 'Semua 3 slide banner berhasil disimpan secara global dan langsung tampil di semua browser!' });
-                      } else {
-                        setActionFeedback({ type: 'error', message: res.message || 'Gagal menyimpan banner' });
+                      try {
+                        const optimizedSlides = await Promise.all(
+                          bannerForm.map(async (slide) => {
+                            if (slide.imageUrl && slide.imageUrl.startsWith('data:image/')) {
+                              const opt = await optimizeBannerImage(slide.imageUrl);
+                              return { ...slide, imageUrl: opt };
+                            }
+                            return slide;
+                          })
+                        );
+                        setBannerForm(optimizedSlides);
+                        const res = await saveAllBannerSlides(optimizedSlides);
+                        if (res.success) {
+                          setActionFeedback({ type: 'success', message: 'Semua 3 slide banner berhasil disimpan secara global dan langsung tampil di semua browser!' });
+                        } else {
+                          setActionFeedback({ type: 'error', message: res.message || 'Gagal menyimpan banner' });
+                        }
+                      } catch (err: any) {
+                        setActionFeedback({ type: 'error', message: err?.message || 'Gagal memproses gambar banner' });
+                      } finally {
+                        setIsSavingAllBanners(false);
+                        setTimeout(() => setActionFeedback(null), 4000);
                       }
-                      setTimeout(() => setActionFeedback(null), 4000);
                     }}
                     disabled={isSavingAllBanners}
                     className="px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black text-xs shadow-lg shadow-cyan-500/20 flex items-center gap-2 disabled:opacity-50 transition-all cursor-pointer"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${isSavingAllBanners ? 'animate-spin' : ''}`} />
-                    <span>{isSavingAllBanners ? 'Menyimpan ke Server...' : 'Simpan Semua Slide (Aktif di Semua Browser)'}</span>
+                    <span>{isSavingAllBanners ? 'Mengoptimasi & Menyimpan...' : 'Simpan Semua Slide (Aktif di Semua Browser)'}</span>
                   </button>
 
                   <button
@@ -552,17 +568,17 @@ export const AdminPanelModal: React.FC = () => {
                     <input
                       type="file"
                       accept="image/*"
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (file) {
-                          const reader = new FileReader();
-                          reader.onload = (event) => {
-                            const result = event.target?.result as string;
+                          try {
+                            const optimized = await optimizeBannerImage(file);
                             const updated = [...bannerForm];
-                            updated[index] = { ...updated[index], imageUrl: result };
+                            updated[index] = { ...updated[index], imageUrl: optimized };
                             setBannerForm(updated);
-                          };
-                          reader.readAsDataURL(file);
+                          } catch (err) {
+                            console.error('Gagal mengoptimasi file gambar banner:', err);
+                          }
                         }
                       }}
                       className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white file:mr-4 file:py-1 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-cyan-500 file:text-slate-950 hover:file:bg-cyan-400 cursor-pointer"
@@ -580,7 +596,7 @@ export const AdminPanelModal: React.FC = () => {
                           setActionFeedback({ type: 'success', message: `Gambar Slide #${index + 1} berhasil dikosongkan.` });
                           setTimeout(() => setActionFeedback(null), 3000);
                         }}
-                        className="text-xs text-rose-400 hover:text-rose-300 font-semibold"
+                        className="text-xs text-rose-400 hover:text-rose-300 font-semibold cursor-pointer"
                       >
                         Hapus Gambar Slide
                       </button>
@@ -589,10 +605,20 @@ export const AdminPanelModal: React.FC = () => {
                     <button
                       onClick={async () => {
                         setSavingSlideIndex(index);
-                        await updateBannerSlide(index, bannerForm[index]);
-                        setSavingSlideIndex(null);
-                        setActionFeedback({ type: 'success', message: `Gambar Slide #${index + 1} berhasil disimpan ke server dan tampil di semua browser!` });
-                        setTimeout(() => setActionFeedback(null), 3500);
+                        try {
+                          let slideToSave = bannerForm[index];
+                          if (slideToSave.imageUrl && slideToSave.imageUrl.startsWith('data:image/')) {
+                            const opt = await optimizeBannerImage(slideToSave.imageUrl);
+                            slideToSave = { ...slideToSave, imageUrl: opt };
+                          }
+                          await updateBannerSlide(index, slideToSave);
+                          setActionFeedback({ type: 'success', message: `Gambar Slide #${index + 1} berhasil disimpan ke server dan tampil di semua browser!` });
+                        } catch (err: any) {
+                          setActionFeedback({ type: 'error', message: err?.message || `Gagal menyimpan slide #${index + 1}` });
+                        } finally {
+                          setSavingSlideIndex(null);
+                          setTimeout(() => setActionFeedback(null), 3500);
+                        }
                       }}
                       disabled={savingSlideIndex === index}
                       className="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs shadow-md transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
