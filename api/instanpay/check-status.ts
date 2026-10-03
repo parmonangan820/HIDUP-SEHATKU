@@ -8,7 +8,7 @@ export default async function handler(req: any, res: any) {
       success: true,
       orderId,
       status: 'success',
-      message: 'Pembayaran QRIS Instapay berhasil dikonfirmasi.',
+      message: 'Pembayaran QRIS InstanPay berhasil dikonfirmasi.',
     });
   } catch (error: any) {
     return res.status(500).json({ success: false, error: error?.message });

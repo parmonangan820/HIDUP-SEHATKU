@@ -36,7 +36,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
     if (step === 'instapay_qris' && qrisData?.orderId) {
       pollInterval = setInterval(async () => {
         try {
-          const res = await fetch('/api/instapay/check-status', {
+          const res = await fetch('/api/instanpay/check-status', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ orderId: qrisData.orderId }),
@@ -61,7 +61,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
   const handleProceedToQris = async () => {
     setIsLoadingQris(true);
     try {
-      const res = await fetch('/api/instapay/create-qris', {
+      const res = await fetch('/api/instanpay/create-qris', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -80,7 +80,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
         }
       }
     } catch (err) {
-      console.error('Failed to create Instapay QRIS:', err);
+      console.error('Failed to create InstanPay QRIS:', err);
     } finally {
       setIsLoadingQris(false);
     }
@@ -93,7 +93,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
     }
     setCheckingStatus(true);
     try {
-      const res = await fetch('/api/instapay/check-status', {
+      const res = await fetch('/api/instanpay/check-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderId: qrisData.orderId }),
@@ -169,7 +169,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
               </button>
               <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-xs font-bold">
                 <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
-                <span>Instapay Payment Gateway</span>
+                <span>InstanPay Payment Gateway</span>
               </div>
             </div>
 
@@ -189,7 +189,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
             {/* QR Code Container */}
             <div className="flex flex-col items-center justify-center p-6 rounded-3xl bg-white text-slate-950 shadow-2xl relative">
               <div className="absolute top-3 left-3 flex items-center gap-1 text-[10px] font-black tracking-wider text-slate-700 bg-slate-100 px-2 py-1 rounded-md uppercase">
-                <span>QRIS INSTAPAY</span>
+                <span>QRIS INSTANPAY</span>
               </div>
               <div className="absolute top-3 right-3 text-right">
                 <span className="text-[10px] text-slate-500 font-bold block">Waktu Bayar</span>
@@ -198,22 +198,22 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
                 </span>
               </div>
 
-              {/* Mock QR Code / Real Instapay QR Image */}
+              {/* Mock QR Code / Real InstanPay QR Image */}
               <div className="my-5 p-3 bg-white border border-slate-200 rounded-2xl flex flex-col items-center justify-center shadow-inner">
                 {qrisData?.qrImageUrl ? (
-                  <img src={qrisData.qrImageUrl} alt="Instapay QRIS" className="w-40 h-40 object-contain rounded-xl" />
+                  <img src={qrisData.qrImageUrl} alt="InstanPay QRIS" className="w-40 h-40 object-contain rounded-xl" />
                 ) : (
                   <QrCode className="w-36 h-36 text-slate-900" />
                 )}
                 <span className="text-[10px] font-bold font-mono text-slate-600 mt-2">
-                  Order ID: {qrisData?.orderId || 'INSTAPAY-ORDER-001'}
+                  Order ID: {qrisData?.orderId || 'INSTANPAY-ORDER-001'}
                 </span>
               </div>
 
               <div className="w-full text-center border-t border-slate-200 pt-3">
                 <div className="text-xs text-slate-500 font-medium">{planLabel}</div>
                 <div className="text-xl font-black text-slate-900 mt-0.5">{priceFormatted}</div>
-                <div className="text-[10px] text-slate-400 mt-0.5">Merchant: PT Hidup Sehatku Indonesia (Instapay QRIS)</div>
+                <div className="text-[10px] text-slate-400 mt-0.5">Merchant: PT Hidup Sehatku Indonesia (InstanPay QRIS)</div>
               </div>
             </div>
 
@@ -224,7 +224,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
                 disabled={checkingStatus}
                 className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-indigo-500 to-blue-600 text-white font-bold text-xs sm:text-sm hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 cursor-pointer"
               >
-                {checkingStatus ? 'Memeriksa Status Instapay...' : '🔄 Cek Status Pembayaran QRIS'}
+                {checkingStatus ? 'Memeriksa Status InstanPay...' : '🔄 Cek Status Pembayaran QRIS'}
               </button>
 
               <button
@@ -327,18 +327,18 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
               </button>
             </div>
 
-            {/* Proceed to Instapay QRIS Button */}
+            {/* Proceed to InstanPay QRIS Button */}
             <button
               onClick={handleProceedToQris}
               disabled={isLoadingQris}
               className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-slate-950 font-black text-sm hover:brightness-110 active:scale-95 transition-all shadow-xl shadow-amber-500/25 flex items-center justify-center gap-2 cursor-pointer"
             >
               <QrCode className="w-5 h-5" />
-              <span>{isLoadingQris ? 'Memproses Instapay QRIS...' : 'Bayar dengan QRIS Instapay'}</span>
+              <span>{isLoadingQris ? 'Memproses InstanPay QRIS...' : 'Bayar dengan QRIS InstanPay'}</span>
             </button>
 
             <p className="text-[10px] text-center text-slate-500">
-              Didukung oleh Instapay Payment Gateway (QRIS All-Bank & E-Wallet).
+              Didukung oleh InstanPay Payment Gateway (QRIS All-Bank & E-Wallet).
             </p>
           </div>
         )}

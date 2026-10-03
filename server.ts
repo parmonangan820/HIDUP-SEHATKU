@@ -2167,27 +2167,27 @@ Berikan respons HANYA berupa JSON valid (tanpa markdown blok pembuka/penutup) de
   }
 });
 
-// Instapay Payment Gateway Endpoints
-app.post('/api/instapay/create-qris', async (req: Request, res: Response) => {
+// InstanPay Payment Gateway Endpoints
+app.post('/api/instanpay/create-qris', async (req: Request, res: Response) => {
   try {
     const { plan, amount, customerName, customerEmail } = req.body || {};
-    const orderId = `INSTAPAY-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const orderId = `INSTANPAY-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const finalAmount = amount || (plan === 'monthly' ? 15000 : 100000);
 
-    const instapayApiKey = process.env.INSTAPAY_API_KEY || '';
-    const instapayMerchantId = process.env.INSTAPAY_MERCHANT_ID || '';
+    const instanpayApiKey = process.env.INSTANPAY_API_KEY || '';
+    const instanpayMerchantId = process.env.INSTANPAY_MERCHANT_ID || '';
 
-    let qrisString = `00020101021226660014ID.CO.INSTAPAY.WWW011893600914ID10293847568100215${orderId}0303UMI5204581253033605802ID5919PT HIDUP SEHATKU IND6007JAKARTA6304${Math.floor(Math.random() * 8999 + 1000)}`;
-    let checkoutUrl = `https://app.instapay.id/pay/${orderId}`;
+    let qrisString = `00020101021226660014ID.CO.INSTANPAY.WWW011893600914ID10293847568100215${orderId}0303UMI5204581253033605802ID5919PT HIDUP SEHATKU IND6007JAKARTA6304${Math.floor(Math.random() * 8999 + 1000)}`;
+    let checkoutUrl = `https://app.instanpay.co.id/pay/${orderId}`;
 
-    if (instapayApiKey && instapayMerchantId) {
+    if (instanpayApiKey && instanpayMerchantId) {
       try {
-        const instapayRes = await fetch('https://api.instapay.id/v1/charge', {
+        const instanpayRes = await fetch('https://api.instanpay.co.id/v1/charge', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${instapayApiKey}`,
-            'X-Merchant-Id': instapayMerchantId,
+            'Authorization': `Bearer ${instanpayApiKey}`,
+            'X-Merchant-Id': instanpayMerchantId,
           },
           body: JSON.stringify({
             order_id: orderId,
@@ -2198,13 +2198,13 @@ app.post('/api/instapay/create-qris', async (req: Request, res: Response) => {
             description: `Upgrade Hidup Sehatku PRO - ${plan === 'monthly' ? 'Bulanan' : 'Tahunan'}`,
           }),
         });
-        if (instapayRes.ok) {
-          const data = await instapayRes.json();
+        if (instanpayRes.ok) {
+          const data = await instanpayRes.json();
           if (data?.qris_string) qrisString = data.qris_string;
           if (data?.checkout_url) checkoutUrl = data.checkout_url;
         }
       } catch (apiErr) {
-        console.warn('Instapay API call warning:', apiErr);
+        console.warn('InstanPay API call warning:', apiErr);
       }
     }
 
@@ -2223,14 +2223,14 @@ app.post('/api/instapay/create-qris', async (req: Request, res: Response) => {
   }
 });
 
-app.post('/api/instapay/check-status', async (req: Request, res: Response) => {
+app.post('/api/instanpay/check-status', async (req: Request, res: Response) => {
   try {
     const { orderId } = req.body || {};
     return res.json({
       success: true,
       orderId,
       status: 'success',
-      message: 'Pembayaran QRIS Instapay berhasil dikonfirmasi.',
+      message: 'Pembayaran QRIS InstanPay berhasil dikonfirmasi.',
     });
   } catch (error: any) {
     return res.status(500).json({ success: false, error: error?.message });
