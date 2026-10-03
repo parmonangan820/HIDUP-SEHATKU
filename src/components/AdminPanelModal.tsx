@@ -51,6 +51,7 @@ import {
   Database,
   Lock,
   Megaphone,
+  QrCode,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -68,7 +69,37 @@ export const AdminPanelModal: React.FC = () => {
     refreshBannersFromServer,
   } = useHealth();
 
-  const [activeTab, setActiveTab] = useState<'users' | 'analytics' | 'broadcast' | 'banners' | 'security'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'analytics' | 'broadcast' | 'banners' | 'security' | 'instapay'>('users');
+  const [instapayConfig, setInstapayConfig] = useState(() => {
+    try {
+      const saved = localStorage.getItem('hidupsehat_instapay_admin_config');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      mode: 'sandbox' as 'sandbox' | 'live',
+      merchantId: 'M-INSTAPAY-882910',
+      apiKey: 'itpay_live_sec_991823746501928374',
+      clientKey: 'itpay_cli_882910384756',
+      callbackUrl: 'https://www.hidupsehatku.my.id/api/instapay/callback',
+      autoActivatePro: true,
+    };
+  });
+  const [isSavingInstapay, setIsSavingInstapay] = useState(false);
+  const [instapaySaveMessage, setInstapaySaveMessage] = useState<string | null>(null);
+
+  const handleSaveInstapayConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingInstapay(true);
+    try {
+      localStorage.setItem('hidupsehat_instapay_admin_config', JSON.stringify(instapayConfig));
+      setInstapaySaveMessage('Konfigurasi Instapay Gateway & Mode berhasil disimpan!');
+      setTimeout(() => setInstapaySaveMessage(null), 4000);
+    } catch (err) {
+      setInstapaySaveMessage('Gagal menyimpan konfigurasi.');
+    } finally {
+      setIsSavingInstapay(false);
+    }
+  };
   const [bannerForm, setBannerForm] = useState(bannerSlides);
   const [savingSlideIndex, setSavingSlideIndex] = useState<number | null>(null);
   const [isSavingAllBanners, setIsSavingAllBanners] = useState(false);
@@ -462,10 +493,157 @@ export const AdminPanelModal: React.FC = () => {
             <Settings className="w-3.5 h-3.5" />
             <span>Keamanan & Ekspor</span>
           </button>
+          <button
+            onClick={() => setActiveTab('instapay')}
+            className={`py-2 px-3 rounded-xl flex items-center gap-1.5 transition-all whitespace-nowrap ${
+              activeTab === 'instapay'
+                ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <QrCode className="w-3.5 h-3.5" />
+            <span>InstantPay Gateway</span>
+          </button>
         </div>
 
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+          {/* ======================================================== */}
+          {/* TAB INSTAPAY GATEWAY */}
+          {/* ======================================================== */}
+          {activeTab === 'instapay' && (
+            <div className="space-y-5 max-w-2xl mx-auto animate-in fade-in">
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-950/60 to-purple-950/60 border border-indigo-500/40 text-xs text-indigo-200 space-y-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h4 className="font-extrabold text-sm text-white flex items-center gap-1.5">
+                      <span>Dashboard Pengaturan InstantPay (QRIS)</span>
+                      <span className="px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-[10px] font-bold">
+                        Payment Gateway
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-slate-300 mt-1">
+                      Atur kredensial QRIS Instant Pay, beralih antara mode **Sandbox** (Uji Coba) dan **Live** (Produksi), serta pantau transaksi pembayaran member PRO secara real-time.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {instapaySaveMessage && (
+                <div className="p-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>{instapaySaveMessage}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleSaveInstapayConfig} className="space-y-4 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+                {/* Environment Mode Toggle */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-white uppercase tracking-wider block">
+                    Mode Lingkungan Transaksi (*Environment*)
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setInstapayConfig((prev: any) => ({ ...prev, mode: 'sandbox' }))}
+                      className={`py-3 px-4 rounded-xl border flex items-center justify-center gap-2 font-bold text-xs transition-all cursor-pointer ${
+                        instapayConfig.mode === 'sandbox'
+                          ? 'bg-amber-500/20 border-amber-500 text-amber-300 ring-2 ring-amber-500/30'
+                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse"></span>
+                      <span>Sandbox (Uji Coba / Test)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setInstapayConfig((prev: any) => ({ ...prev, mode: 'live' }))}
+                      className={`py-3 px-4 rounded-xl border flex items-center justify-center gap-2 font-bold text-xs transition-all cursor-pointer ${
+                        instapayConfig.mode === 'live'
+                          ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 ring-2 ring-emerald-500/30'
+                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      <span>Live (Produksi / Real)</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Merchant ID */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300 block">Merchant ID / Store ID Instapay</label>
+                  <input
+                    type="text"
+                    value={instapayConfig.merchantId}
+                    onChange={(e) => setInstapayConfig((prev: any) => ({ ...prev, merchantId: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs font-mono focus:outline-none focus:border-indigo-500"
+                    placeholder="M-INSTAPAY-XXXX"
+                    required
+                  />
+                </div>
+
+                {/* API Key / Secret Key */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300 block">API Secret Key</label>
+                  <input
+                    type="password"
+                    value={instapayConfig.apiKey}
+                    onChange={(e) => setInstapayConfig((prev: any) => ({ ...prev, apiKey: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs font-mono focus:outline-none focus:border-indigo-500"
+                    placeholder="itpay_live_sec_..."
+                    required
+                  />
+                </div>
+
+                {/* Client Key */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300 block">Client Public Key</label>
+                  <input
+                    type="text"
+                    value={instapayConfig.clientKey}
+                    onChange={(e) => setInstapayConfig((prev: any) => ({ ...prev, clientKey: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs font-mono focus:outline-none focus:border-indigo-500"
+                    placeholder="itpay_cli_..."
+                  />
+                </div>
+
+                {/* Callback URL */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-300 block">Webhook / Callback URL</label>
+                  <input
+                    type="text"
+                    value={instapayConfig.callbackUrl}
+                    onChange={(e) => setInstapayConfig((prev: any) => ({ ...prev, callbackUrl: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs font-mono focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                {/* Auto activate PRO */}
+                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-950 border border-slate-800">
+                  <div>
+                    <h5 className="text-xs font-bold text-white">Auto-Aktivasi PRO via Webhook</h5>
+                    <p className="text-[10px] text-slate-400">Otomatis ubah status akun user menjadi PRO setelah pembayaran QRIS sukses.</p>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={instapayConfig.autoActivatePro}
+                    onChange={(e) => setInstapayConfig((prev: any) => ({ ...prev, autoActivatePro: e.target.checked }))}
+                    className="w-4 h-4 accent-indigo-500 cursor-pointer"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isSavingInstapay}
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 text-white font-black text-xs hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-indigo-500/25 flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
+                  <span>{isSavingInstapay ? 'Menyimpan Konfigurasi...' : 'Simpan Pengaturan InstantPay'}</span>
+                </button>
+              </form>
+            </div>
+          )}
           {/* ======================================================== */}
           {/* TAB BANNERS */}
           {/* ======================================================== */}
