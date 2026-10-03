@@ -14,14 +14,17 @@ import {
   MessageSquare,
   ShieldCheck,
   CheckCircle2,
+  Salad,
+  Crown,
 } from 'lucide-react';
 
 interface EducationTabProps {
   onOpenAiChat: () => void;
+  onOpenDietTips?: () => void;
 }
 
-export const EducationTab: React.FC<EducationTabProps> = ({ onOpenAiChat }) => {
-  const { profile } = useHealth();
+export const EducationTab: React.FC<EducationTabProps> = ({ onOpenAiChat, onOpenDietTips }) => {
+  const { profile, isPro } = useHealth();
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'air_minum' | 'olahraga' | 'gaya_hidup'>('all');
   const [expandedArticleId, setExpandedArticleId] = useState<string | null>('manfaat-air-putih-lengkap');
 
@@ -62,13 +65,26 @@ export const EducationTab: React.FC<EducationTabProps> = ({ onOpenAiChat }) => {
           dapat melipatgandakan energi, fokus, dan daya tahan tubuh Anda.
         </p>
 
-        <button
-          onClick={onOpenAiChat}
-          className="mt-4 py-2 px-3.5 rounded-xl bg-gradient-to-r from-amber-500 via-rose-500 to-indigo-600 text-slate-950 font-black text-xs flex items-center gap-2 shadow-md shadow-amber-500/20 active:scale-95 transition-all"
-        >
-          <Sparkles className="w-3.5 h-3.5 stroke-[2.5]" />
-          <span>AI Health Scanner & Chat Dokter AI (Analisis Kalori Makanan)</span>
-        </button>
+        <div className="mt-4 flex flex-col sm:flex-row gap-2.5">
+          <button
+            onClick={onOpenAiChat}
+            className="flex-1 py-2 px-3.5 rounded-xl bg-gradient-to-r from-amber-500 via-rose-500 to-indigo-600 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-md shadow-amber-500/20 active:scale-95 transition-all"
+          >
+            <Sparkles className="w-3.5 h-3.5 stroke-[2.5]" />
+            <span>AI Health Scanner & Chat Dokter AI</span>
+          </button>
+
+          {onOpenDietTips && (
+            <button
+              onClick={onOpenDietTips}
+              className="py-2 px-3.5 rounded-xl bg-gradient-to-r from-emerald-400 to-cyan-400 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/20 active:scale-95 transition-all"
+            >
+              <Salad className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>Tips Diet Sukses Dokter AI</span>
+              <span className="text-[9px] px-1 py-0.2 rounded bg-slate-950/20 text-slate-950 font-extrabold uppercase">PRO</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Interactive Water & BMI Health Calculator */}

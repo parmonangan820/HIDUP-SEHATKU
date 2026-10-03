@@ -19,6 +19,7 @@ import { AdminLoginModal } from './components/AdminLoginModal';
 import { AccountSwitchModal } from './components/AccountSwitchModal';
 import { ProUpgradeModal } from './components/ProUpgradeModal';
 import { AffiliateModal } from './components/AffiliateModal';
+import { AIDietSuccessModal } from './components/AIDietSuccessModal';
 import { RunningBanner } from './components/RunningBanner';
 import { BannerSlider } from './components/BannerSlider';
 import { Footer } from './components/Footer';
@@ -42,6 +43,7 @@ function MainApp() {
   const [deviceMode, setDeviceMode] = useState<'android' | 'ios' | 'full'>('full');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isAiChatOpen, setIsAiChatOpen] = useState(false);
+  const [isDietModalOpen, setIsDietModalOpen] = useState(false);
   const [isVoiceDrinkOpen, setIsVoiceDrinkOpen] = useState(false);
   const [isSupabaseSyncOpen, setIsSupabaseSyncOpen] = useState(false);
   const [isAffiliateOpen, setIsAffiliateOpen] = useState(false);
@@ -50,6 +52,7 @@ function MainApp() {
   const isAnyModalOpen = Boolean(
     isProfileOpen ||
     isAiChatOpen ||
+    isDietModalOpen ||
     isVoiceDrinkOpen ||
     isSupabaseSyncOpen ||
     isAffiliateOpen ||
@@ -63,6 +66,7 @@ function MainApp() {
   const modalStateRef = useRef({
     isProfileOpen,
     isAiChatOpen,
+    isDietModalOpen,
     isVoiceDrinkOpen,
     isSupabaseSyncOpen,
     isAffiliateOpen,
@@ -77,6 +81,7 @@ function MainApp() {
     modalStateRef.current = {
       isProfileOpen,
       isAiChatOpen,
+      isDietModalOpen,
       isVoiceDrinkOpen,
       isSupabaseSyncOpen,
       isAffiliateOpen,
@@ -89,6 +94,7 @@ function MainApp() {
   }, [
     isProfileOpen,
     isAiChatOpen,
+    isDietModalOpen,
     isVoiceDrinkOpen,
     isSupabaseSyncOpen,
     isAffiliateOpen,
@@ -161,6 +167,10 @@ function MainApp() {
       }
       if (current.isProModalOpen) {
         setIsProModalOpen(false);
+        return;
+      }
+      if (current.isDietModalOpen) {
+        setIsDietModalOpen(false);
         return;
       }
 
@@ -238,6 +248,7 @@ function MainApp() {
               onOpenAiChat={() => setIsAiChatOpen(true)}
               onOpenProfile={() => setIsProfileOpen(true)}
               onOpenVoiceDrink={() => setIsVoiceDrinkOpen(true)}
+              onOpenDietTips={() => setIsDietModalOpen(true)}
             />
           )}
 
@@ -254,7 +265,10 @@ function MainApp() {
           )}
 
           {activeTab === 'education' && (
-            <EducationTab onOpenAiChat={() => setIsAiChatOpen(true)} />
+            <EducationTab
+              onOpenAiChat={() => setIsAiChatOpen(true)}
+              onOpenDietTips={() => setIsDietModalOpen(true)}
+            />
           )}
 
           {/* Aesthetic Footer with Creator Attribution & Copyright */}
@@ -290,7 +304,11 @@ function MainApp() {
           onClose={() => setIsProfileOpen(false)}
           onOpenAffiliate={() => setIsAffiliateOpen(true)}
         />
-        <AIChatModal isOpen={isAiChatOpen} onClose={() => setIsAiChatOpen(false)} />
+        <AIChatModal
+          isOpen={isAiChatOpen}
+          onClose={() => setIsAiChatOpen(false)}
+          onOpenDietTips={() => setIsDietModalOpen(true)}
+        />
         <VoiceDrinkModal
           isOpen={isVoiceDrinkOpen}
           onClose={() => setIsVoiceDrinkOpen(false)}
@@ -304,6 +322,7 @@ function MainApp() {
         <AdminLoginModal />
         <AccountSwitchModal onOpenRegister={() => setIsProfileOpen(true)} />
         <ProUpgradeModal isOpen={isProModalOpen} onClose={() => setIsProModalOpen(false)} />
+        <AIDietSuccessModal isOpen={isDietModalOpen} onClose={() => setIsDietModalOpen(false)} />
         <AffiliateModal isOpen={isAffiliateOpen} onClose={() => setIsAffiliateOpen(false)} />
       </div>
     </AppShell>

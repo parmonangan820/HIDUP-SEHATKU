@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useHealth } from '../context/HealthContext';
-import { Sparkles, FileText, Cloud, Crown, X, Star, QrCode, ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { Sparkles, FileText, Cloud, Crown, X, Star, QrCode, ArrowLeft, CheckCircle2, Salad } from 'lucide-react';
 
 interface ProUpgradeModalProps {
   isOpen: boolean;
@@ -158,6 +158,16 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
               </div>
 
               <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800 flex items-start gap-3">
+                <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 flex-shrink-0">
+                  <Salad className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-white">Tips Diet Sukses Dokter AI</h4>
+                  <p className="text-[11px] text-slate-400">Target kalori TDEE/BMR, menu lokal & jadwal hidrasi bakar lemak.</p>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800 flex items-start gap-3">
                 <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-400 flex-shrink-0">
                   <FileText className="w-4 h-4" />
                 </div>
@@ -168,22 +178,12 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
               </div>
 
               <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800 flex items-start gap-3">
-                <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400 flex-shrink-0">
+                <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-400 flex-shrink-0">
                   <Cloud className="w-4 h-4" />
                 </div>
                 <div>
                   <h4 className="text-xs font-bold text-white">Cloud Sync Otomatis</h4>
                   <p className="text-[11px] text-slate-400">Data sinkron di semua perangkat tanpa takut hilang.</p>
-                </div>
-              </div>
-
-              <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800 flex items-start gap-3">
-                <div className="p-2 rounded-xl bg-purple-500/20 text-purple-400 flex-shrink-0">
-                  <Star className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-white">Bebas Iklan & Tema Pro</h4>
-                  <p className="text-[11px] text-slate-400">Pengalaman bersih, lencana emas & kustomisasi UI.</p>
                 </div>
               </div>
             </div>

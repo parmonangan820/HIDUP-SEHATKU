@@ -22,6 +22,8 @@ import {
   Calendar,
   Bell,
   BellRing,
+  Salad,
+  Crown,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -30,6 +32,7 @@ interface HomeTabProps {
   onOpenAiChat: () => void;
   onOpenProfile: () => void;
   onOpenVoiceDrink: () => void;
+  onOpenDietTips: () => void;
 }
 
 export const HomeTab: React.FC<HomeTabProps> = ({
@@ -37,6 +40,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   onOpenAiChat,
   onOpenProfile,
   onOpenVoiceDrink,
+  onOpenDietTips,
 }) => {
   const {
     profile,
@@ -49,6 +53,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
     notes,
     alarms,
     selectedDate,
+    isPro,
   } = useHealth();
 
   const totalWater = todayRecord.totalWaterMl;
@@ -192,6 +197,43 @@ export const HomeTab: React.FC<HomeTabProps> = ({
             className="flex-shrink-0 py-2 px-3 rounded-xl bg-gradient-to-r from-amber-400 to-rose-400 text-slate-950 font-black text-xs hover:brightness-110 active:scale-95 transition-all shadow-md shadow-amber-500/20"
           >
             Pindai / Tanya AI
+          </button>
+        </div>
+      </div>
+
+      {/* Tips Diet Sukses ala Dokter AI Feature Banner (Eksklusif PRO) */}
+      <div className="rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-600 p-[1px] shadow-xl shadow-emerald-500/15">
+        <div className="rounded-2xl bg-slate-900/95 p-3.5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              onClick={onOpenDietTips}
+              className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-emerald-400 via-teal-400 to-cyan-500 flex items-center justify-center text-slate-950 flex-shrink-0 shadow-lg shadow-emerald-500/30 hover:scale-105 active:scale-95 transition-transform"
+              title="Buka panduan Tips Diet Sukses ala Dokter AI"
+            >
+              <Salad className="w-5 h-5 stroke-[2.5]" />
+            </button>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h3 className="text-xs sm:text-sm font-extrabold text-white flex items-center gap-1.5 truncate">
+                  <span>Tips Diet Sukses Dokter AI</span>
+                </h3>
+                <span className="text-[9px] px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500/20 to-emerald-500/20 border border-amber-500/40 text-amber-300 font-black flex items-center gap-1">
+                  <Crown className="w-2.5 h-2.5 fill-current" />
+                  <span>{isPro ? 'PRO UNLOCKED' : 'PRO'}</span>
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-300 truncate">
+                Target kalori ilmiah, menu harian nusantara & protokol hidrasi bakar lemak
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={onOpenDietTips}
+            className="flex-shrink-0 py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-400 to-cyan-400 text-slate-950 font-black text-xs hover:brightness-110 active:scale-95 transition-all shadow-md shadow-emerald-500/20 flex items-center gap-1"
+          >
+            <span>{isPro ? 'Buka Diet' : 'Akses PRO'}</span>
+            <ArrowRight className="w-3 h-3 stroke-[2.5]" />
           </button>
         </div>
       </div>

@@ -1971,6 +1971,202 @@ Output Anda HARUS dalam JSON murni persis dengan struktur berikut tanpa karakter
   }
 });
 
+// Endpoint: Tips Diet Sukses ala Dokter AI (Eksklusif PRO)
+app.post('/api/diet-tips', async (req: Request, res: Response) => {
+  try {
+    const { profile, dietGoal = 'weight_loss', preferences = '' } = req.body || {};
+    const name = profile?.name || 'Sahabat Sehat';
+    const weight = Number(profile?.weight) || 65;
+    const height = Number(profile?.height) || 170;
+    const age = Number(profile?.age) || 26;
+    const gender = profile?.gender || 'pria';
+
+    // BMR Mifflin-St Jeor:
+    // Pria: 10*W + 6.25*H - 5*Age + 5
+    // Wanita: 10*W + 6.25*H - 5*Age - 161
+    const bmr = gender === 'wanita'
+      ? 10 * weight + 6.25 * height - 5 * age - 161
+      : 10 * weight + 6.25 * height - 5 * age + 5;
+    
+    // TDEE estimated with moderate activity factor ~ 1.375
+    const tdee = Math.round(bmr * 1.375);
+    
+    let targetCalories = tdee;
+    if (dietGoal === 'weight_loss') targetCalories = Math.max(1200, Math.round(tdee - 450));
+    if (dietGoal === 'muscle_gain') targetCalories = Math.round(tdee + 300);
+    if (dietGoal === 'intermittent_fasting') targetCalories = Math.max(1300, Math.round(tdee - 350));
+    if (dietGoal === 'low_carb_sugar') targetCalories = Math.max(1300, Math.round(tdee - 250));
+
+    const targetWater = Math.max(2000, Math.round(weight * 35));
+
+    const systemPrompt = `Anda adalah "Dokter AI Spesialis Gizi Klinis & Dietologi Olahraga" di aplikasi Hidup Sehatku.
+Tugas Anda adalah merancang panduan "TIPS DIET SUKSES ALA DOKTER AI" yang ilmiah, aman, realistis, dan lezat menggunakan bahan makanan lokal Indonesia (nasi merah, ayam, tahu, tempe, telur, sayur hijau, buah pepaya/pisang/apel).
+
+Data Pasien:
+- Nama: ${name}
+- Berat: ${weight} kg, Tinggi: ${height} cm, Usia: ${age} tahun, Gender: ${gender}
+- BMR: ${Math.round(bmr)} kcal, Estimasi TDEE: ${tdee} kcal
+- Target Kalori Harian Diet: ${targetCalories} kcal
+- Rekomendasi Air Minum: ${targetWater} ml
+- Fokus Diet: ${dietGoal}
+- Preferensi Tambahan: ${preferences || 'Umum / Masakan Nusantara Sehat'}
+
+Berikan respons HANYA berupa JSON valid (tanpa markdown blok pembuka/penutup) dengan struktur:
+{
+  "dietTitle": "string (Judul program diet yang menarik & memotivasi)",
+  "dailyCalorieTarget": number,
+  "dailyWaterTargetMl": number,
+  "macroSplit": {
+    "protein": "string (misal: 30% / 125g)",
+    "carbs": "string (misal: 45% / 190g)",
+    "fat": "string (misal: 25% / 45g)"
+  },
+  "doctorPrinciples": ["string (Aturan Emas 1)", "string (Aturan Emas 2)", "string (Aturan Emas 3)", "string (Aturan Emas 4)", "string (Aturan Emas 5)"],
+  "mealPlan": [
+    {
+      "time": "06:30 - 07:00",
+      "mealType": "Bangun Pagi & Hidrasi Awal",
+      "menu": "string",
+      "calories": number,
+      "tips": "string"
+    },
+    {
+      "time": "07:30 - 08:30",
+      "mealType": "Sarapan Bergizi",
+      "menu": "string",
+      "calories": number,
+      "tips": "string"
+    },
+    {
+      "time": "12:00 - 13:00",
+      "mealType": "Makan Siang Berenergi",
+      "menu": "string",
+      "calories": number,
+      "tips": "string"
+    },
+    {
+      "time": "16:00 - 16:30",
+      "mealType": "Camilan Sore Sehat",
+      "menu": "string",
+      "calories": number,
+      "tips": "string"
+    },
+    {
+      "time": "18:30 - 19:30",
+      "mealType": "Makan Malam Ringan",
+      "menu": "string",
+      "calories": number,
+      "tips": "string"
+    }
+  ],
+  "hydrationProtocol": "string (Penjelasan detail kapan dan berapa ml air minum sebelum/sesudah makan untuk menekan nafsu makan dan membakar lemak)",
+  "commonMistakesToAvoid": ["string (Kesalahan 1)", "string (Kesalahan 2)", "string (Kesalahan 3)"],
+  "motivationalQuote": "string"
+}`;
+
+    let parsedResult: any = null;
+    const aiClient = getAIClient();
+
+    if (aiClient) {
+      try {
+        const response = await aiClient.models.generateContent({
+          model: 'gemini-3.8-flash',
+          contents: [{ text: systemPrompt }],
+          config: {
+            responseMimeType: 'application/json',
+            temperature: 0.6,
+          },
+        });
+        const text = response.text?.trim() || '';
+        if (text) {
+          parsedResult = JSON.parse(text);
+        }
+      } catch (geminiErr: any) {
+        console.warn('Gemini generate diet tips warning, using doctor template fallback:', geminiErr?.message);
+      }
+    }
+
+    if (!parsedResult) {
+      // Medically accurate fallback
+      parsedResult = {
+        dietTitle: dietGoal === 'weight_loss'
+          ? `Protokol Diet Sukses Defisit Kalori Sehat ${name}`
+          : dietGoal === 'intermittent_fasting'
+          ? `Protokol Intermittent Fasting 16:8 + Hidrasi Optimal ${name}`
+          : dietGoal === 'low_carb_sugar'
+          ? `Protokol Diet Rendah Gula & Ramah Lambung ${name}`
+          : `Rencana Nutrisi & Diet Seimbang Dokter AI ${name}`,
+        dailyCalorieTarget: targetCalories,
+        dailyWaterTargetMl: targetWater,
+        macroSplit: {
+          protein: `${Math.round(weight * 1.6)}g (25-30%)`,
+          carbs: `${Math.round((targetCalories * 0.45) / 4)}g (45%)`,
+          fat: `${Math.round((targetCalories * 0.25) / 9)}g (25%)`
+        },
+        doctorPrinciples: [
+          'Konsumsi 400-500 ml air hangat 15 menit sebelum makan untuk memicu rasa kenyang alami dan mengurangi asupan kalori hingga 13%.',
+          'Prioritaskan protein di setiap sesi makan (telur, tahu, tempe, dada ayam, ikan) guna menjaga massa otot selama penurunan berat badan.',
+          'Ganti karbohidrat olahan (tepung, kue manis, minuman boba) dengan karbohidrat kompleks (nasi merah, kentang rebus, ubi cilembu).',
+          'Kunyah makanan secara perlahan (20-30 kali kunyah) agar hormon leptin memiliki waktu 15 menit memberi sinyal kenyang ke otak.',
+          'Hentikan makan berat 3 jam sebelum tidur agar sistem pencernaan dapat beristirahat dan memaksimalkan regenerasi sel saat tidur.'
+        ],
+        mealPlan: [
+          {
+            time: '06:30 - 07:00',
+            mealType: 'Bangun Pagi & Hidrasi Awal',
+            menu: '400 ml air putih hangat + perasan jeruk nipis/lemon segar',
+            calories: 10,
+            tips: 'Membangunkan organ pencernaan dan melancarkan detoksifikasi ginjal setelah 7-8 jam puasa tidur.'
+          },
+          {
+            time: '07:30 - 08:30',
+            mealType: 'Sarapan Bergizi Tinggi',
+            menu: '2 butir telur rebus + 1 lembar roti gandum utuh + 1 buah pisang/apel',
+            calories: Math.round(targetCalories * 0.25),
+            tips: 'Protein tinggi di pagi hari menstabilkan gula darah sehingga Anda tidak lapar berlebihan di siang hari.'
+          },
+          {
+            time: '12:00 - 13:00',
+            mealType: 'Makan Siang Berimbang',
+            menu: 'Nasi merah 1 kepal tangan (100g) + Dada ayam panggang/Ikan nila bumbu kuning + Tumis bayam tempe kukus',
+            calories: Math.round(targetCalories * 0.38),
+            tips: 'Gunakan piring model T: 1/2 sayuran, 1/4 protein tanpa lemak, 1/4 karbohidrat kompleks.'
+          },
+          {
+            time: '15:30 - 16:30',
+            mealType: 'Camilan Sore Sehat',
+            menu: '1 mangkok kecil pepaya potong atau segenggam edamame rebus + 300 ml air putih',
+            calories: Math.round(targetCalories * 0.12),
+            tips: 'Camilan rendah kalori kaya serat mencegah keinginan ngemil gorengan manis.'
+          },
+          {
+            time: '18:30 - 19:30',
+            mealType: 'Makan Malam Ringan',
+            menu: 'Sup bening dada ayam/tahu sutra dengan wortel, buncis, brokoli (tanpa santan & tanpa minyak jenuh)',
+            calories: Math.round(targetCalories * 0.25),
+            tips: 'Konsumsi makanan berkuah bening di malam hari memberi kenyamanan pada lambung dan tidur lebih pulas.'
+          }
+        ],
+        hydrationProtocol: `Sebagai bagian terpenting dari diet sukses ala Dokter AI, minumlah minimal ${targetWater} ml air putih per hari. Jadwalkan 1 gelas saat bangun tidur, 1 gelas 20 menit sebelum sarapan, 1 gelas pukul 10:00, 1 gelas 20 menit sebelum makan siang, 1 gelas pukul 15:00, 1 gelas sebelum makan malam, dan 1 gelas 1 jam sebelum tidur.`,
+        commonMistakesToAvoid: [
+          'Melewatkan sarapan lalu makan berlebihan di malam hari (rebound eating).',
+          'Mengira jus buah kemasan atau kopi bergula adalah minuman diet sehat padahal sarat kalori cair.',
+          'Kurang minum air putih sehingga tubuh mengira dehidrasi sebagai rasa lapar.'
+        ],
+        motivationalQuote: 'Diet yang sukses bukanlah tentang menyiksa diri dengan menahan lapar, melainkan mencintai tubuh dengan memberikan nutrisi terbaik dan hidrasi yang cukup setiap hari.'
+      };
+    }
+
+    return res.json({
+      success: true,
+      data: parsedResult
+    });
+  } catch (err: any) {
+    console.error('Error generating diet tips:', err);
+    return res.status(500).json({ success: false, message: err?.message || 'Gagal memproses tips diet Dokter AI' });
+  }
+});
+
 // Setup Vite or Static File Serving
 async function startServer() {
   const isProduction = process.env.NODE_ENV === 'production';
