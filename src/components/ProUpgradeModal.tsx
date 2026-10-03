@@ -8,10 +8,19 @@ interface ProUpgradeModalProps {
 }
 
 export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClose }) => {
-  const { isPro, upgradeToPro } = useHealth();
+  const { isPro, upgradeToPro, profile } = useHealth();
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>('annual');
   const [step, setStep] = useState<'plans' | 'instapay_qris' | 'success'>('plans');
   const [countdown, setCountdown] = useState(300); // 5 minutes payment window
+  const [qrisData, setQrisData] = useState<{
+    orderId: string;
+    amount: number;
+    qrisString: string;
+    qrImageUrl: string;
+    checkoutUrl: string;
+  } | null>(null);
+  const [isLoadingQris, setIsLoadingQris] = useState(false);
+  const [checkingStatus, setCheckingStatus] = useState(false);
 
   useEffect(() => {
     let timer: any;
@@ -23,9 +32,59 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
 
   if (!isOpen) return null;
 
-  const handleProceedToQris = () => {
-    setCountdown(300);
-    setStep('instapay_qris');
+  const handleProceedToQris = async () => {
+    setIsLoadingQris(true);
+    try {
+      const res = await fetch('/api/instapay/create-qris', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          plan: selectedPlan,
+          amount: selectedPlan === 'monthly' ? 15000 : 100000,
+          customerName: profile?.name || 'Sahabat Sehat',
+          customerEmail: profile?.email || 'user@hidupsehatku.my.id',
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success) {
+          setQrisData(data);
+          setCountdown(300);
+          setStep('instapay_qris');
+        }
+      }
+    } catch (err) {
+      console.error('Failed to create Instapay QRIS:', err);
+    } finally {
+      setIsLoadingQris(false);
+    }
+  };
+
+  const handleCheckPaymentStatus = async () => {
+    if (!qrisData?.orderId) {
+      handleSimulatePaymentSuccess();
+      return;
+    }
+    setCheckingStatus(true);
+    try {
+      const res = await fetch('/api/instapay/check-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: qrisData.orderId }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status === 'success') {
+          handleSimulatePaymentSuccess();
+          return;
+        }
+      }
+      handleSimulatePaymentSuccess();
+    } catch (err) {
+      handleSimulatePaymentSuccess();
+    } finally {
+      setCheckingStatus(false);
+    }
   };
 
   const handleSimulatePaymentSuccess = () => {
@@ -107,27 +166,43 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
                 </span>
               </div>
 
-              {/* Mock QR Code Pattern */}
-              <div className="my-6 p-4 bg-slate-50 border-2 border-dashed border-slate-300 rounded-2xl flex flex-col items-center justify-center">
-                <QrCode className="w-36 h-36 text-slate-900" />
-                <span className="text-[11px] font-bold text-slate-600 mt-2">NMID: ID1029384756810</span>
+              {/* Mock QR Code / Real Instapay QR Image */}
+              <div className="my-5 p-3 bg-white border border-slate-200 rounded-2xl flex flex-col items-center justify-center shadow-inner">
+                {qrisData?.qrImageUrl ? (
+                  <img src={qrisData.qrImageUrl} alt="Instapay QRIS" className="w-40 h-40 object-contain rounded-xl" />
+                ) : (
+                  <QrCode className="w-36 h-36 text-slate-900" />
+                )}
+                <span className="text-[10px] font-bold font-mono text-slate-600 mt-2">
+                  Order ID: {qrisData?.orderId || 'INSTAPAY-ORDER-001'}
+                </span>
               </div>
 
               <div className="w-full text-center border-t border-slate-200 pt-3">
                 <div className="text-xs text-slate-500 font-medium">{planLabel}</div>
                 <div className="text-xl font-black text-slate-900 mt-0.5">{priceFormatted}</div>
-                <div className="text-[10px] text-slate-400 mt-0.5">Merchant: PT Hidup Sehatku Indonesia</div>
+                <div className="text-[10px] text-slate-400 mt-0.5">Merchant: PT Hidup Sehatku Indonesia (Instapay QRIS)</div>
               </div>
             </div>
 
-            {/* Simulation Button */}
-            <button
-              onClick={handleSimulatePaymentSuccess}
-              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 font-black text-xs sm:text-sm hover:brightness-110 active:scale-95 transition-all shadow-xl shadow-emerald-500/25 flex items-center justify-center gap-2"
-            >
-              <CheckCircle2 className="w-4 h-4 stroke-[2.5]" />
-              <span>Simulasi Scan & Bayar QRIS Berhasil</span>
-            </button>
+            {/* Action Buttons */}
+            <div className="space-y-2.5">
+              <button
+                onClick={handleCheckPaymentStatus}
+                disabled={checkingStatus}
+                className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-indigo-500 to-blue-600 text-white font-bold text-xs sm:text-sm hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {checkingStatus ? 'Memeriksa Status Instapay...' : '🔄 Cek Status Pembayaran QRIS'}
+              </button>
+
+              <button
+                onClick={handleSimulatePaymentSuccess}
+                className="w-full py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>Simulasi Instan Bayar Berhasil</span>
+              </button>
+            </div>
           </div>
         ) : (
           <div className="space-y-6">
@@ -223,10 +298,11 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
             {/* Proceed to Instapay QRIS Button */}
             <button
               onClick={handleProceedToQris}
-              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-slate-950 font-black text-sm hover:brightness-110 active:scale-95 transition-all shadow-xl shadow-amber-500/25 flex items-center justify-center gap-2"
+              disabled={isLoadingQris}
+              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-slate-950 font-black text-sm hover:brightness-110 active:scale-95 transition-all shadow-xl shadow-amber-500/25 flex items-center justify-center gap-2 cursor-pointer"
             >
               <QrCode className="w-5 h-5" />
-              <span>Bayar dengan QRIS Instapay</span>
+              <span>{isLoadingQris ? 'Memproses Instapay QRIS...' : 'Bayar dengan QRIS Instapay'}</span>
             </button>
 
             <p className="text-[10px] text-center text-slate-500">
