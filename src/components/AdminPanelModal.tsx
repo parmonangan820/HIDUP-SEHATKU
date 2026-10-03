@@ -34,6 +34,8 @@ import {
   Eye,
   EyeOff,
   Key,
+  Copy,
+  Check,
   LogOut,
   Download,
   Send,
@@ -102,8 +104,18 @@ export const AdminPanelModal: React.FC = () => {
   });
   const [showLiveSecret, setShowLiveSecret] = useState(false);
   const [showSandboxSecret, setShowSandboxSecret] = useState(false);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isSavingInstanpay, setIsSavingInstanpay] = useState(false);
   const [instanpaySaveMessage, setInstanpaySaveMessage] = useState<string | null>(null);
+
+  const handleCopyField = (text: string, label: string) => {
+    if (!text) return;
+    try {
+      navigator.clipboard.writeText(text);
+      setCopiedField(label);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch {}
+  };
 
   const handleSaveInstanpayConfig = (e: React.FormEvent) => {
     e.preventDefault();
@@ -588,29 +600,16 @@ export const AdminPanelModal: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Merchant ID */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300 block">Merchant ID / Store ID InstanPay</label>
-                  <input
-                    type="text"
-                    value={instanpayConfig.merchantId}
-                    onChange={(e) => setInstanpayConfig((prev: any) => ({ ...prev, merchantId: e.target.value }))}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs font-mono focus:outline-none focus:border-indigo-500"
-                    placeholder="M-INSTANPAY-XXXX"
-                    required
-                  />
-                </div>
-
                 {/* ======================================================== */}
-                {/* SECTION 1: KUNCI LIVE (PRODUKSI) */}
+                {/* 1. KUNCI LIVE MODE (PRODUKSI) */}
                 {/* ======================================================== */}
-                <div className="p-4 rounded-2xl bg-slate-950/80 border border-emerald-500/30 space-y-3.5">
+                <div className="p-4 rounded-2xl bg-slate-950/80 border border-emerald-500/30 space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
                       <h5 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
                         <Key className="w-3.5 h-3.5" />
-                        <span>Kunci Kredensial Mode Live (Produksi / Nyata)</span>
+                        <span>Kunci Live Mode (Produksi / Transaksi Nyata)</span>
                       </h5>
                     </div>
                     {instanpayConfig.mode === 'live' && (
@@ -622,7 +621,28 @@ export const AdminPanelModal: React.FC = () => {
 
                   {/* Live Secret Key */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-300 block">Live API Secret Key</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-300 block">Live API Secret Key</label>
+                      {instanpayConfig.liveApiKey && (
+                        <button
+                          type="button"
+                          onClick={() => handleCopyField(instanpayConfig.liveApiKey, 'liveApiKey')}
+                          className="text-[10px] text-slate-400 hover:text-emerald-300 flex items-center gap-1 transition-colors cursor-pointer"
+                        >
+                          {copiedField === 'liveApiKey' ? (
+                            <>
+                              <Check className="w-3 h-3 text-emerald-400" />
+                              <span className="text-emerald-400">Tersalin!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3 h-3" />
+                              <span>Salin</span>
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
                     <div className="relative">
                       <input
                         type={showLiveSecret ? 'text' : 'password'}
@@ -642,30 +662,18 @@ export const AdminPanelModal: React.FC = () => {
                       </button>
                     </div>
                   </div>
-
-                  {/* Live Client Key */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-300 block">Live Client / Public Key</label>
-                    <input
-                      type="text"
-                      value={instanpayConfig.liveClientKey}
-                      onChange={(e) => setInstanpayConfig((prev: any) => ({ ...prev, liveClientKey: e.target.value }))}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-mono focus:outline-none focus:border-emerald-500"
-                      placeholder="itpay_live_cli_..."
-                    />
-                  </div>
                 </div>
 
                 {/* ======================================================== */}
-                {/* SECTION 2: KUNCI SANDBOX (UJI COBA) */}
+                {/* 2. KUNCI SANDBOX MODE (UJI COBA) */}
                 {/* ======================================================== */}
-                <div className="p-4 rounded-2xl bg-slate-950/80 border border-amber-500/30 space-y-3.5">
+                <div className="p-4 rounded-2xl bg-slate-950/80 border border-amber-500/30 space-y-3">
                   <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full bg-amber-400"></span>
                       <h5 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
                         <Key className="w-3.5 h-3.5" />
-                        <span>Kunci Kredensial Mode Sandbox (Uji Coba / Testing)</span>
+                        <span>Kunci Sandbox Mode (Uji Coba / Testing)</span>
                       </h5>
                     </div>
                     {instanpayConfig.mode === 'sandbox' && (
@@ -677,7 +685,28 @@ export const AdminPanelModal: React.FC = () => {
 
                   {/* Sandbox Secret Key */}
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-300 block">Sandbox API Secret Key</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-300 block">Sandbox API Secret Key</label>
+                      {instanpayConfig.sandboxApiKey && (
+                        <button
+                          type="button"
+                          onClick={() => handleCopyField(instanpayConfig.sandboxApiKey, 'sandboxApiKey')}
+                          className="text-[10px] text-slate-400 hover:text-amber-300 flex items-center gap-1 transition-colors cursor-pointer"
+                        >
+                          {copiedField === 'sandboxApiKey' ? (
+                            <>
+                              <Check className="w-3 h-3 text-emerald-400" />
+                              <span className="text-emerald-400">Tersalin!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3 h-3" />
+                              <span>Salin</span>
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
                     <div className="relative">
                       <input
                         type={showSandboxSecret ? 'text' : 'password'}
@@ -696,18 +725,6 @@ export const AdminPanelModal: React.FC = () => {
                         {showSandboxSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
-                  </div>
-
-                  {/* Sandbox Client Key */}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-300 block">Sandbox Client / Public Key</label>
-                    <input
-                      type="text"
-                      value={instanpayConfig.sandboxClientKey}
-                      onChange={(e) => setInstanpayConfig((prev: any) => ({ ...prev, sandboxClientKey: e.target.value }))}
-                      className="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs font-mono focus:outline-none focus:border-amber-500"
-                      placeholder="itpay_sandbox_cli_..."
-                    />
                   </div>
                 </div>
 
