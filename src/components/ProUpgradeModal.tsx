@@ -30,6 +30,32 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
     return () => clearInterval(timer);
   }, [step, countdown]);
 
+  // Auto-poll payment status every 4 seconds when QRIS modal is open
+  useEffect(() => {
+    let pollInterval: any;
+    if (step === 'instapay_qris' && qrisData?.orderId) {
+      pollInterval = setInterval(async () => {
+        try {
+          const res = await fetch('/api/instapay/check-status', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ orderId: qrisData.orderId }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data.status === 'success') {
+              clearInterval(pollInterval);
+              handleSimulatePaymentSuccess();
+            }
+          }
+        } catch (e) {
+          // ignore
+        }
+      }, 4000);
+    }
+    return () => clearInterval(pollInterval);
+  }, [step, qrisData?.orderId]);
+
   if (!isOpen) return null;
 
   const handleProceedToQris = async () => {
@@ -152,6 +178,12 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
               <p className="text-xs text-slate-400">
                 Buka m-Banking atau E-Wallet (GoPay, OVO, Dana, BCA, Mandiri, QRIS All-Bank)
               </p>
+            </div>
+
+            {/* Live Polling Status Banner */}
+            <div className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-xs font-bold animate-pulse">
+              <span className="w-2.5 h-2.5 rounded-full bg-indigo-400"></span>
+              <span>Mendeteksi status pembayaran QRIS secara real-time...</span>
             </div>
 
             {/* QR Code Container */}
