@@ -26,6 +26,7 @@ import {
   Crown,
   Navigation,
   Compass,
+  BarChart3,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -272,6 +273,43 @@ export const HomeTab: React.FC<HomeTabProps> = ({
             className="flex-shrink-0 py-2 px-3 rounded-xl bg-gradient-to-r from-teal-400 to-indigo-400 text-slate-950 font-black text-xs hover:brightness-110 active:scale-95 transition-all shadow-md shadow-teal-500/20 flex items-center gap-1"
           >
             <span>Cari Rute</span>
+            <ArrowRight className="w-3 h-3 stroke-[2.5]" />
+          </button>
+        </div>
+      </div>
+
+      {/* Pintasan Cerdas AI Grafik Analytics Banner */}
+      <div className="rounded-2xl bg-gradient-to-r from-purple-500 via-indigo-500 to-cyan-500 p-[1px] shadow-xl shadow-purple-500/15">
+        <div className="rounded-2xl bg-slate-900/95 p-3.5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              onClick={() => setActiveTab('stats')}
+              className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-purple-400 via-indigo-400 to-cyan-400 flex items-center justify-center text-slate-950 flex-shrink-0 shadow-lg shadow-purple-500/30 hover:scale-105 active:scale-95 transition-transform"
+              title="Buka Pintasan AI Grafik Analytics"
+            >
+              <BarChart3 className="w-5 h-5 stroke-[2.5]" />
+            </button>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h3 className="text-xs sm:text-sm font-extrabold text-white flex items-center gap-1.5 truncate">
+                  <span>AI Grafik Analytics & Klasifikasi</span>
+                </h3>
+                <span className="text-[9px] px-2 py-0.5 rounded-full bg-purple-500/20 border border-purple-500/40 text-purple-300 font-black flex items-center gap-1">
+                  <Sparkles className="w-2.5 h-2.5 fill-current" />
+                  <span>PINTASAN</span>
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-300 truncate">
+                Lihat grafik tren konsumsi air, olahraga, dan evaluasi kesehatan mingguan
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setActiveTab('stats')}
+            className="flex-shrink-0 py-2 px-3 rounded-xl bg-gradient-to-r from-purple-400 to-cyan-400 text-slate-950 font-black text-xs hover:brightness-110 active:scale-95 transition-all shadow-md shadow-purple-500/20 flex items-center gap-1"
+          >
+            <span>Buka Grafik</span>
             <ArrowRight className="w-3 h-3 stroke-[2.5]" />
           </button>
         </div>

@@ -41,12 +41,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab })
       badge: null,
     },
     {
-      id: 'stats' as NavTab,
-      label: 'AI Grafik',
-      icon: BarChart3,
-      badge: null,
-    },
-    {
       id: 'education' as NavTab,
       label: 'Edukasi',
       icon: BookOpen,
@@ -56,7 +50,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab })
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-xl border-t border-slate-800/90 pb-[env(safe-area-inset-bottom)] shadow-2xl">
-      <div className="max-w-lg mx-auto grid grid-cols-7 py-2 px-1">
+      <div className="max-w-lg mx-auto grid grid-cols-6 py-2 px-1">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
