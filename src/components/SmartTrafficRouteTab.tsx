@@ -24,8 +24,24 @@ import {
   X,
   Send,
   Radio,
+  History,
+  Star,
+  Trash2,
+  Bookmark,
+  ArrowRight,
 } from 'lucide-react';
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
+
+interface RouteHistoryItem {
+  id: string;
+  origin: string;
+  destination: string;
+  travelMode: 'DRIVE' | 'TWO_WHEELER' | 'BICYCLE' | 'WALK';
+  timestamp: string;
+  timeSavedMinutes?: number;
+  bestRouteTitle?: string;
+  isFavorite?: boolean;
+}
 
 interface TrafficRoute {
   id: string;
@@ -135,6 +151,39 @@ const INITIAL_AI_EVALUATION: AIEvaluation = {
     'Bebas stres di jalan, jantung sehat & pikiran tenang! Hidup Sehatku Smart Traffic Route siap memandu perjalanan Anda.',
 };
 
+const INITIAL_HISTORY: RouteHistoryItem[] = [
+  {
+    id: 'hist-1',
+    origin: 'Podomoro City Deli Medan (Pudumoro)',
+    destination: 'Pintu Air 4 Simalingkar B, Medan',
+    travelMode: 'DRIVE',
+    timestamp: new Date(Date.now() - 3600000).toISOString(),
+    timeSavedMinutes: 18,
+    bestRouteTitle: 'via Ringroad Ngumban Surbakti',
+    isFavorite: true,
+  },
+  {
+    id: 'hist-2',
+    origin: 'Monas, Gambir, Jakarta Pusat',
+    destination: 'Bandara Internasional Soekarno-Hatta (CGK)',
+    travelMode: 'DRIVE',
+    timestamp: new Date(Date.now() - 86400000).toISOString(),
+    timeSavedMinutes: 25,
+    bestRouteTitle: 'via Tol Prof. Dr. Sedyatmo',
+    isFavorite: false,
+  },
+  {
+    id: 'hist-3',
+    origin: 'SCBD, Senayan, Jakarta Selatan',
+    destination: 'Grand Indonesia Mall, Jakarta Pusat',
+    travelMode: 'TWO_WHEELER',
+    timestamp: new Date(Date.now() - 172800000).toISOString(),
+    timeSavedMinutes: 12,
+    bestRouteTitle: 'via Jl. Jend. Sudirman',
+    isFavorite: false,
+  },
+];
+
 let hasConfiguredGoogleMaps = false;
 let mapsPromise: Promise<any> | null = null;
 
@@ -180,6 +229,70 @@ export const SmartTrafficRouteTab: React.FC = () => {
   );
   const [showTrafficLayer, setShowTrafficLayer] = useState(true);
   const [geoLocating, setGeoLocating] = useState(false);
+  const [showHistorySection, setShowHistorySection] = useState(true);
+
+  // History State initialized from localStorage
+  const [routeHistory, setRouteHistory] = useState<RouteHistoryItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('hidupsehatku_smart_route_history');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return INITIAL_HISTORY;
+  });
+
+  // Save history to localStorage on change
+  useEffect(() => {
+    try {
+      localStorage.setItem('hidupsehatku_smart_route_history', JSON.stringify(routeHistory));
+    } catch (e) {}
+  }, [routeHistory]);
+
+  const saveToHistory = (origStr: string, destStr: string, mode: any, timeSaved?: number, bestTitle?: string) => {
+    if (!origStr.trim() || !destStr.trim()) return;
+    setRouteHistory((prev) => {
+      const filtered = prev.filter(
+        (item) =>
+          !(item.origin.toLowerCase() === origStr.toLowerCase() && item.destination.toLowerCase() === destStr.toLowerCase())
+      );
+      const newItem: RouteHistoryItem = {
+        id: `hist-${Date.now()}`,
+        origin: origStr,
+        destination: destStr,
+        travelMode: mode,
+        timestamp: new Date().toISOString(),
+        timeSavedMinutes: timeSaved,
+        bestRouteTitle: bestTitle,
+        isFavorite: false,
+      };
+      return [newItem, ...filtered].slice(0, 10);
+    });
+  };
+
+  const toggleFavoriteHistory = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setRouteHistory((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, isFavorite: !item.isFavorite } : item))
+    );
+  };
+
+  const deleteHistoryItem = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setRouteHistory((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const clearAllHistory = () => {
+    setRouteHistory([]);
+  };
+
+  const handleSelectHistoryItem = (item: RouteHistoryItem) => {
+    setOrigin(item.origin);
+    setDestination(item.destination);
+    setTravelMode(item.travelMode);
+    handleAnalyzeRoutes(item.origin, item.destination);
+  };
 
   // Voice Assistant States
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
@@ -592,6 +705,15 @@ export const SmartTrafficRouteTab: React.FC = () => {
           );
           setAnalyzedAt(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
 
+          // Save to Search History
+          saveToHistory(
+            origToUse,
+            destToUse,
+            travelMode,
+            data.timeSavedMinutes || 0,
+            data.routes[1]?.title || data.routes[0]?.title
+          );
+
           // Update map pins and center
           updateMapMarkers(origToUse, destToUse);
 
@@ -991,6 +1113,104 @@ export const SmartTrafficRouteTab: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* 3.5 RECENT ROUTE SEARCH HISTORY & FAVORITES */}
+      {routeHistory.length > 0 && (
+        <div className="rounded-3xl bg-slate-900/90 border border-slate-800 p-4 sm:p-5 shadow-xl space-y-3.5">
+          <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
+            <div className="flex items-center gap-2">
+              <div className="p-1.5 rounded-xl bg-teal-500/20 text-teal-400 border border-teal-500/30">
+                <History className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-xs sm:text-sm font-black text-white flex items-center gap-1.5">
+                  <span>Riwayat Rute & Destinasi Sering Dikunjungi</span>
+                  <span className="px-2 py-0.5 rounded-full bg-slate-800 text-[10px] font-mono text-teal-300 border border-slate-700">
+                    {routeHistory.length}
+                  </span>
+                </h3>
+                <p className="text-[10px] text-slate-400">Klik rute untuk akses pencarian ulang secara cepat</p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={clearAllHistory}
+              className="text-[10px] font-bold text-slate-400 hover:text-rose-400 flex items-center gap-1 cursor-pointer transition-colors"
+            >
+              <Trash2 className="w-3 h-3" />
+              <span className="hidden sm:inline">Hapus Riwayat</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+            {routeHistory.map((item) => (
+              <div
+                key={item.id}
+                onClick={() => handleSelectHistoryItem(item)}
+                className={`p-3 rounded-2xl border transition-all cursor-pointer relative group flex flex-col justify-between space-y-2 ${
+                  item.isFavorite
+                    ? 'bg-amber-950/20 border-amber-500/40 hover:border-amber-400 hover:bg-amber-950/30 shadow-md ring-1 ring-amber-500/20'
+                    : 'bg-slate-950/80 border-slate-800/80 hover:border-teal-500/50 hover:bg-slate-800/60'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-1.5">
+                  <div className="space-y-1 flex-1 min-w-0">
+                    <div className="text-[10px] font-bold text-slate-400 flex items-center gap-1 truncate">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+                      <span className="truncate">{item.origin.split('(')[0]}</span>
+                    </div>
+                    <div className="text-xs font-black text-white flex items-center gap-1 truncate">
+                      <ArrowRight className="w-3 h-3 text-teal-400 shrink-0" />
+                      <span className="truncate">{item.destination.split('(')[0]}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      type="button"
+                      onClick={(e) => toggleFavoriteHistory(item.id, e)}
+                      className={`p-1 rounded-lg transition-colors cursor-pointer ${
+                        item.isFavorite ? 'text-amber-400 hover:text-amber-300' : 'text-slate-600 hover:text-amber-400'
+                      }`}
+                      title={item.isFavorite ? 'Hapus dari favorit' : 'Tandai favorit'}
+                    >
+                      <Star className={`w-3.5 h-3.5 ${item.isFavorite ? 'fill-current' : ''}`} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => deleteHistoryItem(item.id, e)}
+                      className="p-1 rounded-lg text-slate-600 hover:text-rose-400 transition-colors cursor-pointer opacity-80 group-hover:opacity-100"
+                      title="Hapus riwayat ini"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-[10px] pt-1.5 border-t border-slate-800/60 text-slate-400">
+                  <div className="flex items-center gap-1">
+                    {item.travelMode === 'TWO_WHEELER' ? (
+                      <Bike className="w-3 h-3 text-teal-400" />
+                    ) : (
+                      <Car className="w-3 h-3 text-teal-400" />
+                    )}
+                    <span className="font-mono text-[9px]">
+                      {new Date(item.timestamp).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}
+                    </span>
+                  </div>
+
+                  {item.timeSavedMinutes && item.timeSavedMinutes > 0 ? (
+                    <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold text-[9px]">
+                      ⚡ Hemat {item.timeSavedMinutes}m
+                    </span>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 4. INTERACTIVE MAP & TRAFFIC MONITOR */}
       <div className="rounded-3xl bg-slate-900 border border-slate-800 overflow-hidden shadow-2xl relative">
