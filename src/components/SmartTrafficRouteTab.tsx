@@ -307,6 +307,7 @@ export const SmartTrafficRouteTab: React.FC = () => {
     destination: 'Pintu Air 4 Simalingkar B, Medan',
   });
   const recognitionRef = useRef<any>(null);
+  const isListeningRef = useRef<boolean>(false);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const searchResultsRef = useRef<HTMLDivElement>(null);
@@ -340,37 +341,45 @@ export const SmartTrafficRouteTab: React.FC = () => {
     if (SpeechRecognition) {
       try {
         const recognition = new SpeechRecognition();
-        recognition.continuous = false;
+        recognition.continuous = true;
         recognition.interimResults = true;
         recognition.lang = 'id-ID';
 
         recognition.onstart = () => {
           setIsListening(true);
-          setVoiceStatusText('Mendengarkan ucapan lokasi Anda...');
+          isListeningRef.current = true;
+          setVoiceStatusText('Mendengarkan ucapan Anda (Durasi Bebas/Unlimited)... Tekan "Selesai" jika sudah.');
         };
 
         recognition.onresult = (event: any) => {
-          let interimTranscript = '';
-          for (let i = event.resultIndex; i < event.results.length; i++) {
+          let accumulated = '';
+          for (let i = 0; i < event.results.length; i++) {
             const transcript = event.results[i][0].transcript;
-            if (event.results[i].isFinal) {
-              setSpeechTranscript(transcript);
-              handleProcessVoiceInput(transcript);
-            } else {
-              interimTranscript += transcript;
-              setSpeechTranscript(interimTranscript);
-            }
+            accumulated += (accumulated ? ' ' : '') + transcript;
+          }
+          if (accumulated.trim()) {
+            setSpeechTranscript(accumulated.trim());
           }
         };
 
         recognition.onerror = (event: any) => {
           console.warn('Speech recognition error:', event.error);
-          setIsListening(false);
-          setVoiceStatusText('Mikrofon tidak merespons. Silakan ketik perintah suara di bawah.');
+          if (event.error !== 'no-speech') {
+            setVoiceStatusText('Sistem mikrofon mengalami jeda. Anda dapat mengetik lokasi di bawah.');
+          }
         };
 
         recognition.onend = () => {
-          setIsListening(false);
+          // Keep listening continuously if user hasn't explicitly stopped listening or clicked Selesai
+          if (isListeningRef.current) {
+            try {
+              recognition.start();
+            } catch (e) {
+              setIsListening(false);
+            }
+          } else {
+            setIsListening(false);
+          }
         };
 
         recognitionRef.current = recognition;
@@ -474,7 +483,8 @@ export const SmartTrafficRouteTab: React.FC = () => {
   const handleStartListening = () => {
     setIsVoiceModalOpen(true);
     setSpeechTranscript('');
-    setVoiceStatusText('Ucapkan lokasi tujuan Anda...');
+    isListeningRef.current = true;
+    setVoiceStatusText('Mendengarkan ucapan Anda (Durasi Bebas/Unlimited)... Tekan "Selesai" jika sudah.');
 
     if (recognitionRef.current && speechSupported) {
       try {
@@ -488,6 +498,7 @@ export const SmartTrafficRouteTab: React.FC = () => {
   };
 
   const handleStopListening = () => {
+    isListeningRef.current = false;
     if (recognitionRef.current) {
       try {
         recognitionRef.current.stop();
@@ -1560,8 +1571,8 @@ export const SmartTrafficRouteTab: React.FC = () => {
               </button>
             </div>
 
-            {/* Voice Wave Visualizer */}
-            <div className="flex flex-col items-center justify-center py-6 space-y-4 bg-slate-950/80 rounded-2xl border border-slate-800">
+            {/* Voice Wave Visualizer & Unlimited Listening Control */}
+            <div className="flex flex-col items-center justify-center py-5 space-y-3.5 bg-slate-950/80 rounded-2xl border border-slate-800">
               <div className="relative">
                 {isListening && (
                   <div className="absolute -inset-4 rounded-full bg-rose-500/20 animate-ping"></div>
@@ -1579,17 +1590,52 @@ export const SmartTrafficRouteTab: React.FC = () => {
                 </button>
               </div>
 
-              <div className="text-center space-y-1 max-w-sm px-4">
-                <span className="text-xs font-bold text-white block">{voiceStatusText}</span>
+              <div className="text-center space-y-1.5 max-w-sm px-4 w-full">
+                <div className="flex items-center justify-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span className="text-xs font-bold text-white block">{voiceStatusText}</span>
+                </div>
+
                 {speechTranscript ? (
-                  <p className="text-xs text-teal-300 bg-teal-950/60 p-2.5 rounded-xl border border-teal-500/30 font-mono">
-                    "{speechTranscript}"
-                  </p>
+                  <div className="p-3 rounded-xl bg-teal-950/70 border border-teal-500/40 text-left space-y-1">
+                    <span className="text-[10px] font-bold text-teal-400 uppercase tracking-wider block">
+                      Teks Ucapan Terdeteksi (Real-time):
+                    </span>
+                    <p className="text-xs text-white font-medium leading-relaxed">
+                      "{speechTranscript}"
+                    </p>
+                  </div>
                 ) : (
-                  <p className="text-[11px] text-slate-400">
-                    Contoh: <i>"Saya dari Podomoro mau ke Pintu Air 4 Simalingkar naik mobil"</i>
+                  <p className="text-[11px] text-slate-400 italic">
+                    Silakan ucapkan asal dan tujuan Anda tanpa terburu-buru... <br />
+                    Contoh: <i>"Saya dari Podomoro City Deli Medan mau ke Pintu Air 4 Simalingkar B"</i>
                   </p>
                 )}
+              </div>
+
+              {/* ACTION BUTTON: SELESAI BICARA & CARI RUTE AI */}
+              <div className="w-full px-4 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const textToUse = speechTranscript.trim() || manualVoiceInput.trim() || 'Podomoro City Deli Medan ke Pintu Air 4 Simalingkar B, Medan';
+                    handleProcessVoiceInput(textToUse);
+                  }}
+                  disabled={isLoading}
+                  className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xl shadow-emerald-500/30 active:scale-95 transition-all cursor-pointer ring-2 ring-emerald-400/50"
+                >
+                  {isLoading ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Menganalisis Rute Cerdas AI...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-5 h-5 stroke-[2.5]" />
+                      <span>Selesai Bicara & Cari Rute Cerdas AI</span>
+                    </>
+                  )}
+                </button>
               </div>
             </div>
 
