@@ -495,9 +495,70 @@ export const SmartTrafficRouteTab: React.FC = () => {
     }
   };
 
+  // Helper to dynamically update map markers and center
+  const updateMapMarkers = (origStr: string, destStr: string) => {
+    if (!mapInstanceRef.current || !(window as any).google) return;
+    try {
+      const isMedanOrig =
+        origStr.toLowerCase().includes('medan') ||
+        origStr.toLowerCase().includes('podomoro') ||
+        origStr.toLowerCase().includes('pudumoro');
+      const isJakartaOrig =
+        origStr.toLowerCase().includes('jakarta') ||
+        origStr.toLowerCase().includes('monas') ||
+        origStr.toLowerCase().includes('scbd');
+
+      const origPos = isMedanOrig
+        ? { lat: 3.5975, lng: 98.6772 }
+        : isJakartaOrig
+        ? { lat: -6.175392, lng: 106.827153 }
+        : { lat: 3.5908, lng: 98.6743 };
+
+      const isMedanDest =
+        destStr.toLowerCase().includes('medan') ||
+        destStr.toLowerCase().includes('simalingkar') ||
+        destStr.toLowerCase().includes('pintu air');
+      const destPos = isMedanDest
+        ? { lat: 3.5185, lng: 98.648 }
+        : { lat: -6.1275, lng: 106.6537 };
+
+      mapInstanceRef.current.setCenter(origPos);
+
+      // Clear existing markers
+      if (markersRef.current && markersRef.current.length) {
+        markersRef.current.forEach((m) => {
+          if (m && typeof m.setMap === 'function') m.setMap(null);
+        });
+      }
+
+      const googleMaps = (window as any).google.maps;
+      if (googleMaps && googleMaps.Marker) {
+        const originMarker = new googleMaps.Marker({
+          position: origPos,
+          map: mapInstanceRef.current,
+          title: origStr,
+          label: { text: 'A', color: 'white', fontWeight: 'bold' },
+        });
+
+        const destMarker = new googleMaps.Marker({
+          position: destPos,
+          map: mapInstanceRef.current,
+          title: destStr,
+          label: { text: 'B', color: 'white', fontWeight: 'bold' },
+        });
+
+        markersRef.current = [originMarker, destMarker];
+      }
+    } catch (e) {
+      console.warn('Update map markers error:', e);
+    }
+  };
+
   // Perform Manual AI Route Analysis
-  const handleAnalyzeRoutes = async () => {
-    if (!origin.trim() || !destination.trim()) return;
+  const handleAnalyzeRoutes = async (overrideOrigin?: string, overrideDest?: string) => {
+    const origToUse = overrideOrigin !== undefined ? overrideOrigin : origin;
+    const destToUse = overrideDest !== undefined ? overrideDest : destination;
+    if (!origToUse.trim() || !destToUse.trim()) return;
     setIsLoading(true);
 
     try {
@@ -505,8 +566,8 @@ export const SmartTrafficRouteTab: React.FC = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          origin,
-          destination,
+          origin: origToUse,
+          destination: destToUse,
           travelMode,
           avoidTolls,
           avoidHighways,
@@ -530,6 +591,9 @@ export const SmartTrafficRouteTab: React.FC = () => {
               'route-2'
           );
           setAnalyzedAt(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
+
+          // Update map pins and center
+          updateMapMarkers(origToUse, destToUse);
 
           // Voice Readout Option
           speakTextSummary(summaryMsg);
@@ -810,6 +874,9 @@ export const SmartTrafficRouteTab: React.FC = () => {
               type="text"
               value={origin}
               onChange={(e) => setOrigin(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleAnalyzeRoutes();
+              }}
               placeholder="Contoh: Podomoro City Deli Medan..."
               className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 text-white text-xs sm:text-sm focus:outline-none focus:border-teal-500 font-medium"
             />
@@ -819,7 +886,10 @@ export const SmartTrafficRouteTab: React.FC = () => {
                 <button
                   key={p}
                   type="button"
-                  onClick={() => setOrigin(p)}
+                  onClick={() => {
+                    setOrigin(p);
+                    handleAnalyzeRoutes(p, destination);
+                  }}
                   className={`px-2.5 py-1 rounded-full text-[10px] font-medium whitespace-nowrap cursor-pointer transition-colors ${
                     origin === p
                       ? 'bg-teal-500/30 text-teal-300 border border-teal-500/50'
@@ -842,6 +912,9 @@ export const SmartTrafficRouteTab: React.FC = () => {
               type="text"
               value={destination}
               onChange={(e) => setDestination(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleAnalyzeRoutes();
+              }}
               placeholder="Contoh: Pintu Air 4 Simalingkar B..."
               className="w-full px-3.5 py-2.5 rounded-2xl bg-slate-950 border border-slate-800 text-white text-xs sm:text-sm focus:outline-none focus:border-teal-500 font-medium"
             />
@@ -851,7 +924,10 @@ export const SmartTrafficRouteTab: React.FC = () => {
                 <button
                   key={p}
                   type="button"
-                  onClick={() => setDestination(p)}
+                  onClick={() => {
+                    setDestination(p);
+                    handleAnalyzeRoutes(origin, p);
+                  }}
                   className={`px-2.5 py-1 rounded-full text-[10px] font-medium whitespace-nowrap cursor-pointer transition-colors ${
                     destination === p
                       ? 'bg-teal-500/30 text-teal-300 border border-teal-500/50'
@@ -896,7 +972,7 @@ export const SmartTrafficRouteTab: React.FC = () => {
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={handleAnalyzeRoutes}
+              onClick={() => handleAnalyzeRoutes()}
               disabled={isLoading}
               className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 font-black text-xs flex items-center gap-2 shadow-lg shadow-teal-500/25 active:scale-95 transition-all cursor-pointer"
             >
