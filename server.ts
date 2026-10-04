@@ -2255,20 +2255,34 @@ Return HANYA JSON valid:
       }
     }
 
-    if (!parsedDestination || parsedDestination === 'Pintu Air 4 Simalingkar B, Medan') {
-      if (textLower.includes('ke ') || textLower.includes('tujuan ')) {
-        const parts = speechText.split(/ke |tujuan /i);
-        if (parts.length > 1) {
-          const destPart = parts[1].split(/dari |posisi |dari lokasi/i)[0].trim();
-          if (destPart) parsedDestination = destPart;
-        }
+    // High-accuracy heuristic rule matching for fast response
+    if (textLower.includes('podomoro') || textLower.includes('pudumoro')) {
+      parsedOrigin = 'Podomoro City Deli Medan (Pudumoro)';
+    }
+    if (textLower.includes('simalingkar') || textLower.includes('pintu air')) {
+      parsedDestination = 'Pintu Air 4 Simalingkar B, Medan';
+    } else if (textLower.includes('bandara') || textLower.includes('soetta') || textLower.includes('cgk')) {
+      parsedDestination = 'Bandara Internasional Soekarno-Hatta (CGK)';
+    } else if (textLower.includes('monas')) {
+      if (textLower.includes('ke monas') || textLower.includes('tujuan monas')) {
+        parsedDestination = 'Monas, Gambir, Jakarta Pusat';
+      } else {
+        parsedOrigin = 'Monas, Gambir, Jakarta Pusat';
       }
-      if (textLower.includes('dari ') || textLower.includes('posisi ')) {
-        const parts = speechText.split(/dari |posisi /i);
-        if (parts.length > 1) {
-          const origPart = parts[1].split(/ke |tujuan /i)[0].trim();
-          if (origPart) parsedOrigin = origPart;
-        }
+    } else if (textLower.includes('scbd')) {
+      parsedOrigin = 'SCBD, Senayan, Jakarta Selatan';
+    } else if (textLower.includes('grand indonesia')) {
+      parsedDestination = 'Grand Indonesia Mall, Jakarta Pusat';
+    }
+
+    // Extraction by "dari X ke Y" or "X ke Y"
+    if (textLower.includes(' ke ') || textLower.includes(' menuju ')) {
+      const parts = speechText.split(/ ke | menuju | tujuan /i);
+      if (parts.length >= 2) {
+        const rawOrig = parts[0].replace(/saya |dari |posisi |lokasi |mau /gi, '').trim();
+        const rawDest = parts[1].replace(/naik |naik motor|naik mobil|dengan /gi, '').trim();
+        if (rawOrig && rawOrig.length > 2) parsedOrigin = rawOrig;
+        if (rawDest && rawDest.length > 2) parsedDestination = rawDest;
       }
     }
 

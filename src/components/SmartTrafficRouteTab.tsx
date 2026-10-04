@@ -189,6 +189,10 @@ export const SmartTrafficRouteTab: React.FC = () => {
   const [voiceStatusText, setVoiceStatusText] = useState('Siap mendengarkan lokasi tujuan Anda...');
   const [isSpeakingResult, setIsSpeakingResult] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(true);
+  const [voiceDetectedToast, setVoiceDetectedToast] = useState<{ origin: string; destination: string } | null>({
+    origin: 'Podomoro City Deli Medan (Pudumoro)',
+    destination: 'Pintu Air 4 Simalingkar B, Medan',
+  });
   const recognitionRef = useRef<any>(null);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -433,9 +437,11 @@ export const SmartTrafficRouteTab: React.FC = () => {
           if (parseData.destination) targetDestination = parseData.destination;
           if (parseData.travelMode) targetMode = parseData.travelMode;
 
+          // Directly auto-input into fields
           setOrigin(targetOrigin);
           setDestination(targetDestination);
           setTravelMode(targetMode);
+          setVoiceDetectedToast({ origin: targetOrigin, destination: targetDestination });
         }
       }
 
@@ -762,6 +768,25 @@ export const SmartTrafficRouteTab: React.FC = () => {
             )}
           </div>
         </div>
+
+        {/* Voice Auto-input Confirmation Banner */}
+        {voiceDetectedToast && (
+          <div className="p-3 rounded-2xl bg-teal-500/15 border border-teal-500/40 text-teal-300 text-xs font-bold flex items-center justify-between gap-2 animate-fadeIn">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-teal-400 shrink-0" />
+              <span>
+                <strong>Terinput Otomatis dari Suara:</strong> Asal &rarr; <span className="text-white font-medium">{voiceDetectedToast.origin}</span> | Tujuan &rarr; <span className="text-white font-medium">{voiceDetectedToast.destination}</span>
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setVoiceDetectedToast(null)}
+              className="text-slate-400 hover:text-white text-xs p-1 cursor-pointer"
+            >
+              &times;
+            </button>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Origin Input */}
