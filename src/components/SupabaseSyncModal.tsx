@@ -251,19 +251,51 @@ CREATE TABLE public.ai_health_analyses (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- FITUR SMART TRAFFIC ROUTE AI
+CREATE TABLE IF NOT EXISTS public.smart_routes_history (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    profile_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
+    origin TEXT NOT NULL,
+    destination TEXT NOT NULL,
+    travel_mode VARCHAR(30) NOT NULL DEFAULT 'DRIVE',
+    avoid_tolls BOOLEAN NOT NULL DEFAULT false,
+    avoid_highways BOOLEAN NOT NULL DEFAULT false,
+    time_saved_minutes INTEGER DEFAULT 0,
+    best_route_title TEXT,
+    is_favorite BOOLEAN NOT NULL DEFAULT false,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.smart_routes_evaluations (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    history_id UUID REFERENCES public.smart_routes_history(id) ON DELETE CASCADE,
+    recommendation_title TEXT,
+    recommendation_reason TEXT,
+    stress_analysis TEXT,
+    health_travel_tips JSONB DEFAULT '[]'::jsonb,
+    best_departure_window TEXT,
+    promo_catchphrase TEXT,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.water_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.workout_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.health_notes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.health_alarms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ai_health_analyses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.smart_routes_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.smart_routes_evaluations ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Akses Penuh Profil" ON public.profiles FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Akses Penuh Riwayat Air" ON public.water_logs FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Akses Penuh Riwayat Olahraga" ON public.workout_logs FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Akses Penuh Catatan" ON public.health_notes FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Akses Penuh Alarm" ON public.health_alarms FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "Akses Penuh Analisis AI" ON public.ai_health_analyses FOR ALL USING (true) WITH CHECK (true);`;
+CREATE POLICY "Akses Penuh Analisis AI" ON public.ai_health_analyses FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Akses Penuh Riwayat Rute AI" ON public.smart_routes_history FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Akses Penuh Evaluasi Rute AI" ON public.smart_routes_evaluations FOR ALL USING (true) WITH CHECK (true);`;
 
     navigator.clipboard.writeText(sqlCode);
     setCopiedSql(true);

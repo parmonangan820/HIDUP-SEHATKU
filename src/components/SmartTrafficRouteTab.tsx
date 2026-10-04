@@ -309,6 +309,7 @@ export const SmartTrafficRouteTab: React.FC = () => {
   const recognitionRef = useRef<any>(null);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
+  const searchResultsRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const trafficLayerRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
@@ -592,8 +593,27 @@ export const SmartTrafficRouteTab: React.FC = () => {
           );
           setAnalyzedAt(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
 
+          // Save to Search History
+          saveToHistory(
+            targetOrigin,
+            targetDestination,
+            targetMode,
+            data.timeSavedMinutes || 0,
+            data.routes[1]?.title || data.routes[0]?.title
+          );
+
+          // Update map pins and center
+          updateMapMarkers(targetOrigin, targetDestination);
+
           // Close voice modal
           setIsVoiceModalOpen(false);
+
+          // Smoothly scroll to AI Search Results
+          setTimeout(() => {
+            if (searchResultsRef.current) {
+              searchResultsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          }, 250);
 
           // 3. Readout results via Text-To-Speech
           const speechSummary = `Hasil pencarian rute: ${alertMessage}`;
@@ -1213,7 +1233,7 @@ export const SmartTrafficRouteTab: React.FC = () => {
       )}
 
       {/* 4. INTERACTIVE MAP & TRAFFIC MONITOR */}
-      <div className="rounded-3xl bg-slate-900 border border-slate-800 overflow-hidden shadow-2xl relative">
+      <div ref={searchResultsRef} className="rounded-3xl bg-slate-900 border border-slate-800 overflow-hidden shadow-2xl relative scroll-mt-6">
         <div className="p-3.5 bg-slate-950/90 border-b border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
