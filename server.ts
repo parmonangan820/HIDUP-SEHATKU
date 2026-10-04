@@ -18,6 +18,17 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+// Enable Permissive CORS for live deployment & custom domains
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 // Helper to get Supabase credentials from .env or runtime config file
 function getSupabaseConfig(): { url: string; key: string } {
   dotenv.config();
@@ -65,11 +76,6 @@ function getAIClient(): GoogleGenAI | null {
   try {
     return new GoogleGenAI({
       apiKey: apiKey.trim(),
-      httpOptions: {
-        headers: {
-          'User-Agent': 'aistudio-build',
-        },
-      },
     });
   } catch (err) {
     console.error('Failed to initialize GoogleGenAI client:', err);
@@ -2217,10 +2223,9 @@ app.post('/api/smart-traffic/parse-voice-intent', async (req: Request, res: Resp
       travelMode = 'WALK';
     }
 
-    const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '';
-    if (apiKey) {
+    const ai = getAIClient();
+    if (ai) {
       try {
-        const ai = new GoogleGenAI({ apiKey });
         const prompt = `Anda adalah parser AI intent navigasi geografis Indonesia.
 Tugas Anda: Ekstrak "origin" (lokasi awal) dan "destination" (lokasi tujuan) dari kalimat ucapan suara pengguna berikut:
 "${speechText}"
@@ -2522,11 +2527,10 @@ app.post('/api/smart-traffic/analyze', async (req: Request, res: Response) => {
 
     // 2. Call Gemini AI to analyze anti-stress health recommendation
     let aiEvaluation: any = null;
-    const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '';
+    const ai = getAIClient();
 
-    if (apiKey) {
+    if (ai) {
       try {
-        const ai = new GoogleGenAI({ apiKey });
         const prompt = `Anda adalah "Dokter AI Konsultan Kesehatan Mental, Ergonomi & Gaya Hidup Sehat" di aplikasi Hidup Sehatku.
 Tugas Anda: Menganalisis kondisi lalu lintas nyata dan memberikan REKOMENDASI RUTE PERJALANAN TERBAIK (Smart Traffic Route) yang melindungi kesehatan fisik dan mental pengguna agar bebas dari stres dan lonjakan tekanan darah akibat macet di jalan.
 
