@@ -10,6 +10,7 @@ import { NotesTab } from './components/NotesTab';
 import { AIStatsTab } from './components/AIStatsTab';
 import { EducationTab } from './components/EducationTab';
 import { SmartTrafficRouteTab } from './components/SmartTrafficRouteTab';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { ProfileModal } from './components/ProfileModal';
 import { AIChatModal } from './components/AIChatModal';
 import { VoiceDrinkModal } from './components/VoiceDrinkModal';
@@ -266,7 +267,11 @@ function MainApp() {
 
           {activeTab === 'workout' && <WorkoutTab />}
 
-          {activeTab === 'smart_route' && <SmartTrafficRouteTab />}
+          {activeTab === 'smart_route' && (
+            <ErrorBoundary fallbackTitle="Peta & Rute AI">
+              <SmartTrafficRouteTab />
+            </ErrorBoundary>
+          )}
 
           {activeTab === 'notes' && <NotesTab />}
 

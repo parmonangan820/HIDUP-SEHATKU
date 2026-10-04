@@ -2192,6 +2192,99 @@ app.get('/api/google-maps/key', (_req: Request, res: Response) => {
   return res.json({ apiKey });
 });
 
+// ==========================================
+// Voice Intent Recognition Endpoint for Smart Traffic
+// ==========================================
+app.post('/api/smart-traffic/parse-voice-intent', async (req: Request, res: Response) => {
+  try {
+    const { speechText = '', currentOrigin = 'Podomoro City Deli Medan (Pudumoro)' } = req.body || {};
+
+    if (!speechText || typeof speechText !== 'string') {
+      return res.status(400).json({ success: false, error: 'Teks ucapan tidak boleh kosong' });
+    }
+
+    let parsedOrigin = currentOrigin;
+    let parsedDestination = 'Pintu Air 4 Simalingkar B, Medan';
+    let travelMode = 'DRIVE';
+
+    const textLower = speechText.toLowerCase();
+
+    if (textLower.includes('motor') || textLower.includes('naik motor') || textLower.includes('sepeda motor')) {
+      travelMode = 'TWO_WHEELER';
+    } else if (textLower.includes('sepeda') || textLower.includes('gowes')) {
+      travelMode = 'BICYCLE';
+    } else if (textLower.includes('jalan kaki') || textLower.includes('jalan')) {
+      travelMode = 'WALK';
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY || process.env.VITE_GEMINI_API_KEY || '';
+    if (apiKey) {
+      try {
+        const ai = new GoogleGenAI({ apiKey });
+        const prompt = `Anda adalah parser AI intent navigasi geografis Indonesia.
+Tugas Anda: Ekstrak "origin" (lokasi awal) dan "destination" (lokasi tujuan) dari kalimat ucapan suara pengguna berikut:
+"${speechText}"
+
+Lokasi default awal saat ini jika tidak disebutkan di ucapan: "${currentOrigin}"
+
+Return HANYA JSON valid:
+{
+  "origin": "string",
+  "destination": "string",
+  "travelMode": "DRIVE | TWO_WHEELER | BICYCLE | WALK"
+}`;
+
+        const aiRes = await ai.models.generateContent({
+          model: 'gemini-3.8-flash',
+          contents: prompt,
+          config: {
+            temperature: 0.1,
+            responseMimeType: 'application/json',
+          },
+        });
+
+        const raw = aiRes.text || '';
+        const cleaned = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
+        const jsonParsed = JSON.parse(cleaned);
+
+        if (jsonParsed.origin) parsedOrigin = jsonParsed.origin;
+        if (jsonParsed.destination) parsedDestination = jsonParsed.destination;
+        if (jsonParsed.travelMode) travelMode = jsonParsed.travelMode;
+      } catch (geminiErr) {
+        console.warn('Gemini intent parse fallback:', geminiErr);
+      }
+    }
+
+    if (!parsedDestination || parsedDestination === 'Pintu Air 4 Simalingkar B, Medan') {
+      if (textLower.includes('ke ') || textLower.includes('tujuan ')) {
+        const parts = speechText.split(/ke |tujuan /i);
+        if (parts.length > 1) {
+          const destPart = parts[1].split(/dari |posisi |dari lokasi/i)[0].trim();
+          if (destPart) parsedDestination = destPart;
+        }
+      }
+      if (textLower.includes('dari ') || textLower.includes('posisi ')) {
+        const parts = speechText.split(/dari |posisi /i);
+        if (parts.length > 1) {
+          const origPart = parts[1].split(/ke |tujuan /i)[0].trim();
+          if (origPart) parsedOrigin = origPart;
+        }
+      }
+    }
+
+    return res.json({
+      success: true,
+      origin: parsedOrigin,
+      destination: parsedDestination,
+      travelMode,
+      rawSpeech: speechText,
+    });
+  } catch (err: any) {
+    console.error('Parse voice intent error:', err);
+    return res.status(500).json({ success: false, error: err?.message || 'Gagal memproses ucapan suara' });
+  }
+});
+
 app.post('/api/smart-traffic/analyze', async (req: Request, res: Response) => {
   try {
     const {
