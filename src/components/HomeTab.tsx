@@ -24,6 +24,8 @@ import {
   BellRing,
   Salad,
   Crown,
+  Navigation,
+  Compass,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -233,6 +235,43 @@ export const HomeTab: React.FC<HomeTabProps> = ({
             className="flex-shrink-0 py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-400 to-cyan-400 text-slate-950 font-black text-xs hover:brightness-110 active:scale-95 transition-all shadow-md shadow-emerald-500/20 flex items-center gap-1"
           >
             <span>{isPro ? 'Buka Diet' : 'Akses PRO'}</span>
+            <ArrowRight className="w-3 h-3 stroke-[2.5]" />
+          </button>
+        </div>
+      </div>
+
+      {/* AI Smart Traffic Route (Anti-Stress Travel) Feature Banner */}
+      <div className="rounded-2xl bg-gradient-to-r from-teal-500 via-indigo-500 to-purple-600 p-[1px] shadow-xl shadow-teal-500/15">
+        <div className="rounded-2xl bg-slate-900/95 p-3.5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              onClick={() => setActiveTab('smart_route')}
+              className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-teal-400 via-cyan-400 to-indigo-500 flex items-center justify-center text-slate-950 flex-shrink-0 shadow-lg shadow-teal-500/30 hover:scale-105 active:scale-95 transition-transform"
+              title="Buka AI Smart Traffic Route & Anti-Stress Travel"
+            >
+              <Navigation className="w-5 h-5 stroke-[2.5]" />
+            </button>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h3 className="text-xs sm:text-sm font-extrabold text-white flex items-center gap-1.5 truncate">
+                  <span>Smart Traffic Route AI</span>
+                </h3>
+                <span className="text-[9px] px-2 py-0.5 rounded-full bg-teal-500/20 border border-teal-500/40 text-teal-300 font-black flex items-center gap-1">
+                  <Sparkles className="w-2.5 h-2.5 fill-current" />
+                  <span>ANTI-STRES</span>
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-300 truncate">
+                Rute terbaik bebas macet, hindari lonjakan tensi darah & jaga ritme jantung
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setActiveTab('smart_route')}
+            className="flex-shrink-0 py-2 px-3 rounded-xl bg-gradient-to-r from-teal-400 to-indigo-400 text-slate-950 font-black text-xs hover:brightness-110 active:scale-95 transition-all shadow-md shadow-teal-500/20 flex items-center gap-1"
+          >
+            <span>Cari Rute</span>
             <ArrowRight className="w-3 h-3 stroke-[2.5]" />
           </button>
         </div>
