@@ -1849,7 +1849,7 @@ Instruksi PENTING:
 - Apabila pengguna bertanya tentang ginjal, kalori, diet, olahraga, atau keluhan kesehatan lain, berikan fakta medis yang akurat dan rekomendasi aksi praktis.`;
 
     const response = await aiClient.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.8-flash',
       contents: `Pertanyaan Pengguna: ${message}`,
       config: {
         systemInstruction: systemPrompt,
@@ -1937,7 +1937,7 @@ Output Anda HARUS dalam JSON murni persis dengan struktur berikut tanpa karakter
     parts.push({ text: userPromptText });
 
     const response = await aiClient.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.8-flash',
       contents: { parts },
       config: {
         systemInstruction: systemPrompt,
@@ -2084,7 +2084,7 @@ Berikan respons HANYA berupa JSON valid (tanpa markdown blok pembuka/penutup) de
     if (aiClient) {
       try {
         const response = await aiClient.models.generateContent({
-          model: 'gemini-2.5-flash',
+          model: 'gemini-3.8-flash',
           contents: [{ text: systemPrompt }],
           config: {
             responseMimeType: 'application/json',
@@ -2235,7 +2235,7 @@ Return HANYA JSON valid:
 }`;
 
         const aiRes = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
+          model: 'gemini-3.8-flash',
           contents: prompt,
           config: {
             temperature: 0.1,
@@ -2562,7 +2562,7 @@ KEMBALIKAN HANYA FORMAT JSON VALID (tanpa markdown blok pembuka/penutup):
 }`;
 
         const aiResponse = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
+          model: 'gemini-3.8-flash',
           contents: prompt,
           config: {
             temperature: 0.3,
