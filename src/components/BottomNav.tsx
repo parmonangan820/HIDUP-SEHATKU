@@ -18,7 +18,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab })
     },
     {
       id: 'water' as NavTab,
-      label: 'Air',
+      label: 'Minum',
       icon: Droplets,
       badge: null,
     },
