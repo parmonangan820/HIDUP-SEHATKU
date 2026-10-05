@@ -534,6 +534,88 @@ export const SmartTrafficRouteTab: React.FC = () => {
     setIsSpeakingResult(false);
   };
 
+  // Instant Client-side Indonesian NLP Intent Extractor
+  const extractIntentFromText = (text: string, defaultOrigin: string) => {
+    const textTrimmed = text.trim();
+    const textLower = textTrimmed.toLowerCase();
+
+    let extractedOrigin = '';
+    let extractedDestination = '';
+    let mode: 'DRIVE' | 'TWO_WHEELER' | 'BICYCLE' | 'WALK' = travelMode;
+
+    if (textLower.includes('motor') || textLower.includes('naik motor') || textLower.includes('sepeda motor')) {
+      mode = 'TWO_WHEELER';
+    } else if (textLower.includes('sepeda') || textLower.includes('gowes')) {
+      mode = 'BICYCLE';
+    } else if (textLower.includes('jalan kaki') || textLower.includes('jalan')) {
+      mode = 'WALK';
+    }
+
+    // 1. Landmark Keywords Matching
+    if (textLower.includes('carrefour') || textLower.includes('karefur') || textLower.includes('carefur')) {
+      extractedOrigin = 'Carrefour Plaza Medan Fair, Medan';
+    } else if (textLower.includes('medan fair') || textLower.includes('plaza medan fair')) {
+      extractedOrigin = 'Plaza Medan Fair, Medan';
+    } else if (textLower.includes('podomoro') || textLower.includes('pudumoro') || textLower.includes('deli park')) {
+      extractedOrigin = 'Podomoro City Deli Medan (Pudumoro)';
+    } else if (textLower.includes('bahasa kopi')) {
+      extractedOrigin = 'Bahasa Kopi, Medan';
+    } else if (textLower.includes('sun plaza')) {
+      extractedOrigin = 'Sun Plaza, Medan';
+    } else if (textLower.includes('stasiun medan') || textLower.includes('stasiun kereta')) {
+      extractedOrigin = 'Stasiun Kereta Api Medan';
+    } else if (textLower.includes('bandara kualanamu') || textLower.includes('kualanamu')) {
+      extractedOrigin = 'Bandara Internasional Kualanamu (KNO)';
+    } else if (textLower.includes('monas')) {
+      extractedOrigin = 'Monas, Gambir, Jakarta Pusat';
+    } else if (textLower.includes('scbd')) {
+      extractedOrigin = 'SCBD, Senayan, Jakarta Selatan';
+    }
+
+    if (textLower.includes('medan mall')) {
+      extractedDestination = 'Medan Mall, Medan';
+    } else if (textLower.includes('pintu air') || textLower.includes('simalingkar')) {
+      extractedDestination = 'Pintu Air 4 Simalingkar B, Medan';
+    } else if (textLower.includes('centre point') || textLower.includes('center point')) {
+      extractedDestination = 'Centre Point Mall, Medan';
+    } else if (textLower.includes('cambridge')) {
+      extractedDestination = 'Cambridge City Square, Medan';
+    } else if (textLower.includes('bandara soetta') || textLower.includes('soekarno hatta')) {
+      extractedDestination = 'Bandara Internasional Soekarno-Hatta (CGK)';
+    }
+
+    // 2. Pattern Matching for arbitrary places: "dari [A] ke [B]" or "[A] ke [B]" or "[A] tujuan [B]"
+    if (!extractedOrigin || !extractedDestination) {
+      const pattern1 = /(?:saya\s+)?(?:dari|posisi\s+di|lokasi\s+di|lagi\s+di)\s+(.+?)\s+(?:menuju|ke|tujuan\s+ke|tujuan|mau\s+ke)\s+(.+)/i;
+      const m1 = textTrimmed.match(pattern1);
+      if (m1) {
+        if (!extractedOrigin && m1[1]) extractedOrigin = m1[1].trim();
+        if (!extractedDestination && m1[2]) extractedDestination = m1[2].trim();
+      }
+    }
+
+    if (!extractedOrigin || !extractedDestination) {
+      const pattern2 = /^(.+?)\s+(?:ke|menuju|tujuan\s+ke|tujuan)\s+(.+)$/i;
+      const m2 = textTrimmed.match(pattern2);
+      if (m2) {
+        if (!extractedOrigin && m2[1]) extractedOrigin = m2[1].trim().replace(/^(saya|posisi|lokasi)\s+/i, '');
+        if (!extractedDestination && m2[2]) extractedDestination = m2[2].trim();
+      }
+    }
+
+    // Clean noise words
+    const cleanStr = (s: string) =>
+      s.replace(/\s+(naik\s+mobil|naik\s+motor|naik\s+sepeda|jalan\s+kaki|dengan\s+mobil|cepat)$/i, '').trim();
+
+    if (extractedOrigin) extractedOrigin = cleanStr(extractedOrigin);
+    if (extractedDestination) extractedDestination = cleanStr(extractedDestination);
+
+    if (!extractedOrigin) extractedOrigin = defaultOrigin || 'Plaza Medan Fair, Medan';
+    if (!extractedDestination) extractedDestination = 'Medan Mall, Medan';
+
+    return { origin: extractedOrigin, destination: extractedDestination, mode };
+  };
+
   // Step-by-Step Voice Pipeline: Voice -> Intent -> Auto Input -> Route Search -> Map & Speech Readout
   const handleProcessVoiceInput = async (spokenText: string) => {
     const text = spokenText.trim();
@@ -543,12 +625,14 @@ export const SmartTrafficRouteTab: React.FC = () => {
     setVoiceStatusText(`Memahami perintah suara: "${text}"...`);
     setIsLoading(true);
 
-    let targetOrigin = origin;
-    let targetDestination = destination;
-    let targetMode = travelMode;
+    // Instant local extraction
+    const localParsed = extractIntentFromText(text, origin);
+    let targetOrigin = localParsed.origin;
+    let targetDestination = localParsed.destination;
+    let targetMode = localParsed.mode;
 
     try {
-      // 1. Voice Intent Parsing API
+      // API enrichment from server
       const parseRes = await fetch('/api/smart-traffic/parse-voice-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -558,31 +642,13 @@ export const SmartTrafficRouteTab: React.FC = () => {
       if (parseRes.ok) {
         const parseData = await parseRes.json();
         if (parseData.success) {
-          if (parseData.origin && parseData.origin.trim()) targetOrigin = parseData.origin;
-          if (parseData.destination && parseData.destination.trim()) targetDestination = parseData.destination;
+          if (parseData.origin && parseData.origin.trim()) targetOrigin = parseData.origin.trim();
+          if (parseData.destination && parseData.destination.trim()) targetDestination = parseData.destination.trim();
           if (parseData.travelMode) targetMode = parseData.travelMode;
         }
       }
     } catch (e) {
-      console.warn('Voice intent parse API error, using local heuristic parsing:', e);
-    }
-
-    // Client-side Local Extraction Backup/Refinement
-    const textLower = text.toLowerCase();
-    if (textLower.includes('carrefour') || textLower.includes('karefur') || textLower.includes('carefur')) {
-      targetOrigin = 'Carrefour Plaza Medan Fair, Medan';
-    } else if (textLower.includes('podomoro') || textLower.includes('pudumoro') || textLower.includes('deli park')) {
-      targetOrigin = 'Podomoro City Deli Medan (Pudumoro)';
-    } else if (textLower.includes('bahasa kopi')) {
-      targetOrigin = 'Bahasa Kopi, Medan';
-    }
-
-    if (textLower.includes('medan mall')) {
-      targetDestination = 'Medan Mall, Medan';
-    } else if (textLower.includes('sun plaza')) {
-      targetDestination = 'Sun Plaza, Medan';
-    } else if (textLower.includes('simalingkar') || textLower.includes('pintu air')) {
-      targetDestination = 'Pintu Air 4 Simalingkar B, Medan';
+      console.warn('Voice intent parse API error, using instant local extraction:', e);
     }
 
     // Auto-fill Input Fields on screen
