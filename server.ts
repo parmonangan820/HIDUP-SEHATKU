@@ -2209,8 +2209,8 @@ app.post('/api/smart-traffic/parse-voice-intent', async (req: Request, res: Resp
       return res.status(400).json({ success: false, error: 'Teks ucapan tidak boleh kosong' });
     }
 
-    let parsedOrigin = currentOrigin;
-    let parsedDestination = 'Pintu Air 4 Simalingkar B, Medan';
+    let parsedOrigin = '';
+    let parsedDestination = '';
     let travelMode = 'DRIVE';
 
     const textLower = speechText.toLowerCase();
@@ -2223,6 +2223,7 @@ app.post('/api/smart-traffic/parse-voice-intent', async (req: Request, res: Resp
       travelMode = 'WALK';
     }
 
+    // 1. First try Gemini AI
     const ai = getAIClient();
     if (ai) {
       try {
@@ -2252,44 +2253,57 @@ Return HANYA JSON valid:
         const cleaned = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
         const jsonParsed = JSON.parse(cleaned);
 
-        if (jsonParsed.origin) parsedOrigin = jsonParsed.origin;
-        if (jsonParsed.destination) parsedDestination = jsonParsed.destination;
+        if (jsonParsed.origin && jsonParsed.origin.trim()) parsedOrigin = jsonParsed.origin.trim();
+        if (jsonParsed.destination && jsonParsed.destination.trim()) parsedDestination = jsonParsed.destination.trim();
         if (jsonParsed.travelMode) travelMode = jsonParsed.travelMode;
       } catch (geminiErr) {
         console.warn('Gemini intent parse fallback:', geminiErr);
       }
     }
 
-    // High-accuracy heuristic rule matching for fast response
-    if (textLower.includes('podomoro') || textLower.includes('pudumoro')) {
-      parsedOrigin = 'Podomoro City Deli Medan (Pudumoro)';
-    }
-    if (textLower.includes('simalingkar') || textLower.includes('pintu air')) {
-      parsedDestination = 'Pintu Air 4 Simalingkar B, Medan';
-    } else if (textLower.includes('bandara') || textLower.includes('soetta') || textLower.includes('cgk')) {
-      parsedDestination = 'Bandara Internasional Soekarno-Hatta (CGK)';
-    } else if (textLower.includes('monas')) {
-      if (textLower.includes('ke monas') || textLower.includes('tujuan monas')) {
-        parsedDestination = 'Monas, Gambir, Jakarta Pusat';
-      } else {
-        parsedOrigin = 'Monas, Gambir, Jakarta Pusat';
+    // 2. High-accuracy heuristic rule extraction if Gemini didn't fill both fields
+    if (!parsedDestination) {
+      if (/tujuan\s+(ke\s+)?(.+)/i.test(speechText)) {
+        const match = speechText.match(/tujuan\s+(ke\s+)?(.+)/i);
+        if (match && match[2] && match[2].trim().length > 2) {
+          parsedDestination = match[2].trim().replace(/^(ke|menuju|ke\s+lokasi)\s+/i, '');
+        }
+      } else if (/(ke|menuju)\s+(.+)/i.test(speechText)) {
+        const match = speechText.match(/(ke|menuju)\s+(.+)/i);
+        if (match && match[2] && match[2].trim().length > 2) {
+          parsedDestination = match[2].trim();
+        }
       }
-    } else if (textLower.includes('scbd')) {
-      parsedOrigin = 'SCBD, Senayan, Jakarta Selatan';
-    } else if (textLower.includes('grand indonesia')) {
-      parsedDestination = 'Grand Indonesia Mall, Jakarta Pusat';
     }
 
-    // Extraction by "dari X ke Y" or "X ke Y"
-    if (textLower.includes(' ke ') || textLower.includes(' menuju ')) {
-      const parts = speechText.split(/ ke | menuju | tujuan /i);
-      if (parts.length >= 2) {
-        const rawOrig = parts[0].replace(/saya |dari |posisi |lokasi |mau /gi, '').trim();
-        const rawDest = parts[1].replace(/naik |naik motor|naik mobil|dengan /gi, '').trim();
-        if (rawOrig && rawOrig.length > 2) parsedOrigin = rawOrig;
-        if (rawDest && rawDest.length > 2) parsedDestination = rawDest;
+    if (!parsedOrigin) {
+      if (/dari\s+(.+?)\s+(ke|tujuan|menuju)\s+(.+)/i.test(speechText)) {
+        const match = speechText.match(/dari\s+(.+?)\s+(ke|tujuan|menuju)\s+(.+)/i);
+        if (match && match[1] && match[1].trim().length > 2) {
+          parsedOrigin = match[1].trim().replace(/^(saya|posisi|lokasi|lagi\s+di)\s+/i, '');
+        }
       }
     }
+
+    // Keyword Refinements
+    if (textLower.includes('medan mall')) {
+      parsedDestination = 'Medan Mall, Medan';
+    } else if (textLower.includes('sun plaza')) {
+      parsedDestination = 'Sun Plaza, Medan';
+    } else if (textLower.includes('simalingkar') || textLower.includes('pintu air')) {
+      parsedDestination = 'Pintu Air 4 Simalingkar B, Medan';
+    } else if (textLower.includes('bandara') || textLower.includes('soetta')) {
+      parsedDestination = 'Bandara Internasional Soekarno-Hatta (CGK)';
+    }
+
+    if (textLower.includes('podomoro') || textLower.includes('pudumoro')) {
+      parsedOrigin = 'Podomoro City Deli Medan (Pudumoro)';
+    } else if (textLower.includes('bahasa kopi')) {
+      parsedOrigin = 'Bahasa Kopi, Medan';
+    }
+
+    if (!parsedOrigin) parsedOrigin = currentOrigin || 'Podomoro City Deli Medan (Pudumoro)';
+    if (!parsedDestination) parsedDestination = 'Pintu Air 4 Simalingkar B, Medan';
 
     return res.json({
       success: true,

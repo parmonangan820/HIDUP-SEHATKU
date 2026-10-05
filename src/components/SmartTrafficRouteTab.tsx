@@ -534,7 +534,7 @@ export const SmartTrafficRouteTab: React.FC = () => {
     setIsSpeakingResult(false);
   };
 
-  // Step-by-Step Voice Pipeline: Voice -> Intent -> Route API -> Map -> Speech Readout
+  // Step-by-Step Voice Pipeline: Voice -> Intent -> Auto Input -> Route Search -> Map & Speech Readout
   const handleProcessVoiceInput = async (spokenText: string) => {
     const text = spokenText.trim();
     if (!text) return;
@@ -542,6 +542,10 @@ export const SmartTrafficRouteTab: React.FC = () => {
     handleStopListening();
     setVoiceStatusText(`Memahami perintah suara: "${text}"...`);
     setIsLoading(true);
+
+    let targetOrigin = origin;
+    let targetDestination = destination;
+    let targetMode = travelMode;
 
     try {
       // 1. Voice Intent Parsing API
@@ -551,92 +555,64 @@ export const SmartTrafficRouteTab: React.FC = () => {
         body: JSON.stringify({ speechText: text, currentOrigin: origin }),
       });
 
-      let targetOrigin = origin;
-      let targetDestination = destination;
-      let targetMode = travelMode;
-
       if (parseRes.ok) {
         const parseData = await parseRes.json();
         if (parseData.success) {
-          if (parseData.origin) targetOrigin = parseData.origin;
-          if (parseData.destination) targetDestination = parseData.destination;
+          if (parseData.origin && parseData.origin.trim()) targetOrigin = parseData.origin;
+          if (parseData.destination && parseData.destination.trim()) targetDestination = parseData.destination;
           if (parseData.travelMode) targetMode = parseData.travelMode;
-
-          // Directly auto-input into fields
-          setOrigin(targetOrigin);
-          setDestination(targetDestination);
-          setTravelMode(targetMode);
-          setVoiceDetectedToast({ origin: targetOrigin, destination: targetDestination });
         }
       }
-
-      setVoiceStatusText(`Mengecek kondisi kemacetan & rute ke "${targetDestination}"...`);
-
-      // 2. Route & Traffic Analysis API
-      const analyzeRes = await fetch('/api/smart-traffic/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          origin: targetOrigin,
-          destination: targetDestination,
-          travelMode: targetMode,
-          avoidTolls,
-          avoidHighways,
-          userName: profile?.name || 'Sahabat Sehat',
-        }),
-      });
-
-      if (analyzeRes.ok) {
-        const data = await analyzeRes.json();
-        if (data.success && data.routes && data.routes.length > 0) {
-          setRoutes(data.routes);
-          const alertMessage = data.smartAlertText || smartAlertText;
-          setSmartAlertText(alertMessage);
-          if (data.timeSavedMinutes !== undefined) setTimeSavedMinutes(data.timeSavedMinutes);
-          if (data.aiEvaluation) setAiEvaluation(data.aiEvaluation);
-
-          setSelectedRouteId(
-            data.aiEvaluation?.bestRouteId ||
-              data.bestAltRouteId ||
-              data.routes[1]?.id ||
-              data.routes[0]?.id ||
-              'route-2'
-          );
-          setAnalyzedAt(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
-
-          // Save to Search History
-          saveToHistory(
-            targetOrigin,
-            targetDestination,
-            targetMode,
-            data.timeSavedMinutes || 0,
-            data.routes[1]?.title || data.routes[0]?.title
-          );
-
-          // Update map pins and center
-          updateMapMarkers(targetOrigin, targetDestination);
-
-          // Close voice modal
-          setIsVoiceModalOpen(false);
-
-          // Smoothly scroll to AI Search Results
-          setTimeout(() => {
-            if (searchResultsRef.current) {
-              searchResultsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-          }, 250);
-
-          // 3. Readout results via Text-To-Speech
-          const speechSummary = `Hasil pencarian rute: ${alertMessage}`;
-          speakTextSummary(speechSummary);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to process voice intent:', err);
-      setVoiceStatusText('Terjadi kendala saat menganalisis rute suara. Coba ulangi lagi.');
-    } finally {
-      setIsLoading(false);
+    } catch (e) {
+      console.warn('Voice intent parse API error, using local heuristic parsing:', e);
     }
+
+    // Client-side Local Extraction Backup/Refinement
+    const textLower = text.toLowerCase();
+    if (/tujuan\s+(ke\s+)?(.+)/i.test(text)) {
+      const match = text.match(/tujuan\s+(ke\s+)?(.+)/i);
+      if (match && match[2] && match[2].trim().length > 2) {
+        targetDestination = match[2].trim().replace(/^(ke|menuju|ke\s+lokasi)\s+/i, '');
+      }
+    } else if (/(ke|menuju)\s+(.+)/i.test(text)) {
+      const match = text.match(/(ke|menuju)\s+(.+)/i);
+      if (match && match[2] && match[2].trim().length > 2) {
+        targetDestination = match[2].trim();
+      }
+    }
+
+    if (textLower.includes('medan mall')) {
+      targetDestination = 'Medan Mall, Medan';
+    } else if (textLower.includes('sun plaza')) {
+      targetDestination = 'Sun Plaza, Medan';
+    } else if (textLower.includes('simalingkar') || textLower.includes('pintu air')) {
+      targetDestination = 'Pintu Air 4 Simalingkar B, Medan';
+    }
+
+    if (textLower.includes('podomoro') || textLower.includes('pudumoro')) {
+      targetOrigin = 'Podomoro City Deli Medan (Pudumoro)';
+    } else if (textLower.includes('bahasa kopi')) {
+      targetOrigin = 'Bahasa Kopi, Medan';
+    }
+
+    // Auto-fill Input Fields on screen
+    setOrigin(targetOrigin);
+    setDestination(targetDestination);
+    setTravelMode(targetMode);
+    setVoiceDetectedToast({ origin: targetOrigin, destination: targetDestination });
+
+    // Always close Voice Modal
+    setIsVoiceModalOpen(false);
+
+    // Execute Smart Route Analysis with newly extracted origin & destination
+    await handleAnalyzeRoutes(targetOrigin, targetDestination);
+
+    // Smoothly Scroll to Map & Results Section
+    setTimeout(() => {
+      if (searchResultsRef.current) {
+        searchResultsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 200);
   };
 
   // Helper to dynamically update map markers and center
