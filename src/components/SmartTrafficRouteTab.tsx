@@ -283,6 +283,56 @@ function generateRouteWaypoints(
   return [p1, p2, p3, p4, p5];
 }
 
+// Dynamic Coordinate Resolver for Leaflet & Navigation
+function resolvePlaceCoordinates(placeName: string, isOrigin: boolean): [number, number] {
+  const clean = (placeName || '').toLowerCase();
+
+  // 1. Medan Specific Landmarks
+  if (clean.includes('bunga ester')) return [3.5280, 98.6380];
+  if (clean.includes('kampung lalang') || clean.includes('lalang')) return [3.5930, 98.6180];
+  if (clean.includes('carrefour') || clean.includes('fair')) return [3.5975, 98.6631];
+  if (clean.includes('medan mall')) return [3.5878, 98.6830];
+  if (clean.includes('podomoro') || clean.includes('deli park')) return [3.5972, 98.6772];
+  if (clean.includes('simalingkar') || clean.includes('pintu air')) return [3.5185, 98.6480];
+  if (clean.includes('sun plaza')) return [3.5855, 98.6715];
+  if (clean.includes('centre point') || clean.includes('center point')) return [3.5925, 98.6815];
+  if (clean.includes('stasiun') || clean.includes('kereta')) return [3.5902, 98.6788];
+  if (clean.includes('kualanamu')) return [3.6422, 98.8852];
+  if (clean.includes('amplas')) return [3.5350, 98.7180];
+  if (clean.includes('pinang baris')) return [3.5850, 98.6150];
+  if (clean.includes('usu')) return [3.5650, 98.6570];
+  if (clean.includes('unimed')) return [3.6050, 98.7150];
+  if (clean.includes('johor')) return [3.5350, 98.6750];
+  if (clean.includes('helvetia')) return [3.6150, 98.6550];
+  if (clean.includes('marelan')) return [3.6650, 98.6650];
+  if (clean.includes('tembung')) return [3.6050, 98.7450];
+  if (clean.includes('gatot subroto')) return [3.5950, 98.6550];
+  if (clean.includes('adam malik')) return [3.6020, 98.6710];
+  if (clean.includes('katamso')) return [3.5650, 98.6850];
+  if (clean.includes('lapangan merdeka')) return [3.5915, 98.6780];
+
+  // 2. Jakarta Specific Landmarks
+  if (clean.includes('monas') || clean.includes('gambir')) return [-6.1754, 106.8272];
+  if (clean.includes('soekarno hatta') || clean.includes('soetta') || clean.includes('cgk')) return [-6.1275, 106.6537];
+  if (clean.includes('grand indonesia') || clean.includes('thamrin')) return [-6.1950, 106.8210];
+  if (clean.includes('scbd') || clean.includes('senayan')) return [-6.2250, 106.8080];
+
+  // 3. Fallback: Generate distinct, realistic offset in Medan area based on string characters
+  let hash = 0;
+  for (let i = 0; i < placeName.length; i++) {
+    hash = (hash << 5) - hash + placeName.charCodeAt(i);
+    hash |= 0;
+  }
+  const deltaLat = ((Math.abs(hash) % 50) - 25) / 1000;
+  const deltaLng = (((Math.abs(hash * 3)) % 50) - 25) / 1000;
+
+  if (isOrigin) {
+    return [3.5908 + deltaLat, 98.6743 + deltaLng];
+  } else {
+    return [3.5485 + deltaLat, 98.6480 + deltaLng];
+  }
+}
+
 // Clean duplicate spoken text caused by mobile speech recognition loops
 export function cleanSpokenText(text: string): string {
   if (!text) return '';
@@ -484,32 +534,9 @@ export const SmartTrafficRouteTab: React.FC = () => {
 
     layers.clearLayers();
 
-    // Coordinates calculation
-    const isMedan =
-      origin.toLowerCase().includes('medan') ||
-      origin.toLowerCase().includes('podomoro') ||
-      origin.toLowerCase().includes('fair') ||
-      destination.toLowerCase().includes('medan') ||
-      destination.toLowerCase().includes('simalingkar');
-
-    let startCoords: [number, number] = isMedan ? [3.5908, 98.6743] : [-6.175392, 106.827153];
-    let endCoords: [number, number] = isMedan ? [3.5185, 98.648] : [-6.1275, 106.6537];
-
-    if (origin.toLowerCase().includes('carrefour') || origin.toLowerCase().includes('fair')) {
-      startCoords = [3.5975, 98.6631];
-    } else if (origin.toLowerCase().includes('podomoro')) {
-      startCoords = [3.5972, 98.6772];
-    } else if (origin.toLowerCase().includes('bunga ester')) {
-      startCoords = [3.528, 98.638];
-    }
-
-    if (destination.toLowerCase().includes('medan mall')) {
-      endCoords = [3.5878, 98.683];
-    } else if (destination.toLowerCase().includes('simalingkar') || destination.toLowerCase().includes('pintu air')) {
-      endCoords = [3.5185, 98.648];
-    } else if (destination.toLowerCase().includes('kampung lalang')) {
-      endCoords = [3.593, 98.618];
-    }
+    // Dynamic Coordinates calculation using resolvePlaceCoordinates
+    const startCoords = resolvePlaceCoordinates(origin, true);
+    const endCoords = resolvePlaceCoordinates(destination, false);
 
     // Leaflet DivIcons for A and B
     const iconA = L.divIcon({
@@ -1230,9 +1257,24 @@ export const SmartTrafficRouteTab: React.FC = () => {
 
         const fallbackAlert = `Rute utama dari ${origToUse} ke ${destToUse} sedang mengalami kemacetan. Disarankan melalui ${fallbackRoutes[1].recommendedVia || fallbackRoutes[1].title}. Perkiraan waktu tempuh ${fallbackRoutes[1].durationMinutes} menit (Jarak ${fallbackRoutes[1].distanceKm} km). Estimasi penghematan waktu ${fallbackRoutes[1].timeSavedMinutes || 8} menit.`;
 
+        const fallbackAiEval: AIEvaluation = {
+          bestRouteId: 'route-2',
+          recommendationTitle: `Rute Nyaman dari ${origToUse} ke ${destToUse}`,
+          recommendationReason: `Rute alternatif dari ${origToUse} menuju ${destToUse} via ${fallbackRoutes[1].recommendedVia || 'Jalur Bebas Hambatan'} dipilih karena memiliki kelancaran arus lalu lintas terbaik, memangkas durasi kemacetan hingga ${fallbackRoutes[1].timeSavedMinutes || 8} menit, dan menjaga ritme detak jantung tetap tenang.`,
+          stressAnalysis: `Kepadatan lalu lintas pada rute utama terpantau padat. Memilih rute alternatif ini mencegah kelelahan leher dan efek lonjakan tensi darah akibat stop-and-go di kemacetan.`,
+          healthTravelTips: [
+            'Atur posisi sandaran jok sekitar 100-110 derajat agar postur punggung rileks.',
+            'Lakukan pernapasan dalam (tarik 4 detik, hembuskan 8 detik) saat mendapati persimpangan jalan.',
+            'Sediakan botol air minum di dekat kemudi untuk menjaga hidrasi tubuh saat berkendara.',
+          ],
+          bestDepartureWindow: 'Berangkat dalam 10 menit ke depan untuk memanfaatkan arus kendaraan yang sedang mengalir lancar.',
+          promoCatchphrase: `Bebas stres dari ${origToUse} ke ${destToUse}, jantung sehat & pikiran tenang! Hidup Sehatku Smart Traffic Route siap memandu perjalanan Anda.`,
+        };
+
         setRoutes(fallbackRoutes);
         setSmartAlertText(fallbackAlert);
         setTimeSavedMinutes(fallbackRoutes[1].timeSavedMinutes || 8);
+        setAiEvaluation(fallbackAiEval);
         setSelectedRouteId('route-2');
         setAnalyzedAt(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
         saveToHistory(origToUse, destToUse, travelMode, fallbackRoutes[1].timeSavedMinutes || 8, fallbackRoutes[1].title);

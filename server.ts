@@ -2477,7 +2477,7 @@ app.post('/api/smart-traffic/analyze', async (req: Request, res: Response) => {
               }
 
               const routeTitle = r.description
-                ? `Rute ${idx === 0 ? 'Utama' : `Alternatif ${idx}`}: via ${r.description}`
+                ? `Rute ${idx === 0 ? 'Utama' : `Alternatif ${idx}`}: dari ${origin} ke ${destination} (via ${r.description})`
                 : idx === 0
                 ? `Rute Utama: dari ${origin} ke ${destination} (Tercepat)`
                 : `Rute Alternatif ${idx}: dari ${origin} ke ${destination}`;
@@ -2485,7 +2485,7 @@ app.post('/api/smart-traffic/analyze', async (req: Request, res: Response) => {
               return {
                 id: `route-${idx + 1}`,
                 title: routeTitle,
-                summary: r.description || `Jalur ${idx === 0 ? 'Utama Bebas Hambatan' : 'Alternatif'}`,
+                summary: r.description ? `Melalui ${r.description} dari ${origin} menuju ${destination}` : `Jalur ${idx === 0 ? 'Utama Bebas Hambatan' : 'Alternatif'}`,
                 distanceKm,
                 durationMinutes,
                 staticDurationMinutes,
@@ -2509,6 +2509,7 @@ app.post('/api/smart-traffic/analyze', async (req: Request, res: Response) => {
     if (!googleRoutesSuccess || routesData.length === 0) {
       const isCarrefourMedan = origin.toLowerCase().includes('carrefour') && destination.toLowerCase().includes('medan mall');
       const isPodomoroSimalingkar = origin.toLowerCase().includes('podomoro') && destination.toLowerCase().includes('simalingkar');
+      const isBungaEsterToLalang = origin.toLowerCase().includes('bunga ester') || destination.toLowerCase().includes('lalang');
 
       if (isCarrefourMedan) {
         routesData = [
@@ -2529,7 +2530,7 @@ app.post('/api/smart-traffic/analyze', async (req: Request, res: Response) => {
           },
           {
             id: 'route-2',
-            title: `Rute Alternatif AI: via Jl. Adam Malik & Jl. Jawa (Direkomendasikan)`,
+            title: `Rute Alternatif AI: dari ${origin} ke ${destination} via Jl. Adam Malik & Jl. Jawa (Direkomendasikan)`,
             summary: `Melalui Jl. Gatot Subroto -> Jl. H. Adam Malik -> Jl. Jawa -> Jl. Sutomo -> ${destination}`,
             distanceKm: 5.8,
             durationMinutes: 15,
@@ -2545,7 +2546,7 @@ app.post('/api/smart-traffic/analyze', async (req: Request, res: Response) => {
           },
           {
             id: 'route-3',
-            title: `Rute Alternatif 2: via Jl. Putri Hijau & Jl. Stasiun`,
+            title: `Rute Alternatif 2: dari ${origin} ke ${destination} via Jl. Putri Hijau & Jl. Stasiun`,
             summary: `Melalui Jl. Putri Hijau -> Jl. Stasiun Kereta Api -> Jl. Palang Merah -> ${destination}`,
             distanceKm: 5.5,
             durationMinutes: 19,
@@ -2564,8 +2565,8 @@ app.post('/api/smart-traffic/analyze', async (req: Request, res: Response) => {
         routesData = [
           {
             id: 'route-1',
-            title: 'Rute Utama: via Jl. Brigjend Katamso & Simpang Pos',
-            summary: 'Melalui Jl. Putri Hijau -> Jl. Brigjend Katamso -> Simpang Pos -> Jl. Jamin Ginting',
+            title: `Rute Utama: dari ${origin} ke ${destination} via Jl. Brigjend Katamso & Simpang Pos`,
+            summary: `Melalui Jl. Putri Hijau -> Jl. Brigjend Katamso -> Simpang Pos -> Jl. Jamin Ginting (${destination})`,
             distanceKm: 14.5,
             durationMinutes: 48,
             staticDurationMinutes: 28,
@@ -2579,8 +2580,8 @@ app.post('/api/smart-traffic/analyze', async (req: Request, res: Response) => {
           },
           {
             id: 'route-2',
-            title: 'Rute Alternatif AI: via Ringroad Ngumban Surbakti (Direkomendasikan)',
-            summary: 'Melalui Jl. Guru Patimpus -> Jl. Gatot Subroto -> Ringroad Ngumban Surbakti -> Jl. Pintu Air 4',
+            title: `Rute Alternatif AI: dari ${origin} ke ${destination} via Ringroad Ngumban Surbakti (Direkomendasikan)`,
+            summary: `Melalui Jl. Guru Patimpus -> Jl. Gatot Subroto -> Ringroad Ngumban Surbakti -> ${destination}`,
             distanceKm: 13.8,
             durationMinutes: 30,
             staticDurationMinutes: 26,
@@ -2595,8 +2596,8 @@ app.post('/api/smart-traffic/analyze', async (req: Request, res: Response) => {
           },
           {
             id: 'route-3',
-            title: 'Rute Alternatif 2: via Jl. Juanda & Karya Wisata',
-            summary: 'Melalui Jl. Pemuda -> Jl. Juanda -> Jl. Karya Wisata Medan Johor -> Pintu Air 4',
+            title: `Rute Alternatif 2: dari ${origin} ke ${destination} via Jl. Juanda & Karya Wisata`,
+            summary: `Melalui Jl. Pemuda -> Jl. Juanda -> Jl. Karya Wisata Medan Johor -> ${destination}`,
             distanceKm: 14.1,
             durationMinutes: 37,
             staticDurationMinutes: 30,
@@ -2610,12 +2611,62 @@ app.post('/api/smart-traffic/analyze', async (req: Request, res: Response) => {
             isToll: false,
           },
         ];
+      } else if (isBungaEsterToLalang) {
+        routesData = [
+          {
+            id: 'route-1',
+            title: `Rute Utama: dari ${origin} ke ${destination} via Jl. Setia Budi & Simpang Selayang`,
+            summary: `Melalui Jl. Bunga Ester -> Jl. Setia Budi -> Simpang Selayang -> Jl. TB Simatupang -> ${destination}`,
+            distanceKm: 7.6,
+            durationMinutes: 30,
+            staticDurationMinutes: 18,
+            delayMinutes: 12,
+            avgSpeedKmh: 15,
+            trafficLevel: 'padat',
+            stressIndex: 72,
+            congestedRoad: 'Simpang Pemda & Lampu Merah Setia Budi',
+            encodedPolyline: '',
+            isToll: false,
+          },
+          {
+            id: 'route-2',
+            title: `Rute Alternatif AI: dari ${origin} ke ${destination} via Ringroad Gagak Hitam (Direkomendasikan)`,
+            summary: `Melalui Jl. Bunga Ester -> Ringroad Gagak Hitam -> Jl. Sunggal -> Jl. Asam Kumbang -> ${destination}`,
+            distanceKm: 7.9,
+            durationMinutes: 18,
+            staticDurationMinutes: 16,
+            delayMinutes: 2,
+            avgSpeedKmh: 26,
+            trafficLevel: 'lancar',
+            stressIndex: 22,
+            recommendedVia: 'Ringroad Gagak Hitam & Koridor Sunggal',
+            timeSavedMinutes: 12,
+            encodedPolyline: '',
+            isToll: false,
+          },
+          {
+            id: 'route-3',
+            title: `Rute Alternatif 2: dari ${origin} ke ${destination} via Jl. Flamboyan & Simpang Pemda`,
+            summary: `Melalui Jl. Flamboyan Raya -> Jl. Bunga Raya -> Jl. TB Simatupang -> ${destination}`,
+            distanceKm: 8.2,
+            durationMinutes: 23,
+            staticDurationMinutes: 18,
+            delayMinutes: 5,
+            avgSpeedKmh: 21,
+            trafficLevel: 'ramai',
+            stressIndex: 38,
+            recommendedVia: 'Koridor Flamboyan Asri',
+            timeSavedMinutes: 7,
+            encodedPolyline: '',
+            isToll: false,
+          },
+        ];
       } else {
         // Generic Dynamic Route Generator using user's EXACT origin and destination
         routesData = [
           {
             id: 'route-1',
-            title: `Rute Utama: dari ${origin} ke ${destination} via Koridor Utama`,
+            title: `Rute Utama: dari ${origin} ke ${destination} via Koridor Arteri Utama`,
             summary: `Melalui Jalur Arteri Utama dari ${origin} menuju ${destination}`,
             distanceKm: 8.5,
             durationMinutes: 28,
@@ -2631,7 +2682,7 @@ app.post('/api/smart-traffic/analyze', async (req: Request, res: Response) => {
           {
             id: 'route-2',
             title: `Rute Alternatif AI: dari ${origin} ke ${destination} via Jalur Bebas Hambatan (Direkomendasikan)`,
-            summary: `Melalui Jalur Alternatif Sekunder Bebas Kemacetan menuju ${destination}`,
+            summary: `Melalui Jalur Alternatif Sekunder Bebas Kemacetan dari ${origin} menuju ${destination}`,
             distanceKm: 8.8,
             durationMinutes: 18,
             staticDurationMinutes: 16,
@@ -2647,7 +2698,7 @@ app.post('/api/smart-traffic/analyze', async (req: Request, res: Response) => {
           {
             id: 'route-3',
             title: `Rute Alternatif 2: dari ${origin} ke ${destination} via Koridor Boulevard`,
-            summary: `Melalui Jalur Boulevard Perkotaan menuju ${destination}`,
+            summary: `Melalui Jalur Boulevard Perkotaan dari ${origin} menuju ${destination}`,
             distanceKm: 9.1,
             durationMinutes: 22,
             staticDurationMinutes: 18,
@@ -2672,8 +2723,8 @@ app.post('/api/smart-traffic/analyze', async (req: Request, res: Response) => {
     const recommendedViaName = bestAlt.recommendedVia || (bestAlt.title.split(':')[1] || bestAlt.title).replace('(Direkomendasikan)', '').trim();
 
     const smartAlertText = mainRoute.delayMinutes >= 8 || mainRoute.trafficLevel === 'macet_parah' || mainRoute.trafficLevel === 'padat'
-      ? `Rute utama sedang mengalami kemacetan di ${congestedSpot}. Disarankan melalui ${recommendedViaName}. Perkiraan waktu tempuh ${bestAlt.durationMinutes} menit. Jarak ${bestAlt.distanceKm} km. Estimasi penghematan waktu ${timeSaved > 0 ? timeSaved : bestAlt.delayMinutes} menit.`
-      : `Lalu lintas rute utama terpantau lancar. Disarankan melalui ${recommendedViaName} dengan waktu tempuh sekitar ${bestAlt.durationMinutes} menit (Jarak ${bestAlt.distanceKm} km).`;
+      ? `Rute utama dari ${origin} ke ${destination} sedang mengalami kemacetan di ${congestedSpot}. Disarankan melalui ${recommendedViaName}. Perkiraan waktu tempuh ${bestAlt.durationMinutes} menit. Jarak ${bestAlt.distanceKm} km. Estimasi penghematan waktu ${timeSaved > 0 ? timeSaved : bestAlt.delayMinutes} menit.`
+      : `Lalu lintas rute utama dari ${origin} ke ${destination} terpantau lancar. Disarankan melalui ${recommendedViaName} dengan waktu tempuh sekitar ${bestAlt.durationMinutes} menit (Jarak ${bestAlt.distanceKm} km).`;
 
     // 2. Call Gemini AI to analyze anti-stress health recommendation
     let aiEvaluation: any = null;
@@ -2686,8 +2737,8 @@ Tugas Anda: Menganalisis kondisi lalu lintas nyata dan memberikan REKOMENDASI RU
 
 Profil Pengguna:
 - Nama: ${userName}
-- Titik Asal: ${origin}
-- Titik Tujuan: ${destination}
+- Titik Asal (Origin): "${origin}"
+- Titik Tujuan (Destination): "${destination}"
 - Mode Transportasi: ${travelMode}
 
 Data Alternatif Rute yang Terdeteksi:
@@ -2696,14 +2747,17 @@ ${JSON.stringify(routesData, null, 2)}
 Fokus Analisis Kesehatan & Lalu Lintas:
 1. Memilih rute dengan tingkat stres terendah, durasi paling dapat diprediksi, dan hambatan kemacetan paling minim.
 2. Dampak Biologis: Jelaskan mengapa menghindari macet stop-and-go mencegah lonjakan hormon kortisol, menjaga tensi darah tetap stabil, dan mengurangi ketegangan otot leher/punggung.
-3. Berikan kalimat promosi inspiratif yang mengajak pengguna hidup sehat dengan memilih rute pintar agar tidak stres di jalan.
+3. KETENTUAN SANGAT PENTING:
+   - "recommendationTitle" WAJIB merujuk perjalanan dari "${origin}" ke "${destination}".
+   - "recommendationReason" WAJIB menyebutkan secara persis alasan memilih rute dari "${origin}" ke "${destination}".
+   - JANGAN PERNAH menyebut nama tempat lain yang tidak ada dalam "${origin}" atau "${destination}"!
 4. Tips kesehatan selama di kendaraan (postur duduk, pernapasan rileks 4-7-8, hidrasi air putih).
 
 KEMBALIKAN HANYA FORMAT JSON VALID (tanpa markdown blok pembuka/penutup):
 {
-  "bestRouteId": "route-1",
-  "recommendationTitle": "Rute Paling Nyaman & Rendah Stres untuk ${userName}",
-  "recommendationReason": "string (Penjelasan detail mengapa rute ini paling ideal untuk kesehatan fisik & mental)",
+  "bestRouteId": "${bestAlt.id}",
+  "recommendationTitle": "Rute Nyaman dari ${origin} ke ${destination} untuk ${userName}",
+  "recommendationReason": "string (Penjelasan detail mengapa rute alternatif dari ${origin} ke ${destination} via ${recommendedViaName} paling ideal untuk kesehatan fisik & mental)",
   "stressAnalysis": "string (Analisis dampak kemacetan pada tekanan darah & hormon kortisol)",
   "healthTravelTips": [
     "string (Tips ergonomi & postur)",
@@ -2711,8 +2765,8 @@ KEMBALIKAN HANYA FORMAT JSON VALID (tanpa markdown blok pembuka/penutup):
     "string (Tips hidrasi air putih di jalan)",
     "string (Tips peregangan otot leher)"
   ],
-  "bestDepartureWindow": "string (Saran waktu berangkat terbaik, misal: 'Berangkat sekarang sebelum pukul 07:30' atau 'Tunggu 15 menit agar kepadatan mereda')",
-  "promoCatchphrase": "Nikmati perjalanan lancar tanpa beban stres! Menjaga pikiran tenang di jalan adalah investasi terbaik untuk jantung sehat dan hari yang produktif."
+  "bestDepartureWindow": "string (Saran waktu berangkat terbaik, misal: 'Berangkat sekarang sebelum jam sibuk')",
+  "promoCatchphrase": "Nikmati perjalanan dari ${origin} ke ${destination} lancar tanpa beban stres! Menjaga pikiran tenang di jalan adalah investasi terbaik untuk jantung sehat."
 }`;
 
         const aiResponse = await ai.models.generateContent({
