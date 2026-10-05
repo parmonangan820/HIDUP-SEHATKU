@@ -2198,6 +2198,53 @@ app.get('/api/google-maps/key', (_req: Request, res: Response) => {
   return res.json({ apiKey });
 });
 
+// Clean duplicate spoken text caused by mobile speech recognition loops
+function cleanSpokenText(text: string): string {
+  if (!text) return '';
+  let str = text.trim();
+
+  // 1. Remove duplicate adjacent words (e.g., "Saya Saya" -> "Saya")
+  str = str.replace(/\b(\w+)(?:\s+\1\b)+/gi, '$1');
+
+  // 2. Remove identical halves (e.g., "Saya mau Saya mau" -> "Saya mau")
+  const words = str.split(/\s+/);
+  if (words.length >= 2 && words.length % 2 === 0) {
+    const half = words.length / 2;
+    const firstHalf = words.slice(0, half).join(' ').toLowerCase();
+    const secondHalf = words.slice(half).join(' ').toLowerCase();
+    if (firstHalf === secondHalf) {
+      str = words.slice(0, half).join(' ');
+    }
+  }
+
+  // 3. Remove repeated N-word sub-phrases (e.g., "dari medan dari medan" -> "dari medan")
+  for (let n = 8; n >= 2; n--) {
+    const w = str.split(/\s+/);
+    if (w.length >= n * 2) {
+      let changed = false;
+      for (let i = 0; i <= w.length - n * 2; i++) {
+        const p1 = w.slice(i, i + n).join(' ').toLowerCase();
+        const p2 = w.slice(i + n, i + n * 2).join(' ').toLowerCase();
+        if (p1 === p2) {
+          w.splice(i + n, n);
+          str = w.join(' ');
+          changed = true;
+          break;
+        }
+      }
+      if (changed) {
+        str = cleanSpokenText(str);
+        break;
+      }
+    }
+  }
+
+  // 4. Case where word repeats with direct spacing
+  str = str.replace(/\b([a-zA-Z0-9]+)\s+\1\b/gi, '$1');
+
+  return str.trim();
+}
+
 // ==========================================
 // Voice Intent Recognition Endpoint for Smart Traffic
 // ==========================================
@@ -2209,7 +2256,7 @@ app.post('/api/smart-traffic/parse-voice-intent', async (req: Request, res: Resp
       return res.status(400).json({ success: false, error: 'Teks ucapan tidak boleh kosong' });
     }
 
-    const text = speechText.trim();
+    const text = cleanSpokenText(speechText);
     const textLower = text.toLowerCase();
 
     let parsedOrigin = '';

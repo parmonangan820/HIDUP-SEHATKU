@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { useHealth } from '../context/HealthContext';
 import {
   Navigation,
@@ -208,6 +210,126 @@ function getGoogleMapsLibrary(apiKey: string): Promise<any> {
   return mapsPromise;
 }
 
+// Google Polyline Decoder for Leaflet
+function decodeGooglePolyline(encoded: string): [number, number][] {
+  if (!encoded) return [];
+  const points: [number, number][] = [];
+  let index = 0, len = encoded.length;
+  let lat = 0, lng = 0;
+
+  while (index < len) {
+    let b, shift = 0, result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    let dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+    lat += dlat;
+
+    shift = 0;
+    result = 0;
+    do {
+      b = encoded.charCodeAt(index++) - 63;
+      result |= (b & 0x1f) << shift;
+      shift += 5;
+    } while (b >= 0x20);
+    let dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
+    lng += dlng;
+
+    points.push([lat / 1e5, lng / 1e5]);
+  }
+  return points;
+}
+
+// Generate Waypoints for Leaflet Route Lines
+function generateRouteWaypoints(
+  start: [number, number],
+  end: [number, number],
+  routeIdx: number
+): [number, number][] {
+  const [lat1, lng1] = start;
+  const [lat2, lng2] = end;
+
+  const midLat = (lat1 + lat2) / 2;
+  const midLng = (lng1 + lng2) / 2;
+
+  let offsetLat = 0;
+  let offsetLng = 0;
+
+  if (routeIdx === 0) {
+    offsetLat = (lng2 - lng1) * 0.08;
+    offsetLng = -(lat2 - lat1) * 0.08;
+  } else if (routeIdx === 1) {
+    offsetLat = -(lng2 - lng1) * 0.18;
+    offsetLng = (lat2 - lat1) * 0.18;
+  } else {
+    offsetLat = (lng2 - lng1) * 0.22;
+    offsetLng = -(lat2 - lat1) * 0.22;
+  }
+
+  const p1: [number, number] = [start[0], start[1]];
+  const p2: [number, number] = [
+    start[0] * 0.66 + (midLat + offsetLat) * 0.34,
+    start[1] * 0.66 + (midLng + offsetLng) * 0.34,
+  ];
+  const p3: [number, number] = [midLat + offsetLat, midLng + offsetLng];
+  const p4: [number, number] = [
+    end[0] * 0.66 + (midLat + offsetLat) * 0.34,
+    end[1] * 0.66 + (midLng + offsetLng) * 0.34,
+  ];
+  const p5: [number, number] = [end[0], end[1]];
+
+  return [p1, p2, p3, p4, p5];
+}
+
+// Clean duplicate spoken text caused by mobile speech recognition loops
+export function cleanSpokenText(text: string): string {
+  if (!text) return '';
+  let str = text.trim();
+
+  // 1. Remove duplicate adjacent words (e.g., "Saya Saya" -> "Saya", "mau mau" -> "mau")
+  str = str.replace(/\b(\w+)(?:\s+\1\b)+/gi, '$1');
+
+  // 2. Remove identical halves (e.g., "Saya mau Saya mau" -> "Saya mau")
+  const words = str.split(/\s+/);
+  if (words.length >= 2 && words.length % 2 === 0) {
+    const half = words.length / 2;
+    const firstHalf = words.slice(0, half).join(' ').toLowerCase();
+    const secondHalf = words.slice(half).join(' ').toLowerCase();
+    if (firstHalf === secondHalf) {
+      str = words.slice(0, half).join(' ');
+    }
+  }
+
+  // 3. Remove repeated N-word sub-phrases (e.g., "dari medan dari medan" -> "dari medan")
+  for (let n = 8; n >= 2; n--) {
+    const w = str.split(/\s+/);
+    if (w.length >= n * 2) {
+      let changed = false;
+      for (let i = 0; i <= w.length - n * 2; i++) {
+        const p1 = w.slice(i, i + n).join(' ').toLowerCase();
+        const p2 = w.slice(i + n, i + n * 2).join(' ').toLowerCase();
+        if (p1 === p2) {
+          w.splice(i + n, n);
+          str = w.join(' ');
+          changed = true;
+          break;
+        }
+      }
+      if (changed) {
+        str = cleanSpokenText(str);
+        break;
+      }
+    }
+  }
+
+  // 4. Case where word repeats with direct spacing
+  str = str.replace(/\b([a-zA-Z0-9]+)\s+\1\b/gi, '$1');
+
+  return str.trim();
+}
+
 export const SmartTrafficRouteTab: React.FC = () => {
   const { profile } = useHealth();
   const [origin, setOrigin] = useState('Plaza Medan Fair, Medan');
@@ -317,6 +439,172 @@ export const SmartTrafficRouteTab: React.FC = () => {
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapsApiKey, setMapsApiKey] = useState('AIzaSyAii5jmjWw-WbGATErdNheY-41dCRJmSeY');
 
+  // Leaflet Interactive Map Refs and State
+  const leafletContainerRef = useRef<HTMLDivElement>(null);
+  const leafletMapRef = useRef<L.Map | null>(null);
+  const leafletLayersRef = useRef<L.LayerGroup | null>(null);
+  const [mapStyleTheme, setMapStyleTheme] = useState<'dark' | 'voyager' | 'osm'>('dark');
+
+  // Leaflet Interactive Map Effect Hook
+  useEffect(() => {
+    if (!leafletContainerRef.current) return;
+
+    if (!leafletMapRef.current) {
+      const map = L.map(leafletContainerRef.current, {
+        zoomControl: false,
+        attributionControl: false,
+      });
+
+      L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+      leafletMapRef.current = map;
+      leafletLayersRef.current = L.layerGroup().addTo(map);
+    }
+
+    const map = leafletMapRef.current;
+    const layers = leafletLayersRef.current;
+    if (!map || !layers) return;
+
+    // Tile style selection
+    let tileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+    let attribution = '&copy; OpenStreetMap &copy; CARTO';
+
+    if (mapStyleTheme === 'voyager') {
+      tileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+    } else if (mapStyleTheme === 'osm') {
+      tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+    }
+
+    map.eachLayer((layer) => {
+      if (layer instanceof L.TileLayer) {
+        map.removeLayer(layer);
+      }
+    });
+    L.tileLayer(tileUrl, { maxZoom: 19, attribution }).addTo(map);
+
+    layers.clearLayers();
+
+    // Coordinates calculation
+    const isMedan =
+      origin.toLowerCase().includes('medan') ||
+      origin.toLowerCase().includes('podomoro') ||
+      origin.toLowerCase().includes('fair') ||
+      destination.toLowerCase().includes('medan') ||
+      destination.toLowerCase().includes('simalingkar');
+
+    let startCoords: [number, number] = isMedan ? [3.5908, 98.6743] : [-6.175392, 106.827153];
+    let endCoords: [number, number] = isMedan ? [3.5185, 98.648] : [-6.1275, 106.6537];
+
+    if (origin.toLowerCase().includes('carrefour') || origin.toLowerCase().includes('fair')) {
+      startCoords = [3.5975, 98.6631];
+    } else if (origin.toLowerCase().includes('podomoro')) {
+      startCoords = [3.5972, 98.6772];
+    } else if (origin.toLowerCase().includes('bunga ester')) {
+      startCoords = [3.528, 98.638];
+    }
+
+    if (destination.toLowerCase().includes('medan mall')) {
+      endCoords = [3.5878, 98.683];
+    } else if (destination.toLowerCase().includes('simalingkar') || destination.toLowerCase().includes('pintu air')) {
+      endCoords = [3.5185, 98.648];
+    } else if (destination.toLowerCase().includes('kampung lalang')) {
+      endCoords = [3.593, 98.618];
+    }
+
+    // Leaflet DivIcons for A and B
+    const iconA = L.divIcon({
+      className: 'custom-leaflet-marker-a',
+      html: `<div style="background:#10b981; color:#0f172a; border:2px solid #ffffff; width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:14px; box-shadow:0 10px 15px -3px rgba(16, 185, 129, 0.5);">A</div>`,
+      iconSize: [34, 34],
+      iconAnchor: [17, 17],
+    });
+
+    const iconB = L.divIcon({
+      className: 'custom-leaflet-marker-b',
+      html: `<div style="background:#f43f5e; color:#ffffff; border:2px solid #ffffff; width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:14px; box-shadow:0 10px 15px -3px rgba(244, 63, 94, 0.5);">B</div>`,
+      iconSize: [34, 34],
+      iconAnchor: [17, 17],
+    });
+
+    const markerA = L.marker(startCoords, { icon: iconA }).bindPopup(
+      `<div style="font-family:sans-serif; padding:4px;"><b>📍 Titik Asal (Origin)</b><br/><span style="color:#10b981; font-size:12px;">${origin}</span></div>`
+    );
+
+    const markerB = L.marker(endCoords, { icon: iconB }).bindPopup(
+      `<div style="font-family:sans-serif; padding:4px;"><b>🏁 Titik Tujuan (Destination)</b><br/><span style="color:#f43f5e; font-size:12px;">${destination}</span></div>`
+    );
+
+    layers.addLayer(markerA);
+    layers.addLayer(markerB);
+
+    const allBounds = L.latLngBounds([startCoords, endCoords]);
+
+    // Draw Polylines for each route
+    routes.forEach((r, idx) => {
+      let waypoints: [number, number][] = [];
+      if (r.encodedPolyline) {
+        waypoints = decodeGooglePolyline(r.encodedPolyline);
+      }
+      if (!waypoints || waypoints.length < 2) {
+        waypoints = generateRouteWaypoints(startCoords, endCoords, idx);
+      }
+
+      waypoints.forEach((pt) => allBounds.extend(pt));
+
+      const isSelected = r.id === selectedRouteId;
+      const isAiBest = r.id === aiEvaluation?.bestRouteId || idx === 1;
+
+      let color = idx === 0 ? '#f43f5e' : isAiBest ? '#10b981' : '#06b6d4';
+      let weight = isSelected ? 7 : 4;
+      let opacity = isSelected ? 0.95 : 0.65;
+      let dashArray = isSelected ? undefined : idx === 0 ? '6, 6' : undefined;
+
+      if (isSelected) {
+        const glowLine = L.polyline(waypoints, {
+          color: color,
+          weight: 14,
+          opacity: 0.25,
+          lineCap: 'round',
+          lineJoin: 'round',
+        });
+        layers.addLayer(glowLine);
+      }
+
+      const routePolyline = L.polyline(waypoints, {
+        color,
+        weight,
+        opacity,
+        dashArray,
+        lineCap: 'round',
+        lineJoin: 'round',
+      });
+
+      const popupHtml = `
+        <div style="font-family:sans-serif; min-width:180px; padding:4px;">
+          <div style="font-size:11px; font-weight:800; color:${color}; margin-bottom:4px;">
+            ${r.title}
+          </div>
+          <div style="font-size:12px; font-weight:700; color:#0f172a;">
+            ⏱ ${r.durationMinutes} menit &bull; 🛣 ${r.distanceKm} km
+          </div>
+          <div style="font-size:10px; color:#64748b; margin-top:2px;">
+            ${r.summary}
+          </div>
+          ${r.timeSavedMinutes && r.timeSavedMinutes > 0 ? `<div style="margin-top:6px; background:#ecfdf5; color:#047857; font-weight:800; font-size:10px; padding:3px 6px; border-radius:6px; display:inline-block;">⚡ Hemat ${r.timeSavedMinutes} Menit</div>` : ''}
+        </div>
+      `;
+
+      routePolyline.bindPopup(popupHtml);
+      routePolyline.on('click', () => {
+        setSelectedRouteId(r.id);
+      });
+
+      layers.addLayer(routePolyline);
+    });
+
+    map.fitBounds(allBounds.pad(0.18));
+  }, [origin, destination, routes, selectedRouteId, mapStyleTheme]);
+
   // Fetch Google Maps API Key
   useEffect(() => {
     let isSubscribed = true;
@@ -352,15 +640,31 @@ export const SmartTrafficRouteTab: React.FC = () => {
         };
 
         recognition.onresult = (event: any) => {
-          let accumulated = '';
+          let finalParts = '';
+          let interimPart = '';
+
           for (let i = 0; i < event.results.length; i++) {
-            const transcript = event.results[i][0].transcript;
-            accumulated += (accumulated ? ' ' : '') + transcript;
+            const res = event.results[i];
+            const phrase = res[0]?.transcript || '';
+            if (res.isFinal) {
+              finalParts += (finalParts ? ' ' : '') + phrase;
+            } else {
+              interimPart = phrase; // Do not concatenate all interims!
+            }
           }
-          if (accumulated.trim()) {
-            const trimmed = accumulated.trim();
-            setSpeechTranscript(trimmed);
-            setManualVoiceInput(trimmed);
+
+          let text = (finalParts ? finalParts + (interimPart ? ' ' + interimPart : '') : interimPart) || '';
+
+          // If empty, fallback to the latest result index
+          if (!text && event.results.length > 0) {
+            text = event.results[event.results.length - 1][0]?.transcript || '';
+          }
+
+          const cleaned = cleanSpokenText(text);
+
+          if (cleaned) {
+            setSpeechTranscript(cleaned);
+            setManualVoiceInput(cleaned);
           }
         };
 
@@ -539,7 +843,7 @@ export const SmartTrafficRouteTab: React.FC = () => {
 
   // Instant Client-side Indonesian NLP Intent Extractor
   const extractIntentFromText = (text: string, defaultOrigin: string) => {
-    const textTrimmed = text.trim();
+    const textTrimmed = cleanSpokenText(text);
     const textLower = textTrimmed.toLowerCase();
 
     let extractedOrigin = '';
@@ -633,7 +937,7 @@ export const SmartTrafficRouteTab: React.FC = () => {
 
   // Step-by-Step Voice Pipeline: Voice -> Intent -> Auto Input -> Route Search -> Map & Speech Readout
   const handleProcessVoiceInput = async (spokenText: string) => {
-    const text = spokenText.trim();
+    const text = cleanSpokenText(spokenText);
     if (!text) return;
 
     handleStopListening();
@@ -1426,42 +1730,65 @@ export const SmartTrafficRouteTab: React.FC = () => {
         </div>
       )}
 
-      {/* 4. INTERACTIVE MAP & TRAFFIC MONITOR */}
+      {/* 4. INTERACTIVE LEAFLET ROUTE MAP & TRAFFIC MONITOR */}
       <div ref={searchResultsRef} className="rounded-3xl bg-slate-900 border border-slate-800 overflow-hidden shadow-2xl relative scroll-mt-6">
-        <div className="p-3.5 bg-slate-950/90 border-b border-slate-800 flex items-center justify-between">
+        <div className="p-3.5 bg-slate-950/90 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
-            <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              <span>Peta Rute Utama & Alternatif</span>
+            <h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
+              <span>Peta Leaflet Interaktif Rute AI</span>
             </h3>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-800">
             <button
               type="button"
-              onClick={() => setShowTrafficLayer(!showTrafficLayer)}
-              className={`px-2.5 py-1 rounded-full text-[10px] font-bold border transition-colors cursor-pointer ${
-                showTrafficLayer
-                  ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
-                  : 'bg-slate-800 border-slate-700 text-slate-400'
+              onClick={() => setMapStyleTheme('dark')}
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                mapStyleTheme === 'dark' ? 'bg-teal-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'
               }`}
             >
-              {showTrafficLayer ? '🚦 Macet Aktif' : '🚦 Macet Mati'}
+              🌙 Dark
+            </button>
+            <button
+              type="button"
+              onClick={() => setMapStyleTheme('voyager')}
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                mapStyleTheme === 'voyager' ? 'bg-teal-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              🗺️ Voyager
+            </button>
+            <button
+              type="button"
+              onClick={() => setMapStyleTheme('osm')}
+              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                mapStyleTheme === 'osm' ? 'bg-teal-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              🌐 OSM
             </button>
           </div>
         </div>
 
-        {/* Map Container */}
-        <div className="w-full h-64 sm:h-80 bg-slate-950 relative">
-          <div ref={mapContainerRef} className="w-full h-full" />
+        {/* Leaflet Map Container */}
+        <div className="w-full h-72 sm:h-96 bg-slate-950 relative z-0">
+          <div ref={leafletContainerRef} className="w-full h-full" />
+        </div>
 
-          {!mapLoaded && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-950/90 text-slate-400 space-y-2 p-4 text-center pointer-events-none z-10">
-              <MapPin className="w-8 h-8 text-teal-400 animate-bounce" />
-              <span className="text-xs font-medium text-slate-300">
-                Peta Pintu Air 4 Simalingkar B & Podomoro Deli Medan
-              </span>
-            </div>
-          )}
+        {/* Route Line Legend Bar */}
+        <div className="p-3 bg-slate-950/80 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-[10px] sm:text-xs">
+          <div className="flex items-center gap-3 font-bold">
+            <span className="flex items-center gap-1 text-emerald-400">
+              <span className="w-3 h-1 rounded bg-emerald-500"></span> Green: Rute Alternatif AI (Tercepat)
+            </span>
+            <span className="flex items-center gap-1 text-rose-400">
+              <span className="w-3 h-1 rounded bg-rose-500 border border-dashed border-rose-300"></span> Red: Rute Utama (Padat)
+            </span>
+            <span className="flex items-center gap-1 text-cyan-400">
+              <span className="w-3 h-1 rounded bg-cyan-400"></span> Cyan: Alternatif 2
+            </span>
+          </div>
+          <span className="text-slate-400 text-[10px]">Klik garis rute di peta untuk memilih</span>
         </div>
 
         {/* Selected Route Summary & Action Bar */}
@@ -1469,7 +1796,7 @@ export const SmartTrafficRouteTab: React.FC = () => {
           <div className="p-3.5 bg-slate-950 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
             <div className="space-y-0.5">
               <div className="text-[10px] text-slate-400 font-medium">Rute Aktif Terpilih:</div>
-              <div className="text-xs font-black text-white flex items-center gap-2">
+              <div className="text-xs sm:text-sm font-black text-white flex items-center gap-2">
                 <span>{selectedRoute.title}</span>
                 {selectedRoute.id === aiEvaluation?.bestRouteId && (
                   <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold">
