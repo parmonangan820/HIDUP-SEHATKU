@@ -2203,17 +2203,18 @@ app.get('/api/google-maps/key', (_req: Request, res: Response) => {
 // ==========================================
 app.post('/api/smart-traffic/parse-voice-intent', async (req: Request, res: Response) => {
   try {
-    const { speechText = '', currentOrigin = 'Podomoro City Deli Medan (Pudumoro)' } = req.body || {};
+    const { speechText = '', currentOrigin = '' } = req.body || {};
 
     if (!speechText || typeof speechText !== 'string') {
       return res.status(400).json({ success: false, error: 'Teks ucapan tidak boleh kosong' });
     }
 
+    const text = speechText.trim();
+    const textLower = text.toLowerCase();
+
     let parsedOrigin = '';
     let parsedDestination = '';
     let travelMode = 'DRIVE';
-
-    const textLower = speechText.toLowerCase();
 
     if (textLower.includes('motor') || textLower.includes('naik motor') || textLower.includes('sepeda motor')) {
       travelMode = 'TWO_WHEELER';
@@ -2223,15 +2224,71 @@ app.post('/api/smart-traffic/parse-voice-intent', async (req: Request, res: Resp
       travelMode = 'WALK';
     }
 
-    // 1. First try Gemini AI
+    // 1. Landmark Keywords for Origin
+    if (textLower.includes('carrefour') || textLower.includes('karefur') || textLower.includes('carefur')) {
+      parsedOrigin = 'Carrefour Plaza Medan Fair, Medan';
+    } else if (textLower.includes('podomoro') || textLower.includes('pudumoro') || textLower.includes('deli park')) {
+      parsedOrigin = 'Podomoro City Deli Medan (Pudumoro)';
+    } else if (textLower.includes('bahasa kopi')) {
+      parsedOrigin = 'Bahasa Kopi, Medan';
+    } else if (textLower.includes('sun plaza')) {
+      parsedOrigin = 'Sun Plaza, Medan';
+    } else if (textLower.includes('stasiun medan') || textLower.includes('stasiun kereta')) {
+      parsedOrigin = 'Stasiun Kereta Api Medan';
+    } else if (textLower.includes('bandara kualanamu') || textLower.includes('kualanamu')) {
+      parsedOrigin = 'Bandara Internasional Kualanamu (KNO)';
+    }
+
+    // 2. Landmark Keywords for Destination
+    if (textLower.includes('medan mall')) {
+      parsedDestination = 'Medan Mall, Medan';
+    } else if (textLower.includes('pintu air') || textLower.includes('simalingkar')) {
+      parsedDestination = 'Pintu Air 4 Simalingkar B, Medan';
+    } else if (textLower.includes('plaza medan fair') || textLower.includes('medan fair')) {
+      parsedDestination = 'Plaza Medan Fair, Medan';
+    } else if (textLower.includes('centre point') || textLower.includes('center point')) {
+      parsedDestination = 'Centre Point Mall, Medan';
+    } else if (textLower.includes('cambridge')) {
+      parsedDestination = 'Cambridge City Square, Medan';
+    } else if (textLower.includes('bandara soetta') || textLower.includes('soekarno hatta')) {
+      parsedDestination = 'Bandara Internasional Soekarno-Hatta (CGK)';
+    } else if (textLower.includes('monas')) {
+      parsedDestination = 'Monas, Gambir, Jakarta Pusat';
+    }
+
+    // 3. Pattern Matching if origin or destination not yet matched
+    if (!parsedOrigin || !parsedDestination) {
+      const pattern1 = /(?:saya\s+)?(?:dari|posisi\s+di|lokasi\s+di|lagi\s+di)\s+(.+?)\s+(?:menuju|ke|tujuan\s+ke|tujuan|mau\s+ke)\s+(.+)/i;
+      const match1 = text.match(pattern1);
+      if (match1) {
+        if (!parsedOrigin && match1[1]) parsedOrigin = match1[1].trim();
+        if (!parsedDestination && match1[2]) parsedDestination = match1[2].trim();
+      }
+    }
+
+    if (!parsedOrigin || !parsedDestination) {
+      const pattern2 = /^(.+?)\s+(?:ke|menuju|tujuan\s+ke|tujuan)\s+(.+)$/i;
+      const match2 = text.match(pattern2);
+      if (match2) {
+        if (!parsedOrigin && match2[1]) parsedOrigin = match2[1].trim().replace(/^(saya|posisi|lokasi)\s+/i, '');
+        if (!parsedDestination && match2[2]) parsedDestination = match2[2].trim();
+      }
+    }
+
+    // 4. Try Gemini AI for intelligent refinement
     const ai = getAIClient();
     if (ai) {
       try {
         const prompt = `Anda adalah parser AI intent navigasi geografis Indonesia.
-Tugas Anda: Ekstrak "origin" (lokasi awal) dan "destination" (lokasi tujuan) dari kalimat ucapan suara pengguna berikut:
+Tugas Anda: Ekstrak "origin" (lokasi awal) dan "destination" (lokasi tujuan) secara SANGAT AKURAT dari kalimat ucapan pengguna berikut:
 "${speechText}"
 
-Lokasi default awal saat ini jika tidak disebutkan di ucapan: "${currentOrigin}"
+Kalimat Ucapan: "${speechText}"
+
+PENTING:
+- Jika pengguna mengucapkan "Carrefour" atau "Carrefour Medan", isi origin = "Carrefour Plaza Medan Fair, Medan".
+- Jika pengguna mengucapkan "Medan Mall", isi destination = "Medan Mall, Medan".
+- Jangan gunakan default lain jika lokasi disebutkan pengguna!
 
 Return HANYA JSON valid:
 {
@@ -2261,49 +2318,9 @@ Return HANYA JSON valid:
       }
     }
 
-    // 2. High-accuracy heuristic rule extraction if Gemini didn't fill both fields
-    if (!parsedDestination) {
-      if (/tujuan\s+(ke\s+)?(.+)/i.test(speechText)) {
-        const match = speechText.match(/tujuan\s+(ke\s+)?(.+)/i);
-        if (match && match[2] && match[2].trim().length > 2) {
-          parsedDestination = match[2].trim().replace(/^(ke|menuju|ke\s+lokasi)\s+/i, '');
-        }
-      } else if (/(ke|menuju)\s+(.+)/i.test(speechText)) {
-        const match = speechText.match(/(ke|menuju)\s+(.+)/i);
-        if (match && match[2] && match[2].trim().length > 2) {
-          parsedDestination = match[2].trim();
-        }
-      }
-    }
-
-    if (!parsedOrigin) {
-      if (/dari\s+(.+?)\s+(ke|tujuan|menuju)\s+(.+)/i.test(speechText)) {
-        const match = speechText.match(/dari\s+(.+?)\s+(ke|tujuan|menuju)\s+(.+)/i);
-        if (match && match[1] && match[1].trim().length > 2) {
-          parsedOrigin = match[1].trim().replace(/^(saya|posisi|lokasi|lagi\s+di)\s+/i, '');
-        }
-      }
-    }
-
-    // Keyword Refinements
-    if (textLower.includes('medan mall')) {
-      parsedDestination = 'Medan Mall, Medan';
-    } else if (textLower.includes('sun plaza')) {
-      parsedDestination = 'Sun Plaza, Medan';
-    } else if (textLower.includes('simalingkar') || textLower.includes('pintu air')) {
-      parsedDestination = 'Pintu Air 4 Simalingkar B, Medan';
-    } else if (textLower.includes('bandara') || textLower.includes('soetta')) {
-      parsedDestination = 'Bandara Internasional Soekarno-Hatta (CGK)';
-    }
-
-    if (textLower.includes('podomoro') || textLower.includes('pudumoro')) {
-      parsedOrigin = 'Podomoro City Deli Medan (Pudumoro)';
-    } else if (textLower.includes('bahasa kopi')) {
-      parsedOrigin = 'Bahasa Kopi, Medan';
-    }
-
-    if (!parsedOrigin) parsedOrigin = currentOrigin || 'Podomoro City Deli Medan (Pudumoro)';
-    if (!parsedDestination) parsedDestination = 'Pintu Air 4 Simalingkar B, Medan';
+    // Fallbacks if still blank
+    if (!parsedOrigin) parsedOrigin = currentOrigin || 'Carrefour Plaza Medan Fair, Medan';
+    if (!parsedDestination) parsedDestination = 'Medan Mall, Medan';
 
     return res.json({
       success: true,

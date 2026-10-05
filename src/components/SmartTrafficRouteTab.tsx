@@ -569,16 +569,12 @@ export const SmartTrafficRouteTab: React.FC = () => {
 
     // Client-side Local Extraction Backup/Refinement
     const textLower = text.toLowerCase();
-    if (/tujuan\s+(ke\s+)?(.+)/i.test(text)) {
-      const match = text.match(/tujuan\s+(ke\s+)?(.+)/i);
-      if (match && match[2] && match[2].trim().length > 2) {
-        targetDestination = match[2].trim().replace(/^(ke|menuju|ke\s+lokasi)\s+/i, '');
-      }
-    } else if (/(ke|menuju)\s+(.+)/i.test(text)) {
-      const match = text.match(/(ke|menuju)\s+(.+)/i);
-      if (match && match[2] && match[2].trim().length > 2) {
-        targetDestination = match[2].trim();
-      }
+    if (textLower.includes('carrefour') || textLower.includes('karefur') || textLower.includes('carefur')) {
+      targetOrigin = 'Carrefour Plaza Medan Fair, Medan';
+    } else if (textLower.includes('podomoro') || textLower.includes('pudumoro') || textLower.includes('deli park')) {
+      targetOrigin = 'Podomoro City Deli Medan (Pudumoro)';
+    } else if (textLower.includes('bahasa kopi')) {
+      targetOrigin = 'Bahasa Kopi, Medan';
     }
 
     if (textLower.includes('medan mall')) {
@@ -587,12 +583,6 @@ export const SmartTrafficRouteTab: React.FC = () => {
       targetDestination = 'Sun Plaza, Medan';
     } else if (textLower.includes('simalingkar') || textLower.includes('pintu air')) {
       targetDestination = 'Pintu Air 4 Simalingkar B, Medan';
-    }
-
-    if (textLower.includes('podomoro') || textLower.includes('pudumoro')) {
-      targetOrigin = 'Podomoro City Deli Medan (Pudumoro)';
-    } else if (textLower.includes('bahasa kopi')) {
-      targetOrigin = 'Bahasa Kopi, Medan';
     }
 
     // Auto-fill Input Fields on screen
