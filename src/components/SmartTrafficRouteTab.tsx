@@ -1333,6 +1333,17 @@ export const SmartTrafficRouteTab: React.FC = () => {
     }, 200);
   };
 
+  // Unified Voice & Manual Input Submit Handler:
+  // Tombol "Selesai Bicara & Cari Rute Cerdas AI" dan tombol "Kirim" menjalankan fungsi yang persis sama
+  const handleVoiceOrManualSubmit = () => {
+    handleStopListening();
+    const textToUse =
+      manualVoiceInput.trim() ||
+      speechTranscript.trim() ||
+      (origin && destination ? `${origin} ke ${destination}` : 'Plaza Medan Fair ke Medan Mall');
+    handleProcessVoiceInput(textToUse);
+  };
+
   const handleZoomIn = () => {
     leafletMapRef.current?.zoomIn();
   };
@@ -2504,16 +2515,14 @@ export const SmartTrafficRouteTab: React.FC = () => {
                 )}
               </div>
 
-              {/* ACTION BUTTON: SELESAI BICARA & CARI RUTE AI */}
+              {/* ACTION BUTTON: SELESAI BICARA & CARI RUTE AI (Fungsi Sama dengan Tombol Kirim) */}
               <div className="w-full px-4 pt-1">
                 <button
                   type="button"
-                  onClick={() => {
-                    const textToUse = manualVoiceInput.trim() || speechTranscript.trim() || 'Plaza Medan Fair ke Medan Mall';
-                    handleProcessVoiceInput(textToUse);
-                  }}
+                  onClick={handleVoiceOrManualSubmit}
                   disabled={isLoading}
                   className="w-full py-3.5 px-4 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xl shadow-emerald-500/30 active:scale-95 transition-all cursor-pointer ring-2 ring-emerald-400/50"
+                  title="Selesai bicara / kirim teks untuk cari rute cerdas AI"
                 >
                   {isLoading ? (
                     <>
@@ -2542,8 +2551,7 @@ export const SmartTrafficRouteTab: React.FC = () => {
                   onChange={(e) => setManualVoiceInput(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
-                      const textToUse = manualVoiceInput.trim() || speechTranscript.trim() || 'Plaza Medan Fair ke Medan Mall';
-                      handleProcessVoiceInput(textToUse);
+                      handleVoiceOrManualSubmit();
                     }
                   }}
                   placeholder="Contoh: Saya dari Jl. Bunga Ester menuju Kampung Lalang..."
@@ -2551,12 +2559,10 @@ export const SmartTrafficRouteTab: React.FC = () => {
                 />
                 <button
                   type="button"
-                  onClick={() => {
-                    const textToUse = manualVoiceInput.trim() || speechTranscript.trim() || 'Plaza Medan Fair ke Medan Mall';
-                    handleProcessVoiceInput(textToUse);
-                  }}
-                  disabled={(!manualVoiceInput.trim() && !speechTranscript.trim()) || isLoading}
-                  className="px-4 py-2.5 rounded-xl bg-teal-500 hover:bg-teal-400 disabled:opacity-50 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+                  onClick={handleVoiceOrManualSubmit}
+                  disabled={isLoading}
+                  className="px-4 py-2.5 rounded-xl bg-teal-500 hover:bg-teal-400 disabled:opacity-50 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer shadow-md"
+                  title="Kirim teks / konfirmasi suara untuk cari rute"
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>Kirim</span>
