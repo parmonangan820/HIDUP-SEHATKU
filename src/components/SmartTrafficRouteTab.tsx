@@ -687,59 +687,82 @@ export const SmartTrafficRouteTab: React.FC = () => {
     }, 200);
   };
 
-  // Helper to dynamically update map markers and center
-  const updateMapMarkers = (origStr: string, destStr: string) => {
+  // Helper to dynamically geocode addresses, update map markers, and fit bounds in real-time
+  const updateMapMarkers = async (origStr: string, destStr: string) => {
     if (!mapInstanceRef.current || !(window as any).google) return;
+    const googleMaps = (window as any).google.maps;
+    if (!googleMaps) return;
+
     try {
-      const isMedanOrig =
-        origStr.toLowerCase().includes('medan') ||
-        origStr.toLowerCase().includes('podomoro') ||
-        origStr.toLowerCase().includes('pudumoro');
-      const isJakartaOrig =
-        origStr.toLowerCase().includes('jakarta') ||
-        origStr.toLowerCase().includes('monas') ||
-        origStr.toLowerCase().includes('scbd');
-
-      const origPos = isMedanOrig
-        ? { lat: 3.5975, lng: 98.6772 }
-        : isJakartaOrig
-        ? { lat: -6.175392, lng: 106.827153 }
-        : { lat: 3.5908, lng: 98.6743 };
-
-      const isMedanDest =
-        destStr.toLowerCase().includes('medan') ||
-        destStr.toLowerCase().includes('simalingkar') ||
-        destStr.toLowerCase().includes('pintu air');
-      const destPos = isMedanDest
-        ? { lat: 3.5185, lng: 98.648 }
-        : { lat: -6.1275, lng: 106.6537 };
-
-      mapInstanceRef.current.setCenter(origPos);
-
       // Clear existing markers
       if (markersRef.current && markersRef.current.length) {
         markersRef.current.forEach((m) => {
           if (m && typeof m.setMap === 'function') m.setMap(null);
         });
+        markersRef.current = [];
       }
 
-      const googleMaps = (window as any).google.maps;
-      if (googleMaps && googleMaps.Marker) {
-        const originMarker = new googleMaps.Marker({
-          position: origPos,
-          map: mapInstanceRef.current,
-          title: origStr,
-          label: { text: 'A', color: 'white', fontWeight: 'bold' },
+      // Helper to geocode address
+      const geocodeAddress = (addr: string): Promise<{ lat: number; lng: number } | null> => {
+        return new Promise((resolve) => {
+          try {
+            const geocoder = new googleMaps.Geocoder();
+            let cleanAddr = addr.trim();
+            if (!/indonesia|jakarta|medan|bandung|surabaya|tangerang|bali/i.test(cleanAddr)) {
+              cleanAddr += ', Medan, Indonesia';
+            }
+            geocoder.geocode({ address: cleanAddr }, (results: any, status: any) => {
+              if (status === 'OK' && results && results[0] && results[0].geometry) {
+                const loc = results[0].geometry.location;
+                resolve({ lat: loc.lat(), lng: loc.lng() });
+              } else {
+                resolve(null);
+              }
+            });
+          } catch (err) {
+            resolve(null);
+          }
         });
+      };
 
-        const destMarker = new googleMaps.Marker({
-          position: destPos,
-          map: mapInstanceRef.current,
-          title: destStr,
-          label: { text: 'B', color: 'white', fontWeight: 'bold' },
-        });
+      const [posA, posB] = await Promise.all([
+        geocodeAddress(origStr),
+        geocodeAddress(destStr),
+      ]);
 
-        markersRef.current = [originMarker, destMarker];
+      const isMedanOrig = origStr.toLowerCase().includes('medan') || origStr.toLowerCase().includes('podomoro') || origStr.toLowerCase().includes('fair');
+      const defaultOrig = isMedanOrig ? { lat: 3.5908, lng: 98.6743 } : { lat: -6.175392, lng: 106.827153 };
+      const defaultDest = isMedanOrig ? { lat: 3.5185, lng: 98.648 } : { lat: -6.1275, lng: 106.6537 };
+
+      const finalOrig = posA || defaultOrig;
+      const finalDest = posB || defaultDest;
+
+      // Create Origin Marker A
+      const originMarker = new googleMaps.Marker({
+        position: finalOrig,
+        map: mapInstanceRef.current,
+        title: `Titik Asal: ${origStr}`,
+        label: { text: 'A', color: 'white', fontWeight: 'bold' },
+      });
+
+      // Create Destination Marker B
+      const destMarker = new googleMaps.Marker({
+        position: finalDest,
+        map: mapInstanceRef.current,
+        title: `Titik Tujuan: ${destStr}`,
+        label: { text: 'B', color: 'white', fontWeight: 'bold' },
+      });
+
+      markersRef.current = [originMarker, destMarker];
+
+      // Automatically fit map bounds to show both markers smoothly
+      if (googleMaps.LatLngBounds) {
+        const bounds = new googleMaps.LatLngBounds();
+        bounds.extend(finalOrig);
+        bounds.extend(finalDest);
+        mapInstanceRef.current.fitBounds(bounds);
+      } else {
+        mapInstanceRef.current.setCenter(finalOrig);
       }
     } catch (e) {
       console.warn('Update map markers error:', e);
