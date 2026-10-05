@@ -1732,9 +1732,9 @@ export const SmartTrafficRouteTab: React.FC = () => {
             <button
               type="button"
               onClick={() => openGoogleMapsNavigation(routes[1] || selectedRoute)}
-              className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer"
+              className="px-5 py-2.5 sm:py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer"
             >
-              <Navigation className="w-3.5 h-3.5" />
+              <Navigation className="w-4.5 h-4.5 stroke-[2.5]" />
               <span>Gunakan Rute Alternatif Ini</span>
             </button>
           </div>
@@ -2142,37 +2142,37 @@ export const SmartTrafficRouteTab: React.FC = () => {
           <div ref={leafletContainerRef} className="w-full h-full" />
 
           {/* Floating On-Map Navigation & Orientation HUD (Right Top) */}
-          <div className="absolute top-3 right-3 z-[1000] flex flex-col gap-2">
+          <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2.5">
             {/* Zoom Controls */}
-            <div className="flex flex-col rounded-xl overflow-hidden shadow-2xl border border-slate-700 bg-slate-900/90 backdrop-blur-md">
+            <div className="flex flex-col rounded-2xl overflow-hidden shadow-2xl border border-slate-700 bg-slate-900/95 backdrop-blur-md">
               <button
                 type="button"
                 onClick={handleZoomIn}
-                className="p-2.5 text-white hover:bg-slate-800 transition-colors flex items-center justify-center border-b border-slate-800 cursor-pointer active:scale-95"
+                className="p-3 text-white hover:bg-slate-800 transition-colors flex items-center justify-center border-b border-slate-800 cursor-pointer active:scale-95"
                 title="Perbesar Peta (Zoom In)"
               >
-                <ZoomIn className="w-4 h-4 text-teal-400" />
+                <ZoomIn className="w-5 h-5 text-teal-400" />
               </button>
               <button
                 type="button"
                 onClick={handleZoomOut}
-                className="p-2.5 text-white hover:bg-slate-800 transition-colors flex items-center justify-center cursor-pointer active:scale-95"
+                className="p-3 text-white hover:bg-slate-800 transition-colors flex items-center justify-center cursor-pointer active:scale-95"
                 title="Perkecil Peta (Zoom Out)"
               >
-                <ZoomOut className="w-4 h-4 text-teal-400" />
+                <ZoomOut className="w-5 h-5 text-teal-400" />
               </button>
             </div>
 
             {/* Map Rotation & Compass Controls */}
-            <div className="flex flex-col rounded-xl overflow-hidden shadow-2xl border border-slate-700 bg-slate-900/90 backdrop-blur-md">
+            <div className="flex flex-col rounded-2xl overflow-hidden shadow-2xl border border-slate-700 bg-slate-900/95 backdrop-blur-md">
               <button
                 type="button"
                 onClick={handleRotateCw}
-                className="p-2.5 text-white hover:bg-slate-800 transition-colors flex items-center justify-center border-b border-slate-800 cursor-pointer active:scale-95 relative"
+                className="p-3 text-white hover:bg-slate-800 transition-colors flex items-center justify-center border-b border-slate-800 cursor-pointer active:scale-95 relative"
                 title="Putar Peta 45 Derajat Searah Jarum Jam"
               >
-                <RotateCw className="w-4 h-4 text-cyan-400" />
-                <span className="absolute -bottom-1 -right-1 text-[8px] font-black text-cyan-300 bg-slate-950 px-1 rounded-full border border-cyan-500/40">
+                <RotateCw className="w-5 h-5 text-cyan-400" />
+                <span className="absolute -bottom-1 -right-1 text-[9px] font-black text-cyan-300 bg-slate-950 px-1.5 py-0.5 rounded-full border border-cyan-500/40">
                   {mapRotation}°
                 </span>
               </button>
@@ -2180,11 +2180,11 @@ export const SmartTrafficRouteTab: React.FC = () => {
               <button
                 type="button"
                 onClick={handleResetNorth}
-                className="p-2.5 text-white hover:bg-slate-800 transition-colors flex items-center justify-center cursor-pointer active:scale-95"
+                className="p-3 text-white hover:bg-slate-800 transition-colors flex items-center justify-center cursor-pointer active:scale-95"
                 title="Reset Arah Utara (North Compass)"
               >
                 <Compass
-                  className="w-4 h-4 text-rose-400 transition-transform duration-300"
+                  className="w-5 h-5 text-rose-400 transition-transform duration-300"
                   style={{ transform: `rotate(${-mapRotation}deg)` }}
                 />
               </button>
@@ -2194,10 +2194,10 @@ export const SmartTrafficRouteTab: React.FC = () => {
             <button
               type="button"
               onClick={handleFitRouteBounds}
-              className="p-2.5 rounded-xl shadow-2xl border border-slate-700 bg-slate-900/90 backdrop-blur-md text-white hover:bg-slate-800 transition-colors flex items-center justify-center cursor-pointer active:scale-95"
+              className="p-3 rounded-2xl shadow-2xl border border-slate-700 bg-slate-900/95 backdrop-blur-md text-white hover:bg-slate-800 transition-colors flex items-center justify-center cursor-pointer active:scale-95"
               title="Pusatkan Rute Asal & Tujuan"
             >
-              <Focus className="w-4 h-4 text-emerald-400" />
+              <Focus className="w-5 h-5 text-emerald-400" />
             </button>
           </div>
 
@@ -2261,9 +2261,9 @@ export const SmartTrafficRouteTab: React.FC = () => {
               <button
                 type="button"
                 onClick={() => openGoogleMapsNavigation(selectedRoute)}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:brightness-110 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-md active:scale-95 transition-all cursor-pointer"
+                className="px-5 py-2.5 sm:py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:brightness-110 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-lg active:scale-95 transition-all cursor-pointer"
               >
-                <Navigation className="w-3.5 h-3.5" />
+                <Navigation className="w-4.5 h-4.5 stroke-[2.5]" />
                 <span>Gunakan Rute Ini</span>
               </button>
             </div>
@@ -2371,13 +2371,13 @@ export const SmartTrafficRouteTab: React.FC = () => {
                       setSelectedRouteId(route.id);
                       openGoogleMapsNavigation(route);
                     }}
-                    className={`w-full py-2 rounded-xl font-black text-xs flex items-center justify-center gap-1.5 transition-all shadow-md cursor-pointer ${
+                    className={`w-full py-2.5 sm:py-3 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer ${
                       isAiBest
                         ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950'
                         : 'bg-slate-800 hover:bg-slate-700 text-white'
                     }`}
                   >
-                    <Navigation className="w-3.5 h-3.5" />
+                    <Navigation className="w-4.5 h-4.5 stroke-[2.5]" />
                     <span>Gunakan Rute Ini</span>
                   </button>
                 </div>
