@@ -551,7 +551,7 @@ export const SmartTrafficRouteTab: React.FC = () => {
       mode = 'WALK';
     }
 
-    // 1. Landmark Keywords Matching
+    // 1. Landmark Keywords Matching for Origin
     if (textLower.includes('carrefour') || textLower.includes('karefur') || textLower.includes('carefur')) {
       extractedOrigin = 'Carrefour Plaza Medan Fair, Medan';
     } else if (textLower.includes('medan fair') || textLower.includes('plaza medan fair')) {
@@ -572,6 +572,7 @@ export const SmartTrafficRouteTab: React.FC = () => {
       extractedOrigin = 'SCBD, Senayan, Jakarta Selatan';
     }
 
+    // Landmark Keywords Matching for Destination
     if (textLower.includes('medan mall')) {
       extractedDestination = 'Medan Mall, Medan';
     } else if (textLower.includes('pintu air') || textLower.includes('simalingkar')) {
@@ -582,9 +583,11 @@ export const SmartTrafficRouteTab: React.FC = () => {
       extractedDestination = 'Cambridge City Square, Medan';
     } else if (textLower.includes('bandara soetta') || textLower.includes('soekarno hatta')) {
       extractedDestination = 'Bandara Internasional Soekarno-Hatta (CGK)';
+    } else if (textLower.includes('kampung lalang')) {
+      extractedDestination = 'Kampung Lalang, Medan';
     }
 
-    // 2. Pattern Matching for arbitrary places: "dari [A] ke [B]" or "[A] ke [B]" or "[A] tujuan [B]"
+    // 2. Pattern Matching for arbitrary street addresses & places: "dari [A] ke/menuju [B]" or "[A] ke/menuju [B]"
     if (!extractedOrigin || !extractedDestination) {
       const pattern1 = /(?:saya\s+)?(?:dari|posisi\s+di|lokasi\s+di|lagi\s+di)\s+(.+?)\s+(?:menuju|ke|tujuan\s+ke|tujuan|mau\s+ke)\s+(.+)/i;
       const m1 = textTrimmed.match(pattern1);
@@ -603,12 +606,21 @@ export const SmartTrafficRouteTab: React.FC = () => {
       }
     }
 
-    // Clean noise words
-    const cleanStr = (s: string) =>
-      s.replace(/\s+(naik\s+mobil|naik\s+motor|naik\s+sepeda|jalan\s+kaki|dengan\s+mobil|cepat)$/i, '').trim();
+    // Format location strings nicely
+    const formatLocation = (loc: string) => {
+      let cleaned = loc.replace(/\s+(naik\s+mobil|naik\s+motor|naik\s+sepeda|jalan\s+kaki|dengan\s+mobil|cepat)$/i, '').trim();
+      cleaned = cleaned.replace(/\b\w/g, (char) => char.toUpperCase());
+      if (/^jl\.?/i.test(cleaned)) {
+        cleaned = cleaned.replace(/^jl\.?/i, 'Jl.');
+      }
+      if (!cleaned.toLowerCase().includes('medan') && !cleaned.toLowerCase().includes('jakarta') && !cleaned.toLowerCase().includes('tangerang')) {
+        cleaned += ', Medan';
+      }
+      return cleaned;
+    };
 
-    if (extractedOrigin) extractedOrigin = cleanStr(extractedOrigin);
-    if (extractedDestination) extractedDestination = cleanStr(extractedDestination);
+    if (extractedOrigin) extractedOrigin = formatLocation(extractedOrigin);
+    if (extractedDestination) extractedDestination = formatLocation(extractedDestination);
 
     if (!extractedOrigin) extractedOrigin = defaultOrigin || 'Plaza Medan Fair, Medan';
     if (!extractedDestination) extractedDestination = 'Medan Mall, Medan';
@@ -657,8 +669,9 @@ export const SmartTrafficRouteTab: React.FC = () => {
     setTravelMode(targetMode);
     setVoiceDetectedToast({ origin: targetOrigin, destination: targetDestination });
 
-    // Always close Voice Modal
+    // Always close Voice Modal and clear manual input draft
     setIsVoiceModalOpen(false);
+    setManualVoiceInput('');
 
     // Execute Smart Route Analysis with newly extracted origin & destination
     await handleAnalyzeRoutes(targetOrigin, targetDestination);
@@ -1703,7 +1716,7 @@ export const SmartTrafficRouteTab: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => {
-                    const textToUse = speechTranscript.trim() || manualVoiceInput.trim() || 'Podomoro City Deli Medan ke Pintu Air 4 Simalingkar B, Medan';
+                    const textToUse = manualVoiceInput.trim() || speechTranscript.trim() || 'Plaza Medan Fair ke Medan Mall';
                     handleProcessVoiceInput(textToUse);
                   }}
                   disabled={isLoading}
@@ -1735,15 +1748,21 @@ export const SmartTrafficRouteTab: React.FC = () => {
                   value={manualVoiceInput}
                   onChange={(e) => setManualVoiceInput(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleProcessVoiceInput(manualVoiceInput);
+                    if (e.key === 'Enter') {
+                      const textToUse = manualVoiceInput.trim() || speechTranscript.trim() || 'Plaza Medan Fair ke Medan Mall';
+                      handleProcessVoiceInput(textToUse);
+                    }
                   }}
-                  placeholder="Contoh: Podomoro Medan ke Pintu Air 4 Simalingkar..."
+                  placeholder="Contoh: Saya dari Jl. Bunga Ester menuju Kampung Lalang..."
                   className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white text-xs focus:outline-none focus:border-teal-500"
                 />
                 <button
                   type="button"
-                  onClick={() => handleProcessVoiceInput(manualVoiceInput)}
-                  disabled={!manualVoiceInput.trim() || isLoading}
+                  onClick={() => {
+                    const textToUse = manualVoiceInput.trim() || speechTranscript.trim() || 'Plaza Medan Fair ke Medan Mall';
+                    handleProcessVoiceInput(textToUse);
+                  }}
+                  disabled={(!manualVoiceInput.trim() && !speechTranscript.trim()) || isLoading}
                   className="px-4 py-2.5 rounded-xl bg-teal-500 hover:bg-teal-400 disabled:opacity-50 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-all cursor-pointer"
                 >
                   <Send className="w-3.5 h-3.5" />
