@@ -31,6 +31,13 @@ import {
   Trash2,
   Bookmark,
   ArrowRight,
+  Maximize2,
+  Minimize2,
+  RotateCw,
+  ZoomIn,
+  ZoomOut,
+  Layers,
+  Focus,
 } from 'lucide-react';
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 
@@ -644,7 +651,46 @@ export const SmartTrafficRouteTab: React.FC = () => {
   const leafletContainerRef = useRef<HTMLDivElement>(null);
   const leafletMapRef = useRef<L.Map | null>(null);
   const leafletLayersRef = useRef<L.LayerGroup | null>(null);
+  const lastBoundsRef = useRef<L.LatLngBounds | null>(null);
   const [mapStyleTheme, setMapStyleTheme] = useState<'dark' | 'voyager' | 'osm'>('dark');
+  const [mapRotation, setMapRotation] = useState<number>(0);
+  const [isMapFullscreen, setIsMapFullscreen] = useState<boolean>(false);
+  const [isMapExpanded, setIsMapExpanded] = useState<boolean>(false);
+
+  // Apply rotation to Leaflet Map Pane
+  useEffect(() => {
+    if (!leafletContainerRef.current) return;
+    const mapPane = leafletContainerRef.current.querySelector('.leaflet-map-pane') as HTMLElement | null;
+    if (mapPane) {
+      mapPane.style.transform = `rotate(${mapRotation}deg)`;
+      mapPane.style.transformOrigin = 'center center';
+      mapPane.style.transition = 'transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)';
+    }
+  }, [mapRotation]);
+
+  // Handle ESC key for exiting Fullscreen
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsMapFullscreen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Invalidate map size on expand or fullscreen toggle
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (leafletMapRef.current) {
+        leafletMapRef.current.invalidateSize();
+        if (lastBoundsRef.current) {
+          leafletMapRef.current.fitBounds(lastBoundsRef.current.pad(0.18));
+        }
+      }
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [isMapFullscreen, isMapExpanded]);
 
   // Leaflet Interactive Map Effect Hook
   useEffect(() => {
@@ -655,8 +701,6 @@ export const SmartTrafficRouteTab: React.FC = () => {
         zoomControl: false,
         attributionControl: false,
       });
-
-      L.control.zoom({ position: 'bottomright' }).addTo(map);
 
       leafletMapRef.current = map;
       leafletLayersRef.current = L.layerGroup().addTo(map);
@@ -717,7 +761,28 @@ export const SmartTrafficRouteTab: React.FC = () => {
 
     const allBounds = L.latLngBounds([startCoords, endCoords]);
 
-    // Draw Polylines for each route
+    const attachRoutePopup = (line: L.Polyline, r: TrafficRoute, strokeColor: string) => {
+      const popupHtml = `
+        <div style="font-family:sans-serif; min-width:180px; padding:4px;">
+          <div style="font-size:11px; font-weight:800; color:${strokeColor}; margin-bottom:4px;">
+            ${r.title}
+          </div>
+          <div style="font-size:12px; font-weight:700; color:#0f172a;">
+            ⏱ ${r.durationMinutes} menit &bull; 🛣 ${r.distanceKm} km
+          </div>
+          <div style="font-size:10px; color:#64748b; margin-top:2px;">
+            ${r.summary}
+          </div>
+          ${r.timeSavedMinutes && r.timeSavedMinutes > 0 ? `<div style="margin-top:6px; background:#ecfdf5; color:#047857; font-weight:800; font-size:10px; padding:3px 6px; border-radius:6px; display:inline-block;">⚡ Hemat ${r.timeSavedMinutes} Menit</div>` : ''}
+        </div>
+      `;
+      line.bindPopup(popupHtml);
+      line.on('click', () => {
+        setSelectedRouteId(r.id);
+      });
+    };
+
+    // Draw Polylines with Google Maps-style Traffic Segments
     routes.forEach((r, idx) => {
       let waypoints: [number, number][] = [];
       if (r.encodedPolyline) {
@@ -732,56 +797,155 @@ export const SmartTrafficRouteTab: React.FC = () => {
       const isSelected = r.id === selectedRouteId;
       const isAiBest = r.id === aiEvaluation?.bestRouteId || idx === 1;
 
-      let color = idx === 0 ? '#f43f5e' : isAiBest ? '#10b981' : '#06b6d4';
-      let weight = isSelected ? 7 : 4;
-      let opacity = isSelected ? 0.95 : 0.65;
-      let dashArray = isSelected ? undefined : idx === 0 ? '6, 6' : undefined;
-
-      if (isSelected) {
-        const glowLine = L.polyline(waypoints, {
-          color: color,
-          weight: 14,
-          opacity: 0.25,
-          lineCap: 'round',
-          lineJoin: 'round',
-        });
-        layers.addLayer(glowLine);
-      }
-
-      const routePolyline = L.polyline(waypoints, {
-        color,
-        weight,
-        opacity,
-        dashArray,
+      // Outer casing border for Google Maps vector styling
+      const casing = L.polyline(waypoints, {
+        color: '#090d16',
+        weight: isSelected ? 10 : 7,
+        opacity: 0.9,
         lineCap: 'round',
         lineJoin: 'round',
       });
+      layers.addLayer(casing);
 
-      const popupHtml = `
-        <div style="font-family:sans-serif; min-width:180px; padding:4px;">
-          <div style="font-size:11px; font-weight:800; color:${color}; margin-bottom:4px;">
-            ${r.title}
-          </div>
-          <div style="font-size:12px; font-weight:700; color:#0f172a;">
-            ⏱ ${r.durationMinutes} menit &bull; 🛣 ${r.distanceKm} km
-          </div>
-          <div style="font-size:10px; color:#64748b; margin-top:2px;">
-            ${r.summary}
-          </div>
-          ${r.timeSavedMinutes && r.timeSavedMinutes > 0 ? `<div style="margin-top:6px; background:#ecfdf5; color:#047857; font-weight:800; font-size:10px; padding:3px 6px; border-radius:6px; display:inline-block;">⚡ Hemat ${r.timeSavedMinutes} Menit</div>` : ''}
-        </div>
-      `;
+      // If Traffic Layer is turned off, draw solid color line
+      if (!showTrafficLayer) {
+        const simpleColor = isAiBest ? '#10b981' : idx === 0 ? '#ef4444' : '#06b6d4';
+        const simpleLine = L.polyline(waypoints, {
+          color: simpleColor,
+          weight: isSelected ? 7 : 4,
+          opacity: 0.95,
+          lineCap: 'round',
+          lineJoin: 'round',
+        });
+        attachRoutePopup(simpleLine, r, simpleColor);
+        layers.addLayer(simpleLine);
+        return;
+      }
 
-      routePolyline.bindPopup(popupHtml);
-      routePolyline.on('click', () => {
-        setSelectedRouteId(r.id);
+      // If AI Recommended Route (Green Highway / Free Flow like Google Maps)
+      if (isAiBest) {
+        if (isSelected) {
+          const halo = L.polyline(waypoints, {
+            color: '#10b981',
+            weight: 16,
+            opacity: 0.3,
+            lineCap: 'round',
+            lineJoin: 'round',
+          });
+          layers.addLayer(halo);
+        }
+
+        const greenLine = L.polyline(waypoints, {
+          color: '#10b981',
+          weight: isSelected ? 7 : 5,
+          opacity: 0.98,
+          lineCap: 'round',
+          lineJoin: 'round',
+        });
+        attachRoutePopup(greenLine, r, '#10b981');
+        layers.addLayer(greenLine);
+
+        // Add Speed / Free-flow badge along alternative route
+        const midIdx = Math.floor(waypoints.length / 2);
+        const midPt = waypoints[midIdx];
+        const greenBadge = L.divIcon({
+          className: 'traffic-free-badge',
+          html: `<div style="background:#065f46; color:#a7f3d0; border:1.5px solid #10b981; font-weight:800; font-size:9px; padding:2px 7px; border-radius:12px; white-space:nowrap; box-shadow:0 4px 6px -1px rgba(0,0,0,0.5); display:flex; align-items:center; gap:3px;"><span>⚡</span><span>Lancar 55 km/j</span></div>`,
+          iconSize: [85, 20],
+          iconAnchor: [42, 10],
+        });
+        const badgeMarker = L.marker(midPt, { icon: greenBadge });
+        layers.addLayer(badgeMarker);
+        return;
+      }
+
+      // If Main Congested Route (Google Maps Traffic Flow: Orange -> Dark Red Macet -> Orange)
+      if (idx === 0) {
+        const len = waypoints.length;
+        const p1End = Math.max(1, Math.floor(len * 0.35));
+        const p2End = Math.max(p1End + 1, Math.floor(len * 0.75));
+
+        const seg1 = waypoints.slice(0, p1End + 1);
+        const seg2 = waypoints.slice(p1End, p2End + 1);
+        const seg3 = waypoints.slice(p2End);
+
+        // Segment 1 (Moderate / Ramai Lancar - Kuning/Oranye)
+        if (seg1.length >= 2) {
+          const l1 = L.polyline(seg1, {
+            color: '#f59e0b',
+            weight: isSelected ? 7 : 4,
+            opacity: 0.95,
+            lineCap: 'round',
+            lineJoin: 'round',
+          });
+          attachRoutePopup(l1, r, '#f59e0b');
+          layers.addLayer(l1);
+        }
+
+        // Segment 2 (Heavy Congestion / Macet Stop-and-Go - Merah Terang dengan Glow)
+        if (seg2.length >= 2) {
+          const redGlow = L.polyline(seg2, {
+            color: '#ef4444',
+            weight: isSelected ? 16 : 10,
+            opacity: 0.35,
+            lineCap: 'round',
+            lineJoin: 'round',
+          });
+          layers.addLayer(redGlow);
+
+          const l2 = L.polyline(seg2, {
+            color: '#ef4444',
+            weight: isSelected ? 7 : 5,
+            opacity: 0.98,
+            lineCap: 'round',
+            lineJoin: 'round',
+          });
+          attachRoutePopup(l2, r, '#ef4444');
+          layers.addLayer(l2);
+
+          // Congestion hotspot badge
+          const bIdx = Math.floor(seg2.length / 2);
+          const bPoint = seg2[bIdx];
+          const jamBadge = L.divIcon({
+            className: 'traffic-jam-badge',
+            html: `<div style="background:#991b1b; color:#fecaca; border:1.5px solid #ef4444; font-weight:800; font-size:9px; padding:2px 7px; border-radius:12px; white-space:nowrap; box-shadow:0 4px 6px -1px rgba(0,0,0,0.5); display:flex; align-items:center; gap:3px;"><span>⚠️</span><span>Macet: 12 km/j</span></div>`,
+            iconSize: [90, 20],
+            iconAnchor: [45, 10],
+          });
+          const jamMarker = L.marker(bPoint, { icon: jamBadge });
+          layers.addLayer(jamMarker);
+        }
+
+        // Segment 3 (Easing traffic - Kuning)
+        if (seg3.length >= 2) {
+          const l3 = L.polyline(seg3, {
+            color: '#f59e0b',
+            weight: isSelected ? 7 : 4,
+            opacity: 0.95,
+            lineCap: 'round',
+            lineJoin: 'round',
+          });
+          attachRoutePopup(l3, r, '#f59e0b');
+          layers.addLayer(l3);
+        }
+        return;
+      }
+
+      // Alternative 2 (Cyan)
+      const alt2Line = L.polyline(waypoints, {
+        color: '#06b6d4',
+        weight: isSelected ? 7 : 4,
+        opacity: 0.9,
+        lineCap: 'round',
+        lineJoin: 'round',
       });
-
-      layers.addLayer(routePolyline);
+      attachRoutePopup(alt2Line, r, '#06b6d4');
+      layers.addLayer(alt2Line);
     });
 
+    lastBoundsRef.current = allBounds;
     map.fitBounds(allBounds.pad(0.18));
-  }, [origin, destination, routes, selectedRouteId, mapStyleTheme]);
+  }, [origin, destination, routes, selectedRouteId, mapStyleTheme, showTrafficLayer]);
 
   // Fetch Google Maps API Key
   useEffect(() => {
@@ -1167,6 +1331,30 @@ export const SmartTrafficRouteTab: React.FC = () => {
         searchResultsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     }, 200);
+  };
+
+  const handleZoomIn = () => {
+    leafletMapRef.current?.zoomIn();
+  };
+  const handleZoomOut = () => {
+    leafletMapRef.current?.zoomOut();
+  };
+  const handleRotateCw = () => {
+    setMapRotation((prev) => (prev + 45) % 360);
+  };
+  const handleResetNorth = () => {
+    setMapRotation(0);
+  };
+  const handleFitRouteBounds = () => {
+    if (leafletMapRef.current && lastBoundsRef.current) {
+      leafletMapRef.current.fitBounds(lastBoundsRef.current.pad(0.18));
+    }
+  };
+  const handleToggleFullscreen = () => {
+    setIsMapFullscreen((prev) => !prev);
+  };
+  const handleToggleExpandHeight = () => {
+    setIsMapExpanded((prev) => !prev);
   };
 
   // Helper to dynamically geocode addresses, update map markers, and fit bounds in real-time
@@ -1824,70 +2012,228 @@ export const SmartTrafficRouteTab: React.FC = () => {
         </div>
       )}
 
-      {/* 4. INTERACTIVE LEAFLET ROUTE MAP & TRAFFIC MONITOR */}
-      <div ref={searchResultsRef} className="rounded-3xl bg-slate-900 border border-slate-800 overflow-hidden shadow-2xl relative scroll-mt-6">
-        <div className="p-3.5 bg-slate-950/90 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2">
+      {/* 4. INTERACTIVE LEAFLET ROUTE MAP & GOOGLE MAPS TRAFFIC MONITOR */}
+      <div
+        ref={searchResultsRef}
+        className={
+          isMapFullscreen
+            ? 'fixed inset-0 z-[99999] w-screen h-screen bg-slate-950 flex flex-col overflow-hidden'
+            : 'rounded-3xl bg-slate-900 border border-slate-800 overflow-hidden shadow-2xl relative scroll-mt-6'
+        }
+      >
+        {/* Map Header Toolbar */}
+        <div className="p-3 bg-slate-950/95 border-b border-slate-800/80 flex flex-wrap items-center justify-between gap-2.5 z-10 shrink-0">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
-            <h3 className="text-xs sm:text-sm font-bold text-white uppercase tracking-wider flex items-center gap-2">
-              <span>Peta Leaflet Interaktif Rute AI</span>
+            <h3 className="text-xs sm:text-sm font-black text-white uppercase tracking-wider flex items-center gap-2">
+              <span>Peta Lalu Lintas & Rute AI</span>
             </h3>
+            {isMapFullscreen && (
+              <span className="px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 font-bold text-[10px] border border-teal-500/30">
+                Layar Penuh (ESC)
+              </span>
+            )}
           </div>
-          <div className="flex items-center gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-800">
+
+          <div className="flex items-center flex-wrap gap-1.5">
+            {/* Traffic Layer Toggle */}
             <button
               type="button"
-              onClick={() => setMapStyleTheme('dark')}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                mapStyleTheme === 'dark' ? 'bg-teal-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'
+              onClick={() => setShowTrafficLayer(!showTrafficLayer)}
+              className={`px-2.5 py-1.5 rounded-xl text-[10px] font-bold border transition-all cursor-pointer flex items-center gap-1.5 shadow-sm ${
+                showTrafficLayer
+                  ? 'bg-rose-500/20 border-rose-500/50 text-rose-300 ring-1 ring-rose-500/30'
+                  : 'bg-slate-800/80 border-slate-700 text-slate-400 hover:text-white'
               }`}
+              title="Tampilkan kondisi macet warna-warni seperti Google Maps"
             >
-              🌙 Dark
+              <span>🚦</span>
+              <span>{showTrafficLayer ? 'Macet Google Maps: Aktif' : 'Macet: Mati'}</span>
             </button>
+
+            {/* Tile Themes */}
+            <div className="flex items-center gap-1 bg-slate-900/90 p-0.5 rounded-xl border border-slate-800">
+              <button
+                type="button"
+                onClick={() => setMapStyleTheme('dark')}
+                className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                  mapStyleTheme === 'dark' ? 'bg-teal-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                🌙 Dark
+              </button>
+              <button
+                type="button"
+                onClick={() => setMapStyleTheme('voyager')}
+                className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                  mapStyleTheme === 'voyager' ? 'bg-teal-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                🗺️ Voyager
+              </button>
+              <button
+                type="button"
+                onClick={() => setMapStyleTheme('osm')}
+                className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
+                  mapStyleTheme === 'osm' ? 'bg-teal-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                🌐 OSM
+              </button>
+            </div>
+
+            {/* Height Expander (When not in fullscreen) */}
+            {!isMapFullscreen && (
+              <button
+                type="button"
+                onClick={handleToggleExpandHeight}
+                className={`p-1.5 rounded-xl border text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                  isMapExpanded
+                    ? 'bg-teal-500 text-slate-950 border-teal-400'
+                    : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
+                }`}
+                title={isMapExpanded ? 'Kecilkan tinggi peta' : 'Perbesar tinggi peta'}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">{isMapExpanded ? 'Tinggi Standar' : 'Perbesar Peta'}</span>
+              </button>
+            )}
+
+            {/* Fullscreen Toggle Button */}
             <button
               type="button"
-              onClick={() => setMapStyleTheme('voyager')}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                mapStyleTheme === 'voyager' ? 'bg-teal-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'
+              onClick={handleToggleFullscreen}
+              className={`p-1.5 rounded-xl border text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                isMapFullscreen
+                  ? 'bg-rose-500 text-white border-rose-400 shadow-lg'
+                  : 'bg-gradient-to-r from-teal-500 to-emerald-500 text-slate-950 border-teal-400 hover:brightness-110 shadow'
               }`}
+              title={isMapFullscreen ? 'Keluar Layar Penuh (ESC)' : 'Tampilkan Peta Layar Penuh'}
             >
-              🗺️ Voyager
-            </button>
-            <button
-              type="button"
-              onClick={() => setMapStyleTheme('osm')}
-              className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                mapStyleTheme === 'osm' ? 'bg-teal-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              🌐 OSM
+              {isMapFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              <span className="font-extrabold text-[10px]">
+                {isMapFullscreen ? 'Keluar Fullscreen' : 'Layar Penuh'}
+              </span>
             </button>
           </div>
         </div>
 
-        {/* Leaflet Map Container */}
-        <div className="w-full h-72 sm:h-96 bg-slate-950 relative z-0">
+        {/* Leaflet Map Canvas Wrapper */}
+        <div
+          className={`w-full relative z-0 transition-all duration-300 ${
+            isMapFullscreen
+              ? 'flex-1 h-full min-h-0'
+              : isMapExpanded
+              ? 'h-[520px] sm:h-[620px]'
+              : 'h-80 sm:h-96'
+          }`}
+        >
           <div ref={leafletContainerRef} className="w-full h-full" />
+
+          {/* Floating On-Map Navigation & Orientation HUD (Right Top) */}
+          <div className="absolute top-3 right-3 z-[1000] flex flex-col gap-2">
+            {/* Zoom Controls */}
+            <div className="flex flex-col rounded-xl overflow-hidden shadow-2xl border border-slate-700 bg-slate-900/90 backdrop-blur-md">
+              <button
+                type="button"
+                onClick={handleZoomIn}
+                className="p-2.5 text-white hover:bg-slate-800 transition-colors flex items-center justify-center border-b border-slate-800 cursor-pointer active:scale-95"
+                title="Perbesar Peta (Zoom In)"
+              >
+                <ZoomIn className="w-4 h-4 text-teal-400" />
+              </button>
+              <button
+                type="button"
+                onClick={handleZoomOut}
+                className="p-2.5 text-white hover:bg-slate-800 transition-colors flex items-center justify-center cursor-pointer active:scale-95"
+                title="Perkecil Peta (Zoom Out)"
+              >
+                <ZoomOut className="w-4 h-4 text-teal-400" />
+              </button>
+            </div>
+
+            {/* Map Rotation & Compass Controls */}
+            <div className="flex flex-col rounded-xl overflow-hidden shadow-2xl border border-slate-700 bg-slate-900/90 backdrop-blur-md">
+              <button
+                type="button"
+                onClick={handleRotateCw}
+                className="p-2.5 text-white hover:bg-slate-800 transition-colors flex items-center justify-center border-b border-slate-800 cursor-pointer active:scale-95 relative"
+                title="Putar Peta 45 Derajat Searah Jarum Jam"
+              >
+                <RotateCw className="w-4 h-4 text-cyan-400" />
+                <span className="absolute -bottom-1 -right-1 text-[8px] font-black text-cyan-300 bg-slate-950 px-1 rounded-full border border-cyan-500/40">
+                  {mapRotation}°
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleResetNorth}
+                className="p-2.5 text-white hover:bg-slate-800 transition-colors flex items-center justify-center cursor-pointer active:scale-95"
+                title="Reset Arah Utara (North Compass)"
+              >
+                <Compass
+                  className="w-4 h-4 text-rose-400 transition-transform duration-300"
+                  style={{ transform: `rotate(${-mapRotation}deg)` }}
+                />
+              </button>
+            </div>
+
+            {/* Recenter & Fit Route */}
+            <button
+              type="button"
+              onClick={handleFitRouteBounds}
+              className="p-2.5 rounded-xl shadow-2xl border border-slate-700 bg-slate-900/90 backdrop-blur-md text-white hover:bg-slate-800 transition-colors flex items-center justify-center cursor-pointer active:scale-95"
+              title="Pusatkan Rute Asal & Tujuan"
+            >
+              <Focus className="w-4 h-4 text-emerald-400" />
+            </button>
+          </div>
+
+          {/* Floating Google Maps Live Traffic Legend Bar (Left Bottom) */}
+          {showTrafficLayer && (
+            <div className="absolute bottom-3 left-3 z-[1000] p-2.5 rounded-2xl bg-slate-950/90 backdrop-blur-md border border-slate-800/90 shadow-2xl flex flex-col gap-1.5 max-w-[240px] pointer-events-auto">
+              <div className="text-[10px] font-black text-white uppercase tracking-wider flex items-center gap-1.5">
+                <span>🚦</span>
+                <span>Arus Kemacetan Google Maps</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-[9px] font-bold">
+                <span className="flex items-center gap-1 text-emerald-400">
+                  <span className="w-2.5 h-2 rounded bg-emerald-500"></span> Lancar
+                </span>
+                <span className="flex items-center gap-1 text-amber-400">
+                  <span className="w-2.5 h-2 rounded bg-amber-500"></span> Ramai
+                </span>
+                <span className="flex items-center gap-1 text-rose-400">
+                  <span className="w-2.5 h-2 rounded bg-rose-500"></span> Macet
+                </span>
+                <span className="flex items-center gap-1 text-red-700">
+                  <span className="w-2.5 h-2 rounded bg-red-800"></span> Padat
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Route Line Legend Bar */}
-        <div className="p-3 bg-slate-950/80 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-[10px] sm:text-xs">
-          <div className="flex items-center gap-3 font-bold">
+        <div className="p-3 bg-slate-950/95 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-[10px] sm:text-xs z-10 shrink-0">
+          <div className="flex items-center flex-wrap gap-3 font-bold">
             <span className="flex items-center gap-1 text-emerald-400">
-              <span className="w-3 h-1 rounded bg-emerald-500"></span> Green: Rute Alternatif AI (Tercepat)
+              <span className="w-3.5 h-1.5 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50"></span> Rute Alternatif AI (Tercepat & Bebas Hambatan)
             </span>
             <span className="flex items-center gap-1 text-rose-400">
-              <span className="w-3 h-1 rounded bg-rose-500 border border-dashed border-rose-300"></span> Red: Rute Utama (Padat)
+              <span className="w-3.5 h-1.5 rounded-full bg-rose-500 shadow-sm shadow-rose-500/50"></span> Rute Utama (Jalur Arteri Padat)
             </span>
             <span className="flex items-center gap-1 text-cyan-400">
-              <span className="w-3 h-1 rounded bg-cyan-400"></span> Cyan: Alternatif 2
+              <span className="w-3.5 h-1.5 rounded-full bg-cyan-400 shadow-sm shadow-cyan-500/50"></span> Alternatif 2
             </span>
           </div>
-          <span className="text-slate-400 text-[10px]">Klik garis rute di peta untuk memilih</span>
+          <span className="text-slate-400 text-[10px]">Klik jalur di peta untuk melihat detail kecepatan</span>
         </div>
 
         {/* Selected Route Summary & Action Bar */}
         {selectedRoute && (
-          <div className="p-3.5 bg-slate-950 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
+          <div className="p-3.5 bg-slate-950 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3 z-10 shrink-0">
             <div className="space-y-0.5">
               <div className="text-[10px] text-slate-400 font-medium">Rute Aktif Terpilih:</div>
               <div className="text-xs sm:text-sm font-black text-white flex items-center gap-2">
