@@ -358,7 +358,9 @@ export const SmartTrafficRouteTab: React.FC = () => {
             accumulated += (accumulated ? ' ' : '') + transcript;
           }
           if (accumulated.trim()) {
-            setSpeechTranscript(accumulated.trim());
+            const trimmed = accumulated.trim();
+            setSpeechTranscript(trimmed);
+            setManualVoiceInput(trimmed);
           }
         };
 
@@ -483,6 +485,7 @@ export const SmartTrafficRouteTab: React.FC = () => {
   const handleStartListening = () => {
     setIsVoiceModalOpen(true);
     setSpeechTranscript('');
+    setManualVoiceInput('');
     isListeningRef.current = true;
     setVoiceStatusText('Mendengarkan ucapan Anda (Durasi Bebas/Unlimited)... Tekan "Selesai" jika sudah.');
 
