@@ -15,6 +15,9 @@ import {
   Sunset,
   Moon,
   Info,
+  Bluetooth,
+  Trophy,
+  ChevronRight,
 } from 'lucide-react';
 
 interface WaterTabProps {
@@ -31,6 +34,7 @@ export const WaterTab: React.FC<WaterTabProps> = ({ onOpenVoiceDrink }) => {
     aiAnalysis,
     runAiAnalysis,
     isAiAnalyzing,
+    setIsTumblerModalOpen,
   } = useHealth();
 
   const [isCustomModalOpen, setIsCustomModalOpen] = useState(false);
@@ -115,6 +119,76 @@ export const WaterTab: React.FC<WaterTabProps> = ({ onOpenVoiceDrink }) => {
         onOpenCustomLog={() => setIsCustomModalOpen(true)}
         onOpenVoiceDrink={onOpenVoiceDrink}
       />
+
+      {/* Smart Tumbler IoT Connected Widget & Event Promo */}
+      <div className="rounded-3xl bg-gradient-to-r from-teal-500/15 via-slate-900 to-indigo-500/15 border-2 border-teal-500/40 p-4 sm:p-5 shadow-xl space-y-3.5">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-teal-400 to-cyan-500 flex items-center justify-center text-slate-950 font-black shadow-lg shadow-teal-500/30">
+              <Bluetooth className="w-5 h-5 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-xs sm:text-sm font-black text-white">
+                  Smart Tumbler HidupSehatKu
+                </h3>
+                <span className="px-2 py-0.5 rounded-full bg-teal-500/20 border border-teal-500/40 text-teal-300 text-[9px] font-black uppercase flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-ping"></span>
+                  <span>IoT Auto-Sync</span>
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-300">
+                Hitung jumlah air yang diminum otomatis & terhubung langsung ke aplikasi
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsTumblerModalOpen(true)}
+            className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-teal-400 to-emerald-400 text-slate-950 font-black text-xs hover:brightness-110 active:scale-95 shadow-md flex items-center gap-1.5 cursor-pointer"
+          >
+            <span>Beli / Event Voucher</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Live Tumbler Status Info Bar */}
+        <div className="grid grid-cols-3 gap-2 p-2.5 rounded-2xl bg-slate-950/70 border border-slate-800 text-center">
+          <div className="space-y-0.5">
+            <span className="text-[9px] text-slate-400 uppercase font-bold block">Status Koneksi</span>
+            <span className="text-xs font-bold text-teal-300 flex items-center justify-center gap-1">
+              <Bluetooth className="w-3 h-3 text-teal-400" />
+              <span>Terhubung</span>
+            </span>
+          </div>
+          <div className="space-y-0.5 border-x border-slate-800">
+            <span className="text-[9px] text-slate-400 uppercase font-bold block">Suhu Air Tumbler</span>
+            <span className="text-xs font-bold text-cyan-300">24°C (Sejuk)</span>
+          </div>
+          <div className="space-y-0.5">
+            <span className="text-[9px] text-slate-400 uppercase font-bold block">Baterai IoT</span>
+            <span className="text-xs font-bold text-emerald-400">94% (Aktif)</span>
+          </div>
+        </div>
+
+        {/* Quick Simulated Pour Button */}
+        <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-800/80">
+          <span className="text-[10px] text-amber-300 font-bold flex items-center gap-1 truncate">
+            <Trophy className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <span className="truncate">Event PRO 1 Thn: Voucher Tumbler Gratis!</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => logWater(250, 'tumbler')}
+            className="px-3 py-1 rounded-xl bg-slate-800 hover:bg-slate-700 text-teal-300 text-[11px] font-bold flex items-center gap-1 cursor-pointer shrink-0"
+            title="Simulasikan minum 250ml dari Smart Tumbler"
+          >
+            <Droplet className="w-3 h-3 text-teal-400" />
+            <span>+250ml Tumbler</span>
+          </button>
+        </div>
+      </div>
 
       {/* AI Hydration Health Assessment */}
       <div className="rounded-2xl bg-gradient-to-r from-slate-900 to-slate-950 border border-slate-800 p-4 shadow-lg">

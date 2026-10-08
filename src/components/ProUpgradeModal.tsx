@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useHealth } from '../context/HealthContext';
-import { Sparkles, FileText, Cloud, Crown, X, Star, QrCode, ArrowLeft, CheckCircle2, Salad, Navigation, Gift, Clock, Zap } from 'lucide-react';
+import { Sparkles, FileText, Cloud, Crown, X, Star, QrCode, ArrowLeft, CheckCircle2, Salad, Navigation, Gift, Clock, Zap, Trophy, Droplet, Bluetooth } from 'lucide-react';
 import { createClientQrisPayload } from '../utils/qrisGenerator';
 
 interface ProUpgradeModalProps {
@@ -18,6 +18,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
     activateProTrial,
     upgradeToPro,
     profile,
+    setIsTumblerModalOpen,
   } = useHealth();
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>('annual');
   const [step, setStep] = useState<'plans' | 'instapay_qris' | 'success'>('plans');
@@ -477,12 +478,43 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
                     : 'bg-slate-950 border-slate-800 hover:border-slate-700'
                 }`}
               >
-                <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-amber-500 text-slate-950 text-[9px] font-black uppercase">
-                  Hemat 40%
-                </span>
+                <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
+                  <span className="px-1.5 py-0.5 rounded bg-amber-500 text-slate-950 text-[9px] font-black uppercase">
+                    Hemat 40%
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded bg-teal-400 text-slate-950 text-[8px] font-black uppercase flex items-center gap-0.5">
+                    <Trophy className="w-2.5 h-2.5" />
+                    <span>Free Tumbler Event</span>
+                  </span>
+                </div>
                 <div className="text-[11px] text-slate-400 font-medium">Paket Tahunan</div>
                 <div className="text-lg font-black text-white mt-0.5">Rp 100.000</div>
                 <div className="text-[10px] text-amber-400 font-semibold mt-1">per tahun (~Rp 8rb/bln)</div>
+              </button>
+            </div>
+
+            {/* Special 1-Year Pro Bonus Event Callout */}
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-teal-500/10 to-emerald-500/15 border border-amber-500/40 flex flex-col sm:flex-row items-center justify-between gap-3 text-left">
+              <div className="space-y-1 min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <Trophy className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span className="text-xs font-black text-white">Event Voucher Smart Tumbler Gratis 100%!</span>
+                  <span className="px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 text-[9px] font-black uppercase">PRO 1 TAHUN</span>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  Pelanggan Paket PRO 1 Tahun otomatis berhak ikut serta dalam <strong>Event Voucher Gratis Smart Tumbler IoT (Nilai Rp 450.000)</strong> dari Admin untuk pengguna dengan <strong>Penilaian Skor Tertinggi</strong>!
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  setIsTumblerModalOpen(true);
+                }}
+                className="shrink-0 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-teal-300 border border-teal-500/30 text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
+              >
+                <span>Lihat Tumbler & Event</span>
+                <ArrowLeft className="w-3.5 h-3.5 rotate-180" />
               </button>
             </div>
 

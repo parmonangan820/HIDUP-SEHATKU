@@ -27,8 +27,13 @@ import {
   Navigation,
   Compass,
   BarChart3,
+  Bluetooth,
+  ShoppingBag,
+  Trophy,
+  Gift,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import smartTumblerImg from '../assets/images/smart_tumbler_iot_1791423087354.jpg';
 
 interface HomeTabProps {
   setActiveTab: (tab: NavTab) => void;
@@ -59,6 +64,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
     isPro,
     isProTrial,
     isPaidPro,
+    setIsTumblerModalOpen,
   } = useHealth();
 
   const totalWater = todayRecord.totalWaterMl;
@@ -314,6 +320,89 @@ export const HomeTab: React.FC<HomeTabProps> = ({
             <span>Buka Grafik</span>
             <ArrowRight className="w-3 h-3 stroke-[2.5]" />
           </button>
+        </div>
+      </div>
+
+      {/* Smart Tumbler IoT & Event Voucher Gratis Showcase Banner */}
+      <div className="rounded-3xl bg-gradient-to-br from-teal-500/20 via-slate-900 to-amber-500/15 border-2 border-teal-500/40 p-4 sm:p-5 shadow-2xl relative overflow-hidden space-y-4">
+        {/* Glow Effects */}
+        <div className="absolute -top-12 -right-12 w-36 h-36 bg-teal-500/20 rounded-full blur-2xl pointer-events-none"></div>
+        <div className="absolute -bottom-10 -left-10 w-36 h-36 bg-amber-500/15 rounded-full blur-2xl pointer-events-none"></div>
+
+        <div className="relative z-10 flex flex-col md:flex-row items-center gap-4">
+          {/* Tumbler Image Thumbnail */}
+          <div className="relative w-full md:w-44 h-40 md:h-36 rounded-2xl overflow-hidden bg-slate-950 border border-slate-800 shrink-0 shadow-lg group">
+            <img
+              src={smartTumblerImg}
+              alt="Smart Tumbler HidupSehatKu"
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            />
+            <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full bg-slate-950/80 backdrop-blur-md border border-teal-500/40 text-teal-300 text-[9px] font-black flex items-center gap-1 shadow">
+              <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-ping"></span>
+              <span>Auto-Sync Bluetooth</span>
+            </div>
+            <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded-full bg-slate-950/80 backdrop-blur-md border border-amber-500/40 text-amber-300 text-[9px] font-black shadow">
+              <span>Sensor Suhu LED</span>
+            </div>
+          </div>
+
+          {/* Description & Value Proposition */}
+          <div className="flex-1 space-y-2 text-left">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="px-2.5 py-0.5 rounded-full bg-teal-500/20 border border-teal-500/40 text-teal-300 text-[10px] font-black uppercase flex items-center gap-1">
+                <Bluetooth className="w-3 h-3 text-teal-400" />
+                <span>Smart IoT Merchandise</span>
+              </span>
+              <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[10px] font-black uppercase flex items-center gap-1">
+                <Trophy className="w-3 h-3 text-amber-400" />
+                <span>Event Voucher Gratis 100%</span>
+              </span>
+            </div>
+
+            <h3 className="text-base sm:text-lg font-black text-white leading-tight">
+              Smart Tumbler IoT: Hitung Air Minum Otomatis ke Aplikasi!
+            </h3>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Gak perlu lagi ketik manual di HP! Setiap tegukan langsung dihitung oleh sensor pintar tumbler dan terhubung otomatis ke aplikasi <strong>HidupSehatKu</strong> via Bluetooth 5.3. Tubuh selalu terhidrasi optimal dengan mudah.
+            </p>
+
+            {/* Event Voucher Banner Tag */}
+            <div className="p-2.5 rounded-xl bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-amber-500/15 border border-amber-500/30 text-[11px] text-amber-200 flex items-center gap-2">
+              <Gift className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>
+                <strong>Khusus Member PRO 1 Tahun:</strong> Admin mengadakan <strong>Event Voucher Gratis Tumbler</strong> (senilai Rp 450.000) untuk pemilik <strong>Penilaian Skor Tertinggi</strong>!
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="relative z-10 pt-1 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between gap-2.5">
+          <div className="flex items-center gap-2 text-xs text-slate-400">
+            <span className="text-rose-400 line-through font-bold">Rp 450.000</span>
+            <span className="text-teal-300 font-black text-sm">Promo Rp 249.000</span>
+            <span className="text-[10px] text-slate-500">(Atau Gratis via Event PRO 1 Thn)</span>
+          </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => setIsTumblerModalOpen(true)}
+              className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-gradient-to-r from-teal-400 to-emerald-400 text-slate-950 font-black text-xs hover:brightness-110 active:scale-95 transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <ShoppingBag className="w-3.5 h-3.5 fill-slate-950" />
+              <span>Beli Smart Tumbler</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsTumblerModalOpen(true)}
+              className="flex-1 sm:flex-none px-3.5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 font-bold text-xs active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <Trophy className="w-3.5 h-3.5 text-amber-400" />
+              <span>Ikuti Event Voucher</span>
+            </button>
+          </div>
         </div>
       </div>
 

@@ -69,6 +69,9 @@ interface HealthContextType {
   activateProTrial: () => { success: boolean; message: string };
   isProModalOpen: boolean;
   setIsProModalOpen: (open: boolean) => void;
+  isTumblerModalOpen: boolean;
+  setIsTumblerModalOpen: (open: boolean) => void;
+  userProPlan: 'monthly' | 'annual' | null;
   upgradeToPro: (plan: 'monthly' | 'annual') => void;
   registeredAccounts: AccountSummary[];
   loadRegisteredAccounts: () => Promise<void>;
@@ -877,6 +880,14 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Account Switching & Multi-User Login State
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [isProModalOpen, setIsProModalOpen] = useState<boolean>(false);
+  const [isTumblerModalOpen, setIsTumblerModalOpen] = useState<boolean>(false);
+  const [userProPlan, setUserProPlan] = useState<'monthly' | 'annual' | null>(() => {
+    try {
+      const saved = localStorage.getItem('hidupsehat_pro_plan');
+      if (saved) return saved as 'monthly' | 'annual';
+    } catch {}
+    return null;
+  });
 
   // 3-Day PRO Trial Settings: 72 Hours from activation
   const TRIAL_DURATION_MS = 3 * 24 * 60 * 60 * 1000;
@@ -972,6 +983,14 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         localStorage.setItem(`hidupsehat_trial_${accKey}`, JSON.stringify(newTrial));
         setTrialState(newTrial);
       }
+
+      const accPlan = localStorage.getItem(`hidupsehat_plan_${accKey}`);
+      if (accPlan) {
+        setUserProPlan(accPlan as any);
+      } else {
+        const globalPlan = localStorage.getItem('hidupsehat_pro_plan');
+        setUserProPlan(globalPlan ? (globalPlan as any) : null);
+      }
     } catch {}
   }, [profile.phone, profile.id, profile.email]);
 
@@ -1029,10 +1048,13 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const upgradeToPro = (plan: 'monthly' | 'annual') => {
     setIsPaidPro(true);
+    setUserProPlan(plan);
     const accKey = getAccountKey(profile);
     localStorage.setItem('hidupsehat_is_paid_pro', JSON.stringify(true));
     localStorage.setItem(`hidupsehat_paid_${accKey}`, JSON.stringify(true));
     localStorage.setItem('hidupsehat_is_pro', JSON.stringify(true));
+    localStorage.setItem('hidupsehat_pro_plan', plan);
+    localStorage.setItem(`hidupsehat_plan_${accKey}`, plan);
   };
 
   // Pro Auto Cloud Sync Effect to Supabase
@@ -1525,7 +1547,10 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       amountMl,
       period: actualPeriod,
       containerType,
-      note: `Minum ${amountMl} ml (${containerType})`,
+      note:
+        containerType === 'tumbler'
+          ? `Minum ${amountMl} ml via Smart Tumbler IoT (Auto-Sync)`
+          : `Minum ${amountMl} ml (${containerType})`,
     };
 
     setHistory((prev) => {
@@ -1900,6 +1925,9 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         activateProTrial,
         isProModalOpen,
         setIsProModalOpen,
+        isTumblerModalOpen,
+        setIsTumblerModalOpen,
+        userProPlan,
         upgradeToPro,
         registeredAccounts,
         loadRegisteredAccounts,

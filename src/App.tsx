@@ -23,6 +23,7 @@ import { ProUpgradeModal } from './components/ProUpgradeModal';
 import { AffiliateModal } from './components/AffiliateModal';
 import { AIDietSuccessModal } from './components/AIDietSuccessModal';
 import { PwaInstallModal } from './components/PwaInstallModal';
+import { SmartTumblerModal } from './components/SmartTumblerModal';
 import { RunningBanner } from './components/RunningBanner';
 import { BannerSlider } from './components/BannerSlider';
 import { Footer } from './components/Footer';
@@ -39,6 +40,8 @@ function MainApp() {
     trialTimeRemainingFormatted,
     isProModalOpen,
     setIsProModalOpen,
+    isTumblerModalOpen,
+    setIsTumblerModalOpen,
     isAdminModalOpen,
     setIsAdminModalOpen,
     isAdminLoginModalOpen,
@@ -71,7 +74,8 @@ function MainApp() {
     isAdminModalOpen ||
     isAdminLoginModalOpen ||
     isAccountModalOpen ||
-    isProModalOpen
+    isProModalOpen ||
+    isTumblerModalOpen
   );
 
   // Ref to hold current state without stale closures in popstate listener
@@ -87,6 +91,7 @@ function MainApp() {
     isAdminLoginModalOpen,
     isAccountModalOpen,
     isProModalOpen,
+    isTumblerModalOpen,
     activeTab,
   });
 
@@ -103,6 +108,7 @@ function MainApp() {
       isAdminLoginModalOpen,
       isAccountModalOpen,
       isProModalOpen,
+      isTumblerModalOpen,
       activeTab,
     };
   }, [
@@ -117,6 +123,7 @@ function MainApp() {
     isAdminLoginModalOpen,
     isAccountModalOpen,
     isProModalOpen,
+    isTumblerModalOpen,
     activeTab,
   ]);
 
@@ -182,6 +189,10 @@ function MainApp() {
       }
       if (current.isProModalOpen) {
         setIsProModalOpen(false);
+        return;
+      }
+      if (current.isTumblerModalOpen) {
+        setIsTumblerModalOpen(false);
         return;
       }
       if (current.isDietModalOpen) {
@@ -426,6 +437,11 @@ function MainApp() {
         <AIDietSuccessModal isOpen={isDietModalOpen} onClose={() => setIsDietModalOpen(false)} />
         <AffiliateModal isOpen={isAffiliateOpen} onClose={() => setIsAffiliateOpen(false)} />
         <PwaInstallModal isOpen={isInstallModalOpen} onClose={() => setIsInstallModalOpen(false)} />
+        <SmartTumblerModal
+          isOpen={isTumblerModalOpen}
+          onClose={() => setIsTumblerModalOpen(false)}
+          onOpenProUpgrade={() => setIsProModalOpen(true)}
+        />
       </div>
     </AppShell>
   );
