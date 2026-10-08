@@ -27,6 +27,10 @@ export interface UserProfile {
   isRegistered: boolean;
   isLoggedIn?: boolean;
   role?: 'admin' | 'user';
+  proStatus?: 'free' | 'trial' | 'active' | 'expired';
+  trialStartedAt?: string;
+  trialExpiresAt?: string;
+  isPaidPro?: boolean;
 }
 
 export interface WaterLog {

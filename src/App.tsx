@@ -26,12 +26,17 @@ import { PwaInstallModal } from './components/PwaInstallModal';
 import { RunningBanner } from './components/RunningBanner';
 import { BannerSlider } from './components/BannerSlider';
 import { Footer } from './components/Footer';
-import { Mic, Droplet, Megaphone, X } from 'lucide-react';
+import { Mic, Droplet, Megaphone, X, Crown, Sparkles } from 'lucide-react';
 
 function MainApp() {
   const {
     activeAnnouncement,
     dismissAnnouncement,
+    isPro,
+    isProTrial,
+    isPaidPro,
+    isTrialExpired,
+    trialTimeRemainingFormatted,
     isProModalOpen,
     setIsProModalOpen,
     isAdminModalOpen,
@@ -41,6 +46,8 @@ function MainApp() {
     isAccountModalOpen,
     setIsAccountModalOpen,
   } = useHealth();
+
+  const [dismissTrialBanner, setDismissTrialBanner] = useState(false);
 
   const [activeTab, setActiveTab] = useState<NavTab>('home');
   const [deviceMode, setDeviceMode] = useState<'android' | 'ios' | 'full'>('full');
@@ -239,6 +246,84 @@ function MainApp() {
                   {activeAnnouncement.message}
                 </p>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* 3-Day PRO Trial Status Banner (When in trial) */}
+        {isProTrial && !dismissTrialBanner && (
+          <div className="mx-4 mt-3 mb-1 p-3 rounded-2xl bg-gradient-to-r from-amber-500/20 via-yellow-500/15 to-teal-500/20 border border-amber-500/40 relative shadow-lg flex items-center justify-between gap-3 animate-fadeIn">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-400 to-yellow-500 flex items-center justify-center text-slate-950 font-black shadow-md shadow-amber-500/30 shrink-0">
+                <Crown className="w-4 h-4 fill-slate-950" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-400 text-slate-950 font-black uppercase tracking-wider">
+                    PRO TRIAL AKTIF (3 HARI)
+                  </span>
+                  <span className="text-xs font-black text-amber-300 font-mono">
+                    ⏳ Sisa {trialTimeRemainingFormatted}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-200 mt-0.5 line-clamp-1">
+                  Bebas akses Dokter AI, Scanner Nutrisi, PDF Medis, & Rute AI Bebas Macet!
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                onClick={() => setIsProModalOpen(true)}
+                className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 text-xs font-black hover:brightness-110 active:scale-95 shadow cursor-pointer whitespace-nowrap"
+              >
+                Kunci Promo 40%
+              </button>
+              <button
+                onClick={() => setDismissTrialBanner(true)}
+                className="p-1 text-slate-400 hover:text-white cursor-pointer"
+                title="Tutup banner"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* When 3-Day Trial has Expired and User is on Free tier */}
+        {isTrialExpired && !isPaidPro && !dismissTrialBanner && (
+          <div className="mx-4 mt-3 mb-1 p-3 rounded-2xl bg-gradient-to-r from-rose-500/20 via-amber-500/20 to-purple-500/20 border border-rose-500/40 relative shadow-lg flex items-center justify-between gap-3 animate-fadeIn">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-rose-500 to-amber-500 flex items-center justify-center text-white font-black shadow-md shadow-rose-500/30 shrink-0">
+                <Sparkles className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-rose-500 text-white font-black uppercase tracking-wider">
+                    TRIAL 3 HARI BERAKHIR
+                  </span>
+                  <span className="text-xs font-bold text-amber-300">
+                    Kini Kembali ke Free
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-200 mt-0.5 line-clamp-1">
+                  Suka kemudahan Dokter AI & Rute Anti-Macet? Hanya Rp 500/hari (Rp 15rb/bln)!
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                onClick={() => setIsProModalOpen(true)}
+                className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 text-xs font-black hover:brightness-110 active:scale-95 shadow cursor-pointer whitespace-nowrap"
+              >
+                Beli PRO Rp 15rb
+              </button>
+              <button
+                onClick={() => setDismissTrialBanner(true)}
+                className="p-1 text-slate-400 hover:text-white cursor-pointer"
+                title="Tutup banner"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
             </div>
           </div>
         )}

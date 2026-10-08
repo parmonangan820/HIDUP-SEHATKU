@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useHealth } from '../context/HealthContext';
-import { Sparkles, FileText, Cloud, Crown, X, Star, QrCode, ArrowLeft, CheckCircle2, Salad } from 'lucide-react';
+import { Sparkles, FileText, Cloud, Crown, X, Star, QrCode, ArrowLeft, CheckCircle2, Salad, Navigation, Gift, Clock, Zap } from 'lucide-react';
 import { createClientQrisPayload } from '../utils/qrisGenerator';
 
 interface ProUpgradeModalProps {
@@ -9,7 +9,16 @@ interface ProUpgradeModalProps {
 }
 
 export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClose }) => {
-  const { isPro, upgradeToPro, profile } = useHealth();
+  const {
+    isPro,
+    isProTrial,
+    isPaidPro,
+    isTrialExpired,
+    trialTimeRemainingFormatted,
+    activateProTrial,
+    upgradeToPro,
+    profile,
+  } = useHealth();
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>('annual');
   const [step, setStep] = useState<'plans' | 'instapay_qris' | 'success'>('plans');
   const [countdown, setCountdown] = useState(300); // 5 minutes payment window
@@ -354,6 +363,44 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
               </p>
             </div>
 
+            {/* Active 3-Day Trial Status */}
+            {isProTrial && (
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-amber-500/20 via-yellow-500/15 to-teal-500/20 border border-amber-500/40 text-left space-y-1.5 shadow-lg">
+                <div className="flex items-center justify-between">
+                  <span className="px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-950 font-black text-[10px] uppercase tracking-wider flex items-center gap-1">
+                    <Sparkles className="w-3 h-3 fill-slate-950" />
+                    <span>Trial PRO 3 Hari Sedang Berjalan</span>
+                  </span>
+                  <span className="text-xs font-black text-amber-300 font-mono">
+                    ⏳ Sisa {trialTimeRemainingFormatted}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-200 leading-relaxed">
+                  Anda sedang menikmati akses penuh Dokter AI, Scanner Makanan, Laporan PDF Medis, dan Rute Bebas Macet! Beli paket sekarang untuk mengunci <strong>Diskon Spesial 40%</strong> dan tetap sehat tanpa terputus.
+                </p>
+              </div>
+            )}
+
+            {/* Expired 3-Day Trial Status */}
+            {isTrialExpired && !isPaidPro && (
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-rose-500/20 via-amber-500/20 to-purple-500/20 border border-rose-500/40 text-left space-y-2 shadow-lg">
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full bg-rose-500 text-white font-black text-[10px] uppercase tracking-wider">
+                    Masa Coba 3 Hari Selesai
+                  </span>
+                  <span className="text-xs font-bold text-amber-300">
+                    Akun Kembali ke Versi Free
+                  </span>
+                </div>
+                <h4 className="text-sm font-black text-white">
+                  Suka dengan Kemudahan Dokter AI & Rute Bebas Macet?
+                </h4>
+                <p className="text-xs text-slate-200 leading-relaxed">
+                  Terima kasih telah mencoba Hidup Sehatku PRO! Jangan biarkan kebiasaan sehat dan perjalanan anti-stres Anda terputus. Investasi kesehatan Anda hanya mulai <strong>Rp 500/hari (Rp 15.000/bulan)</strong> — lebih murah dari sebutir permen!
+                </p>
+              </div>
+            )}
+
             {/* Benefits Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800 flex items-start gap-3">
@@ -383,6 +430,16 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
                 <div>
                   <h4 className="text-xs font-bold text-white">Laporan PDF Medis</h4>
                   <p className="text-[11px] text-slate-400">Unduh rekam jejak kesehatan siap cetak untuk dokter.</p>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800 flex items-start gap-3">
+                <div className="p-2 rounded-xl bg-teal-500/20 text-teal-400 flex-shrink-0">
+                  <Navigation className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-white">Rute AI & Pantauan Macet</h4>
+                  <p className="text-[11px] text-slate-400">Navigasi cerdas bebas macet Google Maps, hemat waktu & rute anti-stres.</p>
                 </div>
               </div>
 

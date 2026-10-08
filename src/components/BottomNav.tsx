@@ -32,7 +32,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab })
       id: 'smart_route' as NavTab,
       label: 'Rute AI',
       icon: Navigation,
-      badge: 'AI',
+      badge: 'PRO',
     },
     {
       id: 'notes' as NavTab,
@@ -69,8 +69,16 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab })
                 }`}
               >
                 <Icon className={`w-5 h-5 sm:w-6 sm:h-6 transition-transform duration-200 ${isActive ? 'scale-110' : ''}`} />
-                {tab.badge && !isActive && (
-                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
+                {tab.badge && (
+                  <span
+                    className={`absolute -top-1.5 -right-2 px-1 py-0.5 rounded-full font-black text-[8px] leading-tight tracking-wider shadow-sm ${
+                      tab.badge === 'PRO'
+                        ? 'bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 shadow-amber-500/40 ring-1 ring-amber-300'
+                        : 'bg-cyan-400 text-slate-950'
+                    }`}
+                  >
+                    {tab.badge}
+                  </span>
                 )}
               </div>
               <span

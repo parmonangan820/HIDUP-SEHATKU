@@ -30,6 +30,10 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
     isAdmin,
     setIsAdminModalOpen,
     isPro,
+    isProTrial,
+    isPaidPro,
+    isTrialExpired,
+    trialTimeRemainingFormatted,
     setIsProModalOpen,
   } = useHealth();
 
@@ -85,18 +89,34 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
 
         {/* Right: Quick actions & Device Mockup Switcher */}
         <div className="flex items-center gap-1.5">
-          {/* PRO Upgrade Button */}
+          {/* PRO Upgrade Button with Trial Status */}
           <button
             onClick={() => setIsProModalOpen(true)}
-            className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl font-bold text-xs transition-all shadow-md active:scale-95 ${
-              isPro
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl font-bold text-xs transition-all shadow-md active:scale-95 cursor-pointer ${
+              isPaidPro
                 ? 'bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 shadow-amber-500/30'
+                : isProTrial
+                ? 'bg-gradient-to-r from-amber-400 via-yellow-400 to-teal-400 text-slate-950 shadow-amber-500/25 ring-1 ring-amber-300 animate-pulse'
                 : 'bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-500/40 text-amber-300 hover:bg-amber-500/30 shadow-amber-500/10'
             }`}
-            title="Hidup Sehatku PRO Features"
+            title={
+              isPaidPro
+                ? 'Member PRO Permanen'
+                : isProTrial
+                ? `Trial PRO 3 Hari Aktif (Sisa: ${trialTimeRemainingFormatted})`
+                : 'Coba Gratis 3 Hari / Upgrade Hidup Sehatku PRO'
+            }
           >
             <Crown className="w-3.5 h-3.5 fill-current" />
-            <span>{isPro ? 'PRO' : '✨ PRO'}</span>
+            <span className="tracking-tight">
+              {isPaidPro
+                ? 'PRO'
+                : isProTrial
+                ? `TRIAL (${trialTimeRemainingFormatted})`
+                : isTrialExpired
+                ? 'UPGRADE PRO'
+                : '✨ PRO TRIAL'}
+            </span>
           </button>
 
           {/* Quick Voice Drink Button */}

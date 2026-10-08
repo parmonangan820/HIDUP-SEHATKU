@@ -57,6 +57,8 @@ export const HomeTab: React.FC<HomeTabProps> = ({
     alarms,
     selectedDate,
     isPro,
+    isProTrial,
+    isPaidPro,
   } = useHealth();
 
   const totalWater = todayRecord.totalWaterMl;
@@ -222,7 +224,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                 </h3>
                 <span className="text-[9px] px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500/20 to-emerald-500/20 border border-amber-500/40 text-amber-300 font-black flex items-center gap-1">
                   <Crown className="w-2.5 h-2.5 fill-current" />
-                  <span>{isPro ? 'PRO UNLOCKED' : 'PRO'}</span>
+                  <span>{isPaidPro ? 'PRO UNLOCKED' : isProTrial ? 'PRO TRIAL' : 'PRO'}</span>
                 </span>
               </div>
               <p className="text-[11px] text-slate-300 truncate">
@@ -257,9 +259,9 @@ export const HomeTab: React.FC<HomeTabProps> = ({
                 <h3 className="text-xs sm:text-sm font-extrabold text-white flex items-center gap-1.5 truncate">
                   <span>Smart Traffic Route AI</span>
                 </h3>
-                <span className="text-[9px] px-2 py-0.5 rounded-full bg-teal-500/20 border border-teal-500/40 text-teal-300 font-black flex items-center gap-1">
-                  <Sparkles className="w-2.5 h-2.5 fill-current" />
-                  <span>ANTI-STRES</span>
+                <span className="text-[9px] px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-500/20 to-teal-500/20 border border-amber-500/40 text-amber-300 font-black flex items-center gap-1">
+                  <Crown className="w-2.5 h-2.5 fill-current" />
+                  <span>{isPaidPro ? 'PRO UNLOCKED' : isProTrial ? 'PRO TRIAL' : 'PRO'}</span>
                 </span>
               </div>
               <p className="text-[11px] text-slate-300 truncate">

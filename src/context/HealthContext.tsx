@@ -61,6 +61,12 @@ interface HealthContextType {
   isAccountModalOpen: boolean;
   setIsAccountModalOpen: (open: boolean) => void;
   isPro: boolean;
+  isProTrial: boolean;
+  isPaidPro: boolean;
+  isTrialExpired: boolean;
+  trialExpiresAt: Date | null;
+  trialTimeRemainingFormatted: string;
+  activateProTrial: () => { success: boolean; message: string };
   isProModalOpen: boolean;
   setIsProModalOpen: (open: boolean) => void;
   upgradeToPro: (plan: 'monthly' | 'annual') => void;
@@ -870,17 +876,162 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Account Switching & Multi-User Login State
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
-  const [isPro, setIsPro] = useState<boolean>(() => {
-    try {
-      const saved = localStorage.getItem('hidupsehat_is_pro');
-      if (saved) return JSON.parse(saved);
-    } catch (e) {}
-    return false;
-  });
   const [isProModalOpen, setIsProModalOpen] = useState<boolean>(false);
 
+  // 3-Day PRO Trial Settings: 72 Hours from activation
+  const TRIAL_DURATION_MS = 3 * 24 * 60 * 60 * 1000;
+
+  const getAccountKey = (p: UserProfile) => {
+    const raw = p.phone || p.id || p.email || 'guest_user';
+    return raw.replace(/[^a-zA-Z0-9]/g, '_');
+  };
+
+  // State for permanent paid PRO
+  const [isPaidPro, setIsPaidPro] = useState<boolean>(() => {
+    try {
+      const savedPaid = localStorage.getItem('hidupsehat_is_paid_pro');
+      if (savedPaid) return JSON.parse(savedPaid);
+      // Legacy check
+      const legacyPro = localStorage.getItem('hidupsehat_is_pro');
+      if (legacyPro) return JSON.parse(legacyPro);
+    } catch {}
+    return false;
+  });
+
+  // State for Trial tracking
+  const [trialState, setTrialState] = useState<{
+    activated: boolean;
+    startedAt: number;
+    expiresAt: number;
+  }>(() => {
+    try {
+      const savedProfile = localStorage.getItem('hidup_sehatku_profile');
+      let accKey = 'guest_user';
+      if (savedProfile) {
+        try {
+          const p = JSON.parse(savedProfile);
+          accKey = (p.phone || p.id || p.email || 'guest_user').replace(/[^a-zA-Z0-9]/g, '_');
+        } catch {}
+      }
+      const savedTrial = localStorage.getItem(`hidupsehat_trial_${accKey}`);
+      if (savedTrial) {
+        return JSON.parse(savedTrial);
+      }
+      // If no trial record exists yet, automatically grant 3-day trial to user!
+      const now = Date.now();
+      const initTrial = {
+        activated: true,
+        startedAt: now,
+        expiresAt: now + TRIAL_DURATION_MS,
+      };
+      localStorage.setItem(`hidupsehat_trial_${accKey}`, JSON.stringify(initTrial));
+      return initTrial;
+    } catch {
+      const now = Date.now();
+      return {
+        activated: true,
+        startedAt: now,
+        expiresAt: now + TRIAL_DURATION_MS,
+      };
+    }
+  });
+
+  // Dynamic timestamp for countdown calculations
+  const [currentTime, setCurrentTime] = useState<number>(Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 15000); // Check every 15 seconds
+    return () => clearInterval(timer);
+  }, []);
+
+  // Sync trial and paid state when account changes
+  useEffect(() => {
+    const accKey = getAccountKey(profile);
+    try {
+      const accPaid = localStorage.getItem(`hidupsehat_paid_${accKey}`);
+      if (accPaid) {
+        setIsPaidPro(JSON.parse(accPaid));
+      } else {
+        const globalPaid = localStorage.getItem('hidupsehat_is_paid_pro');
+        setIsPaidPro(globalPaid ? JSON.parse(globalPaid) : false);
+      }
+
+      const savedTrial = localStorage.getItem(`hidupsehat_trial_${accKey}`);
+      if (savedTrial) {
+        setTrialState(JSON.parse(savedTrial));
+      } else {
+        // Auto-grant 3-day trial to this account
+        const now = Date.now();
+        const newTrial = {
+          activated: true,
+          startedAt: now,
+          expiresAt: now + TRIAL_DURATION_MS,
+        };
+        localStorage.setItem(`hidupsehat_trial_${accKey}`, JSON.stringify(newTrial));
+        setTrialState(newTrial);
+      }
+    } catch {}
+  }, [profile.phone, profile.id, profile.email]);
+
+  const isProTrial = useMemo(() => {
+    if (isPaidPro) return false;
+    return trialState.activated && currentTime < trialState.expiresAt;
+  }, [isPaidPro, trialState, currentTime]);
+
+  const isTrialExpired = useMemo(() => {
+    if (isPaidPro) return false;
+    return trialState.activated && currentTime >= trialState.expiresAt;
+  }, [isPaidPro, trialState, currentTime]);
+
+  // Overall isPro is true if user has paid PRO OR has an active 3-day trial
+  const isPro = useMemo(() => {
+    return isPaidPro || isProTrial;
+  }, [isPaidPro, isProTrial]);
+
+  const trialExpiresAt = useMemo(() => {
+    return trialState.expiresAt ? new Date(trialState.expiresAt) : null;
+  }, [trialState.expiresAt]);
+
+  const trialTimeRemainingFormatted = useMemo(() => {
+    if (isPaidPro) return 'Member Permanen';
+    if (!trialState.activated) return 'Belum Aktif';
+    const remainingMs = Math.max(0, trialState.expiresAt - currentTime);
+    if (remainingMs <= 0) return 'Trial Berakhir';
+
+    const totalHours = Math.floor(remainingMs / (1000 * 60 * 60));
+    const days = Math.floor(totalHours / 24);
+    const hours = totalHours % 24;
+    const minutes = Math.floor((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+
+    if (days > 0) {
+      return `${days} Hari ${hours} Jam`;
+    }
+    if (hours > 0) {
+      return `${hours} Jam ${minutes} Mnt`;
+    }
+    return `${minutes} Menit`;
+  }, [isPaidPro, trialState, currentTime]);
+
+  const activateProTrial = () => {
+    const accKey = getAccountKey(profile);
+    const now = Date.now();
+    const newTrial = {
+      activated: true,
+      startedAt: now,
+      expiresAt: now + TRIAL_DURATION_MS,
+    };
+    setTrialState(newTrial);
+    localStorage.setItem(`hidupsehat_trial_${accKey}`, JSON.stringify(newTrial));
+    return { success: true, message: 'Selamat! Trial PRO 3 Hari berhasil diaktifkan.' };
+  };
+
   const upgradeToPro = (plan: 'monthly' | 'annual') => {
-    setIsPro(true);
+    setIsPaidPro(true);
+    const accKey = getAccountKey(profile);
+    localStorage.setItem('hidupsehat_is_paid_pro', JSON.stringify(true));
+    localStorage.setItem(`hidupsehat_paid_${accKey}`, JSON.stringify(true));
     localStorage.setItem('hidupsehat_is_pro', JSON.stringify(true));
   };
 
@@ -1741,6 +1892,12 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         isAccountModalOpen,
         setIsAccountModalOpen,
         isPro,
+        isProTrial,
+        isPaidPro,
+        isTrialExpired,
+        trialExpiresAt,
+        trialTimeRemainingFormatted,
+        activateProTrial,
         isProModalOpen,
         setIsProModalOpen,
         upgradeToPro,

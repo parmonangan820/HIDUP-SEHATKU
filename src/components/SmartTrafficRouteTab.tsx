@@ -38,6 +38,8 @@ import {
   ZoomOut,
   Layers,
   Focus,
+  Crown,
+  Lock,
 } from 'lucide-react';
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 
@@ -539,7 +541,15 @@ export function cleanSpokenText(text: string): string {
 }
 
 export const SmartTrafficRouteTab: React.FC = () => {
-  const { profile } = useHealth();
+  const {
+    profile,
+    isPro,
+    isProTrial,
+    isPaidPro,
+    isTrialExpired,
+    trialTimeRemainingFormatted,
+    setIsProModalOpen,
+  } = useHealth();
   const [origin, setOrigin] = useState('Plaza Medan Fair, Medan');
   const [destination, setDestination] = useState('Medan Mall, Medan');
   const [travelMode, setTravelMode] = useState<'DRIVE' | 'TWO_WHEELER' | 'BICYCLE' | 'WALK'>('DRIVE');
@@ -1129,6 +1139,10 @@ export const SmartTrafficRouteTab: React.FC = () => {
 
   // Handle Voice Listening Trigger
   const handleStartListening = () => {
+    if (!isPro) {
+      setIsProModalOpen(true);
+      return;
+    }
     setIsVoiceModalOpen(true);
     setSpeechTranscript('');
     setManualVoiceInput('');
@@ -1279,6 +1293,12 @@ export const SmartTrafficRouteTab: React.FC = () => {
 
   // Step-by-Step Voice Pipeline: Voice -> Intent -> Auto Input -> Route Search -> Map & Speech Readout
   const handleProcessVoiceInput = async (spokenText: string) => {
+    if (!isPro) {
+      handleStopListening();
+      setIsVoiceModalOpen(false);
+      setIsProModalOpen(true);
+      return;
+    }
     const text = cleanSpokenText(spokenText);
     if (!text) return;
 
@@ -1336,6 +1356,12 @@ export const SmartTrafficRouteTab: React.FC = () => {
   // Unified Voice & Manual Input Submit Handler:
   // Tombol "Selesai Bicara & Cari Rute Cerdas AI" dan tombol "Kirim" menjalankan fungsi yang persis sama
   const handleVoiceOrManualSubmit = () => {
+    if (!isPro) {
+      handleStopListening();
+      setIsVoiceModalOpen(false);
+      setIsProModalOpen(true);
+      return;
+    }
     handleStopListening();
     const textToUse =
       manualVoiceInput.trim() ||
@@ -1452,6 +1478,10 @@ export const SmartTrafficRouteTab: React.FC = () => {
 
   // Perform Manual AI Route Analysis
   const handleAnalyzeRoutes = async (overrideOrigin?: string, overrideDest?: string) => {
+    if (!isPro) {
+      setIsProModalOpen(true);
+      return;
+    }
     const origToUse = overrideOrigin !== undefined ? overrideOrigin : origin;
     const destToUse = overrideDest !== undefined ? overrideDest : destination;
     if (!origToUse.trim() || !destToUse.trim()) return;
@@ -1610,6 +1640,10 @@ export const SmartTrafficRouteTab: React.FC = () => {
   };
 
   const openGoogleMapsNavigation = (routeToUse?: TrafficRoute) => {
+    if (!isPro) {
+      setIsProModalOpen(true);
+      return;
+    }
     try {
       const originParam = encodeURIComponent(origin);
       const destParam = encodeURIComponent(destination);
@@ -1645,6 +1679,30 @@ export const SmartTrafficRouteTab: React.FC = () => {
                 <Sparkles className="w-3.5 h-3.5 text-teal-400" />
                 <span>AI Smart Traffic & Anti-Stress Travel</span>
               </span>
+              {isPaidPro ? (
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-500/50 text-amber-300 text-xs font-black shadow-lg shadow-amber-500/10">
+                  <Crown className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                  <span>MEMBER PRO UNLOCKED</span>
+                </span>
+              ) : isProTrial ? (
+                <button
+                  type="button"
+                  onClick={() => setIsProModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-teal-500/20 border border-amber-500/50 text-amber-300 text-xs font-black shadow-lg shadow-amber-500/10 hover:brightness-125 transition-all cursor-pointer animate-pulse"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                  <span>PRO TRIAL &bull; SISA {trialTimeRemainingFormatted}</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsProModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500/20 to-yellow-500/20 border border-amber-500/50 text-amber-300 text-xs font-black shadow-lg shadow-amber-500/10 hover:brightness-125 transition-all cursor-pointer"
+                >
+                  <Crown className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                  <span>{isTrialExpired ? 'TRIAL SELESAI • UPGRADE PRO' : 'FITUR PRO • BUKA AKSES'}</span>
+                </button>
+              )}
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 text-[11px] font-bold">
                 <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
                 <span>Proteksi Jantung & Tensi Darah</span>
@@ -1655,10 +1713,23 @@ export const SmartTrafficRouteTab: React.FC = () => {
             <button
               type="button"
               onClick={handleStartListening}
-              className="px-4 py-2 rounded-2xl bg-gradient-to-r from-rose-500 via-pink-500 to-teal-400 hover:brightness-110 text-white font-black text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-rose-500/30 active:scale-95 transition-all cursor-pointer animate-pulse"
+              className={`px-4 py-2 rounded-2xl text-white font-black text-xs sm:text-sm flex items-center gap-2 shadow-lg active:scale-95 transition-all cursor-pointer ${
+                isPro
+                  ? 'bg-gradient-to-r from-rose-500 via-pink-500 to-teal-400 hover:brightness-110 shadow-rose-500/30 animate-pulse'
+                  : 'bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 text-slate-950 hover:brightness-110 shadow-amber-500/30'
+              }`}
             >
-              <Mic className="w-4 h-4 fill-white animate-bounce" />
-              <span>🎙️ Mau Kemana? (Bicara)</span>
+              {isPro ? (
+                <>
+                  <Mic className="w-4 h-4 fill-white animate-bounce" />
+                  <span>🎙️ Mau Kemana? (Bicara)</span>
+                </>
+              ) : (
+                <>
+                  <Lock className="w-3.5 h-3.5 text-slate-950" />
+                  <span className="text-slate-950">🎙️ Mau Kemana? (PRO)</span>
+                </>
+              )}
             </button>
           </div>
 
@@ -1675,6 +1746,72 @@ export const SmartTrafficRouteTab: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* PRO TRIAL ACTIVE BANNER */}
+      {isProTrial && (
+        <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-amber-500/20 via-yellow-500/15 to-teal-500/20 border-2 border-amber-500/50 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-4 animate-fadeIn">
+          <div className="flex items-center gap-3.5 text-left">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-400 to-yellow-500 flex items-center justify-center text-slate-950 font-black shadow-xl shadow-amber-500/30 shrink-0">
+              <Sparkles className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm sm:text-base font-black text-amber-300">
+                  Trial PRO 3 Hari Sedang Berjalan (Akses Penuh Rute AI)
+                </h3>
+                <span className="px-2 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[9px] font-black tracking-wider">
+                  ⏳ Sisa {trialTimeRemainingFormatted}
+                </span>
+              </div>
+              <p className="text-xs text-slate-200 mt-1 leading-relaxed">
+                Anda bebas menggunakan seluruh fitur pencarian rute cerdas AI, asisten suara, dan deteksi arus macet Google Maps secara gratis!
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsProModalOpen(true)}
+            className="w-full md:w-auto px-5 py-3 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 hover:brightness-110 text-slate-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xl shadow-amber-500/30 active:scale-95 transition-all cursor-pointer shrink-0"
+          >
+            <Crown className="w-4 h-4 fill-slate-950" />
+            <span>Kunci Promo 40% (Beli PRO)</span>
+          </button>
+        </div>
+      )}
+
+      {/* PRO TEASER & UPGRADE BANNER (FOR FREE / EXPIRED USERS) */}
+      {!isPro && (
+        <div className="p-4 sm:p-5 rounded-3xl bg-gradient-to-r from-rose-500/20 via-amber-500/15 to-purple-500/20 border-2 border-rose-500/50 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-4 animate-fadeIn">
+          <div className="flex items-center gap-3.5 text-left">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-rose-500 to-amber-500 flex items-center justify-center text-white font-black shadow-xl shadow-rose-500/30 shrink-0">
+              <Crown className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm sm:text-base font-black text-amber-300">
+                  {isTrialExpired ? 'Masa Coba 3 Hari Selesai (Kembali ke Free)' : 'Fitur Rute AI & Pantauan Macet Google Maps (Versi PRO)'}
+                </h3>
+                <span className="px-2 py-0.5 rounded-full bg-rose-500 text-white text-[9px] font-black tracking-wider">
+                  {isTrialExpired ? 'EXPIRED' : 'EKSKLUSIF PRO'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-200 mt-1 leading-relaxed">
+                {isTrialExpired
+                  ? 'Suka dengan kemudahan navigasi bebas macet & rute anti-stres? Lanjutkan akses selamanya hanya mulai Rp 500/hari (Rp 15.000/bln)!'
+                  : 'Dapatkan akses tak terbatas analisis jalan macet real-time, rekomendasi jalur alternatif cepat, dan asisten suara pintar untuk perjalanan sehat & bebas stres.'}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsProModalOpen(true)}
+            className="w-full md:w-auto px-5 py-3 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-300 to-amber-500 hover:brightness-110 text-slate-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xl shadow-amber-500/30 active:scale-95 transition-all cursor-pointer shrink-0"
+          >
+            <Crown className="w-4 h-4 fill-slate-950" />
+            <span>Beli PRO Rp 15.000 / Bulan</span>
+          </button>
+        </div>
+      )}
 
       {/* 2. REAL-TIME TRAFFIC CONGESTION & ALTERNATIVE ALERT BANNER WITH VOICE READOUT */}
       {smartAlertText && (
@@ -1734,8 +1871,12 @@ export const SmartTrafficRouteTab: React.FC = () => {
               onClick={() => openGoogleMapsNavigation(routes[1] || selectedRoute)}
               className="px-5 py-2.5 sm:py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-lg shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer"
             >
-              <Navigation className="w-4.5 h-4.5 stroke-[2.5]" />
-              <span>Gunakan Rute Alternatif Ini</span>
+              {isPro ? (
+                <Navigation className="w-4.5 h-4.5 stroke-[2.5]" />
+              ) : (
+                <Lock className="w-4 h-4" />
+              )}
+              <span>{isPro ? 'Gunakan Rute Alternatif Ini' : 'Gunakan Rute Alternatif (PRO)'}</span>
             </button>
           </div>
         </div>
@@ -1752,10 +1893,14 @@ export const SmartTrafficRouteTab: React.FC = () => {
             <button
               type="button"
               onClick={handleStartListening}
-              className="px-3 py-1.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold flex items-center gap-1.5 hover:bg-rose-500/30 transition-colors cursor-pointer"
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                isPro
+                  ? 'bg-rose-500/20 border border-rose-500/40 text-rose-300 hover:bg-rose-500/30'
+                  : 'bg-amber-500/20 border border-amber-500/40 text-amber-300 hover:bg-amber-500/30'
+              }`}
             >
-              <Mic className="w-3.5 h-3.5 text-rose-400" />
-              <span>Bicara</span>
+              {isPro ? <Mic className="w-3.5 h-3.5 text-rose-400" /> : <Lock className="w-3.5 h-3.5 text-amber-400" />}
+              <span>{isPro ? 'Bicara' : 'Bicara (PRO)'}</span>
             </button>
             {analyzedAt && (
               <span className="text-[10px] text-slate-400 font-mono hidden sm:flex items-center gap-1">
@@ -1907,17 +2052,26 @@ export const SmartTrafficRouteTab: React.FC = () => {
               type="button"
               onClick={() => handleAnalyzeRoutes()}
               disabled={isLoading}
-              className="px-4 py-2.5 rounded-2xl bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 font-black text-xs flex items-center gap-2 shadow-lg shadow-teal-500/25 active:scale-95 transition-all cursor-pointer"
+              className={`px-4 py-2.5 rounded-2xl font-black text-xs flex items-center gap-2 shadow-lg active:scale-95 transition-all cursor-pointer ${
+                isPro
+                  ? 'bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 shadow-teal-500/25'
+                  : 'bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-slate-950 shadow-amber-500/25'
+              }`}
             >
               {isLoading ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
                   <span>Menganalisis...</span>
                 </>
-              ) : (
+              ) : isPro ? (
                 <>
                   <Sparkles className="w-4 h-4" />
                   <span>Cari Rute Alternatif</span>
+                </>
+              ) : (
+                <>
+                  <Lock className="w-4 h-4" />
+                  <span>Cari Rute Alternatif (PRO)</span>
                 </>
               )}
             </button>
@@ -2263,8 +2417,12 @@ export const SmartTrafficRouteTab: React.FC = () => {
                 onClick={() => openGoogleMapsNavigation(selectedRoute)}
                 className="px-5 py-2.5 sm:py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:brightness-110 text-slate-950 font-black text-xs sm:text-sm flex items-center gap-2 shadow-lg active:scale-95 transition-all cursor-pointer"
               >
-                <Navigation className="w-4.5 h-4.5 stroke-[2.5]" />
-                <span>Gunakan Rute Ini</span>
+                {isPro ? (
+                  <Navigation className="w-4.5 h-4.5 stroke-[2.5]" />
+                ) : (
+                  <Lock className="w-4 h-4" />
+                )}
+                <span>{isPro ? 'Gunakan Rute Ini' : 'Gunakan Rute Ini (PRO)'}</span>
               </button>
             </div>
           </div>
@@ -2377,8 +2535,12 @@ export const SmartTrafficRouteTab: React.FC = () => {
                         : 'bg-slate-800 hover:bg-slate-700 text-white'
                     }`}
                   >
-                    <Navigation className="w-4.5 h-4.5 stroke-[2.5]" />
-                    <span>Gunakan Rute Ini</span>
+                    {isPro ? (
+                      <Navigation className="w-4.5 h-4.5 stroke-[2.5]" />
+                    ) : (
+                      <Lock className="w-4 h-4" />
+                    )}
+                    <span>{isPro ? 'Gunakan Rute Ini' : 'Gunakan Rute Ini (PRO)'}</span>
                   </button>
                 </div>
               </div>
