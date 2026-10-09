@@ -3985,7 +3985,7 @@ app.all('/api/instanlive/webhook', universalWebhookHandler);
 app.all('/api/ipaymu/webhook', universalWebhookHandler);
 app.all('/api/webhook', universalWebhookHandler);
 
-// iPaymu alias route handlers
+// iPaymu & InstantPay alias route handlers
 app.post('/api/ipaymu/create-qris', (req: Request, res: Response) => {
   return app._router.handle(Object.assign(req, { url: '/api/instanpay/create-qris' }), res, () => {});
 });
@@ -3994,6 +3994,24 @@ app.post('/api/ipaymu/check-status', (req: Request, res: Response) => {
 });
 app.post('/api/ipaymu/simulate-payment', (req: Request, res: Response) => {
   return app._router.handle(Object.assign(req, { url: '/api/instanpay/simulate-payment' }), res, () => {});
+});
+app.post('/api/instantpay/test-connection', (req: Request, res: Response) => {
+  return app._router.handle(Object.assign(req, { url: '/api/instanpay/test-connection' }), res, () => {});
+});
+app.post('/api/instantpay/create-qris', (req: Request, res: Response) => {
+  return app._router.handle(Object.assign(req, { url: '/api/instanpay/create-qris' }), res, () => {});
+});
+app.all('/api/instantpay/config', (req: Request, res: Response) => {
+  return app._router.handle(Object.assign(req, { url: '/api/instanpay/config' }), res, () => {});
+});
+app.post('/api/instantpay/check-status', (req: Request, res: Response) => {
+  return app._router.handle(Object.assign(req, { url: '/api/instanpay/check-status' }), res, () => {});
+});
+app.post('/api/instantpay/simulate-payment', (req: Request, res: Response) => {
+  return app._router.handle(Object.assign(req, { url: '/api/instanpay/simulate-payment' }), res, () => {});
+});
+app.post('/api/instantpay/test-dynamic-qris', (req: Request, res: Response) => {
+  return app._router.handle(Object.assign(req, { url: '/api/instanpay/test-dynamic-qris' }), res, () => {});
 });
 
 // Setup Vite or Static File Serving

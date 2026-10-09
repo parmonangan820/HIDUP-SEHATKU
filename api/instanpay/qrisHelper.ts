@@ -19,6 +19,82 @@ export function formatTag(tag: string, value: string): string {
   return `${tag}${len}${value}`;
 }
 
+export function parseQrisTags(qrisStr: string): Map<string, string> {
+  const tags = new Map<string, string>();
+  let i = 0;
+  const str = qrisStr.trim();
+  while (i < str.length) {
+    if (i + 4 > str.length) break;
+    const tag = str.substring(i, i + 2);
+    const len = parseInt(str.substring(i + 2, i + 4), 10);
+    if (isNaN(len) || len < 0) break;
+    const val = str.substring(i + 4, i + 4 + len);
+    tags.set(tag, val);
+    i = i + 4 + len;
+  }
+  return tags;
+}
+
+export function convertStaticToDynamicQRIS(
+  staticQris: string,
+  amount: number,
+  orderId: string,
+  merchantNameOverride?: string
+): string {
+  let cleanStr = staticQris.trim();
+  const crcIndex = cleanStr.lastIndexOf('6304');
+  if (crcIndex !== -1 && crcIndex >= cleanStr.length - 8) {
+    cleanStr = cleanStr.substring(0, crcIndex);
+  }
+
+  const tags = parseQrisTags(cleanStr);
+  if (!tags.has('00')) {
+    tags.set('00', '01');
+  }
+  tags.set('01', '12'); // Dynamic mode
+
+  const amountStr = Math.round(amount).toString();
+  tags.set('54', amountStr);
+
+  if (!tags.has('53')) {
+    tags.set('53', '360');
+  }
+  if (!tags.has('58')) {
+    tags.set('58', 'ID');
+  }
+  if (merchantNameOverride) {
+    tags.set('59', merchantNameOverride.slice(0, 25).toUpperCase());
+  }
+
+  const cleanOrder = orderId.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 25);
+  const tag62_01 = formatTag('01', cleanOrder);
+  const tag62_07 = formatTag('07', 'A01');
+  const tag62_08 = formatTag('08', 'PRO MEMBERSHIP');
+  tags.set('62', tag62_01 + tag62_07 + tag62_08);
+
+  const standardOrder = [
+    '00', '01', '26', '27', '28', '29', '30', '31', '32', '33', '34', '35',
+    '36', '37', '38', '39', '40', '41', '42', '43', '44', '45', '51', '52',
+    '53', '54', '55', '56', '57', '58', '59', '60', '61', '62'
+  ];
+
+  let rebuilt = '';
+  for (const t of standardOrder) {
+    if (tags.has(t)) {
+      rebuilt += formatTag(t, tags.get(t)!);
+    }
+  }
+  for (const [t, val] of tags.entries()) {
+    if (!standardOrder.includes(t) && t !== '63') {
+      rebuilt += formatTag(t, val);
+    }
+  }
+
+  const dataForCrc = rebuilt + '6304';
+  const crc = calculateCRC16(dataForCrc);
+  return dataForCrc + crc;
+}
+
 export function generateNationalQRIS(options: {
   orderId: string;
   amount: number;
@@ -56,7 +132,7 @@ export function generateNationalQRIS(options: {
   payload += formatTag('52', '8099');
   payload += formatTag('53', '360');
 
-  const amountStr = amount.toFixed(2);
+  const amountStr = Math.round(amount).toString();
   payload += formatTag('54', amountStr);
   payload += formatTag('58', 'ID');
   payload += formatTag('59', merchantName.slice(0, 25).toUpperCase());

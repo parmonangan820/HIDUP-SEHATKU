@@ -151,7 +151,11 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
       });
 
       if (res.ok) {
-        const data = await res.json();
+        let data: any = null;
+        try {
+          const text = await res.text();
+          data = JSON.parse(text);
+        } catch {}
         if (data && data.success && data.qrisString) {
           setQrisData(data);
           setCountdown(300);
@@ -165,7 +169,16 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
     }
 
     // Direct client fallback for static hosting / cPanel / Vercel static export
-    const fallbackPayload = createClientQrisPayload(selectedPlan, finalAmount);
+    let customStaticQris = '';
+    try {
+      const savedConfig = localStorage.getItem('hidupsehat_instanpay_admin_config');
+      if (savedConfig) {
+        const parsed = JSON.parse(savedConfig);
+        customStaticQris = parsed.customStaticQrisString || '';
+      }
+    } catch {}
+
+    const fallbackPayload = createClientQrisPayload(selectedPlan, finalAmount, customStaticQris);
     setQrisData(fallbackPayload);
     setCountdown(300);
     setStep('instapay_qris');
@@ -186,31 +199,32 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
         if (savedConfig) adminConfig = JSON.parse(savedConfig);
       } catch {}
 
-      const res = await fetch('/api/instanpay/check-status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId: qrisData.orderId, adminConfig }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.status === 'paid') {
-          handlePaymentSuccess();
-          return;
-        } else if (data.status === 'expired') {
-          setStatusFeedback({ type: 'error', message: 'Waktu pembayaran telah kedaluwarsa. Silakan buat QRIS baru.' });
-          return;
-        } else {
-          setStatusFeedback({
-            type: 'warning',
-            message: '⚠️ Pembayaran belum terdeteksi. Silakan scan barcode QRIS dan selesaikan transaksi melalui m-Banking atau E-Wallet Anda.',
-          });
-          return;
-        }
+      let data: any = null;
+      try {
+        const res = await fetch('/api/instanpay/check-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId: qrisData.orderId, adminConfig }),
+        });
+        const text = await res.text();
+        data = JSON.parse(text);
+      } catch (fetchErr) {
+        console.warn('Error fetching /api/instanpay/check-status:', fetchErr);
       }
-      setStatusFeedback({
-        type: 'warning',
-        message: '⚠️ Pembayaran belum terdeteksi. Silakan scan barcode QRIS di atas untuk menyelesaikan.',
-      });
+
+      if (data && data.status === 'paid') {
+        handlePaymentSuccess();
+        return;
+      } else if (data && data.status === 'expired') {
+        setStatusFeedback({ type: 'error', message: 'Waktu pembayaran telah kedaluwarsa. Silakan buat QRIS baru.' });
+        return;
+      } else {
+        setStatusFeedback({
+          type: 'warning',
+          message: '⚠️ Pembayaran belum terdeteksi. Silakan scan barcode QRIS dan selesaikan transaksi melalui m-Banking atau E-Wallet Anda.',
+        });
+        return;
+      }
     } catch (err) {
       setStatusFeedback({
         type: 'warning',

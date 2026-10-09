@@ -81,8 +81,12 @@ export const PaymentHistory: React.FC<PaymentHistoryProps> = ({
         : '/api/instanpay/history';
       const res = await fetch(url);
       if (res.ok) {
-        const data = await res.json();
-        if (data.success && Array.isArray(data.transactions)) {
+        let data: any = null;
+        try {
+          const text = await res.text();
+          data = JSON.parse(text);
+        } catch {}
+        if (data && data.success && Array.isArray(data.transactions)) {
           setTransactions(data.transactions);
           return;
         }
@@ -115,9 +119,13 @@ export const PaymentHistory: React.FC<PaymentHistoryProps> = ({
 
     try {
       const res = await fetch(`/api/instanpay/status/${encodeURIComponent(clean)}`);
-      const data = await res.json();
+      let data: any = null;
+      try {
+        const text = await res.text();
+        data = JSON.parse(text);
+      } catch {}
 
-      if (data.success && data.transaction) {
+      if (data && data.success && data.transaction) {
         const updatedTxn: PaymentTransactionItem = data.transaction;
         setTransactions((prev) => {
           const index = prev.findIndex((t) => t.ref_id === updatedTxn.ref_id);
