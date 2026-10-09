@@ -24,6 +24,7 @@ import { AffiliateModal } from './components/AffiliateModal';
 import { AIDietSuccessModal } from './components/AIDietSuccessModal';
 import { PwaInstallModal } from './components/PwaInstallModal';
 import { SmartTumblerModal } from './components/SmartTumblerModal';
+import { PaymentHistoryModal } from './components/PaymentHistoryModal';
 import { RunningBanner } from './components/RunningBanner';
 import { BannerSlider } from './components/BannerSlider';
 import { Footer } from './components/Footer';
@@ -443,6 +444,7 @@ function MainApp() {
           onClose={() => setIsTumblerModalOpen(false)}
           onOpenProUpgrade={() => setIsProModalOpen(true)}
         />
+        <PaymentHistoryModal />
       </div>
     </AppShell>
   );

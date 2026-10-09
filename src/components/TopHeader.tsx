@@ -1,6 +1,6 @@
 import React from 'react';
 import { useHealth } from '../context/HealthContext';
-import { Droplets, Sparkles, User, Bell, Smartphone, Monitor, Mic, Database, Cloud, Shield, Crown, Download } from 'lucide-react';
+import { Droplets, Sparkles, User, Bell, Smartphone, Monitor, Mic, Database, Cloud, Shield, Crown, Download, Receipt } from 'lucide-react';
 
 interface TopHeaderProps {
   onOpenProfile: () => void;
@@ -35,6 +35,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
     isTrialExpired,
     trialTimeRemainingFormatted,
     setIsProModalOpen,
+    setIsPaymentHistoryOpen,
   } = useHealth();
 
   const getGreeting = () => {
@@ -117,6 +118,16 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                 ? 'UPGRADE PRO'
                 : '✨ PRO TRIAL'}
             </span>
+          </button>
+
+          {/* Quick Payment History Button */}
+          <button
+            onClick={() => setIsPaymentHistoryOpen(true)}
+            className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-slate-800/90 hover:bg-slate-750 border border-slate-700/80 text-slate-300 hover:text-white transition-all text-xs font-bold active:scale-95 cursor-pointer shadow-sm"
+            title="Lihat Riwayat Pembayaran QRIS & Cek Status Ref ID"
+          >
+            <Receipt className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="hidden sm:inline">Riwayat</span>
           </button>
 
           {/* Quick Voice Drink Button */}

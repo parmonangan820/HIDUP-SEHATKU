@@ -27,6 +27,7 @@ import {
   Share2,
   Crown,
   FileText,
+  Receipt,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -52,6 +53,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, onO
     logoutAccount,
     isPro,
     setIsProModalOpen,
+    setIsPaymentHistoryOpen,
     todayRecord,
     aiAnalysis,
     todayWaterByPeriod,
@@ -297,6 +299,29 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, onO
               <span>PDF Medis</span>
             </button>
           )}
+        </div>
+
+        {/* Payment History Shortcut Bar */}
+        <div className="p-2.5 rounded-2xl bg-slate-950/80 border border-slate-800 mb-4 flex items-center justify-between gap-2 shadow-sm">
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="p-1.5 rounded-xl bg-cyan-500/10 text-cyan-400 flex-shrink-0">
+              <Receipt className="w-4 h-4" />
+            </div>
+            <div className="min-w-0">
+              <span className="text-xs font-bold text-white block truncate">Riwayat Transaksi QRIS</span>
+              <span className="text-[10px] text-slate-400 block truncate">Periksa status tagihan berdasarkan ref_id</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              onClose();
+              setIsPaymentHistoryOpen(true);
+            }}
+            className="py-1.5 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-cyan-300 text-xs font-bold transition-all active:scale-95 cursor-pointer flex-shrink-0"
+          >
+            Cek Status
+          </button>
         </div>
 
         {/* Mode Selector Tabs */}

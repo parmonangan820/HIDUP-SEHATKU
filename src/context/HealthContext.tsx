@@ -74,6 +74,8 @@ interface HealthContextType {
   activateProTrial: () => { success: boolean; message: string };
   isProModalOpen: boolean;
   setIsProModalOpen: (open: boolean) => void;
+  isPaymentHistoryOpen: boolean;
+  setIsPaymentHistoryOpen: (open: boolean) => void;
   isTumblerModalOpen: boolean;
   setIsTumblerModalOpen: (open: boolean) => void;
   isAffiliateOpen: boolean;
@@ -887,6 +889,7 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Account Switching & Multi-User Login State
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [isProModalOpen, setIsProModalOpen] = useState<boolean>(false);
+  const [isPaymentHistoryOpen, setIsPaymentHistoryOpen] = useState<boolean>(false);
   const [isTumblerModalOpen, setIsTumblerModalOpen] = useState<boolean>(false);
   const [isAffiliateOpen, setIsAffiliateOpen] = useState<boolean>(false);
   const [userProPlan, setUserProPlan] = useState<'monthly' | 'annual' | null>(() => {
@@ -1958,6 +1961,8 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         activateProTrial,
         isProModalOpen,
         setIsProModalOpen,
+        isPaymentHistoryOpen,
+        setIsPaymentHistoryOpen,
         isTumblerModalOpen,
         setIsTumblerModalOpen,
         isAffiliateOpen,

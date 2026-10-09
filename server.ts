@@ -3026,11 +3026,65 @@ function generateNationalQRIS(options: {
   return dataForCrc + crc;
 }
 
-const instanpayOrders = new Map<string, any>();
-
 // InstanPay & InstanLive (pay.instanlive.id) Payment Gateway Endpoints
 const DEFAULT_INSTANPAY_API_KEY = 'sk_test_f477df17909b8f706efa39f1f6ac826c4fb7';
 const INSTANPAY_CONFIG_FILE = path.join(__dirname, 'instanpay-config.json');
+const TRANSACTIONS_FILE = path.join(__dirname, 'instanpay-transactions.json');
+
+function loadPersistedTransactions(): Map<string, any> {
+  const map = new Map<string, any>();
+  try {
+    if (fs.existsSync(TRANSACTIONS_FILE)) {
+      const data = JSON.parse(fs.readFileSync(TRANSACTIONS_FILE, 'utf-8'));
+      if (Array.isArray(data)) {
+        for (const item of data) {
+          if (item?.orderId || item?.ref_id) {
+            const key = item.orderId || item.ref_id;
+            map.set(key, item);
+            if (item.txnId) {
+              map.set(String(item.txnId), item);
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Error reading instanpay-transactions.json:', e);
+  }
+  return map;
+}
+
+const instanpayOrders = loadPersistedTransactions();
+
+function persistTransactions() {
+  try {
+    const uniqueMap = new Map<string, any>();
+    for (const [, val] of instanpayOrders.entries()) {
+      const id = val?.orderId || val?.ref_id;
+      if (id && !uniqueMap.has(id)) {
+        uniqueMap.set(id, val);
+      }
+    }
+    const arr = Array.from(uniqueMap.values());
+    fs.writeFileSync(TRANSACTIONS_FILE, JSON.stringify(arr, null, 2), 'utf-8');
+  } catch (e) {
+    console.error('Error saving instanpay-transactions.json:', e);
+  }
+}
+
+function normalizeStatus(order: any): 'pending' | 'successful' | 'failed' {
+  const raw = String(order?.status || '').toLowerCase();
+  if (raw === 'paid' || raw === 'success' || raw === 'settled' || raw === 'successful') {
+    return 'successful';
+  }
+  if (raw === 'expired' || raw === 'failed' || raw === 'cancelled' || raw === 'cancel') {
+    return 'failed';
+  }
+  if (order?.expiresAt && Date.now() > order.expiresAt) {
+    return 'failed';
+  }
+  return 'pending';
+}
 
 function getInstanpayConfig() {
   const defaults = {
@@ -3188,6 +3242,7 @@ app.post('/api/instanpay/create-qris', async (req: Request, res: Response) => {
     if (txnId) {
       instanpayOrders.set(String(txnId), orderRecord);
     }
+    persistTransactions();
 
     const finalQrData = qrisString || paymentUrl || checkoutUrl;
 
@@ -3217,6 +3272,236 @@ app.post('/api/instanpay/create-qris', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     return res.status(500).json({ success: false, error: error?.message || 'Internal server error' });
+  }
+});
+
+// Riwayat Transaksi QRIS (Payment History)
+app.get('/api/instanpay/history', async (req: Request, res: Response) => {
+  try {
+    const { ref_id, status } = req.query as { ref_id?: string; status?: string };
+    const uniqueMap = new Map<string, any>();
+    for (const [, val] of instanpayOrders.entries()) {
+      const id = val?.orderId || val?.ref_id;
+      if (id && !uniqueMap.has(id)) {
+        uniqueMap.set(id, val);
+      }
+    }
+
+    let list = Array.from(uniqueMap.values()).map((order) => {
+      const normalized = normalizeStatus(order);
+      return {
+        ref_id: order.orderId || order.ref_id,
+        orderId: order.orderId || order.ref_id,
+        txnId: order.txnId || null,
+        amount: order.amount || 0,
+        uniqueAmount: order.uniqueAmount || order.amount || 0,
+        fee: order.fee || 0,
+        plan: order.plan || 'annual',
+        customerName: order.customerName || 'Pelanggan Hidup Sehat',
+        customerEmail: order.customerEmail || '',
+        status: normalized, // 'pending' | 'successful' | 'failed'
+        rawStatus: order.status || 'pending',
+        createdAt: order.createdAt || Date.now(),
+        paidAt: order.paidAt || null,
+        expiresAt: order.expiresAt || null,
+        paymentUrl: order.paymentUrl || order.checkoutUrl || '',
+        checkoutUrl: order.checkoutUrl || order.paymentUrl || '',
+        simulateUrl: order.simulateUrl || '',
+        mode: order.mode || 'sandbox',
+        qrisString: order.qrisString || '',
+      };
+    });
+
+    if (ref_id) {
+      const q = String(ref_id).trim().toLowerCase();
+      list = list.filter((t) => t.ref_id.toLowerCase().includes(q));
+    }
+
+    if (status && status !== 'all') {
+      const st = String(status).trim().toLowerCase();
+      list = list.filter((t) => t.status.toLowerCase() === st);
+    }
+
+    list.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+    return res.json({
+      success: true,
+      count: list.length,
+      transactions: list,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || 'Gagal memuat riwayat pembayaran' });
+  }
+});
+
+// Cek status spesifik berdasarkan ref_id
+app.get('/api/instanpay/status/:ref_id', async (req: Request, res: Response) => {
+  try {
+    const { ref_id } = req.params;
+    if (!ref_id) {
+      return res.status(400).json({ success: false, error: 'ref_id wajib diisi' });
+    }
+
+    let order = instanpayOrders.get(ref_id) || instanpayOrders.get(String(ref_id));
+    const serverConfig = getInstanpayConfig();
+    const activeApiKey =
+      (serverConfig?.mode === 'live' ? serverConfig?.liveApiKey : serverConfig?.sandboxApiKey) ||
+      order?.apiKeyUsed ||
+      DEFAULT_INSTANPAY_API_KEY;
+
+    if (order?.txnId && activeApiKey) {
+      try {
+        const liveCheckRes = await fetch(`https://pay.instanlive.id/api/v1/transaction/status/${order.txnId}`, {
+          method: 'GET',
+          headers: { 'X-Api-Key': activeApiKey },
+        });
+        if (liveCheckRes.ok) {
+          const liveData = await liveCheckRes.json();
+          const txnData = liveData?.data || liveData;
+          const liveStatus = (txnData?.status || '').toLowerCase();
+          if (liveStatus === 'paid' || liveStatus === 'success' || liveStatus === 'settled') {
+            order.status = 'paid';
+            order.paidAt = order.paidAt || (txnData?.paid_at ? new Date(txnData.paid_at).getTime() : Date.now());
+            persistTransactions();
+          } else if (liveStatus === 'expired' || liveStatus === 'failed' || liveStatus === 'cancel') {
+            order.status = 'failed';
+            persistTransactions();
+          }
+        }
+      } catch (e) {
+        console.warn('Live status check error in /status/:ref_id:', e);
+      }
+    } else if (!order && activeApiKey) {
+      // Jika order belum tersimpan lokal, coba periksa langsung ke InstanLive API
+      try {
+        const cleanRef = ref_id.trim();
+        const isNumeric = /^\d+$/.test(cleanRef);
+        if (isNumeric) {
+          const directCheckRes = await fetch(`https://pay.instanlive.id/api/v1/transaction/status/${cleanRef}`, {
+            method: 'GET',
+            headers: { 'X-Api-Key': activeApiKey },
+          });
+          if (directCheckRes.ok) {
+            const rawJson = await directCheckRes.json();
+            const liveData = rawJson?.data || rawJson;
+            if (liveData?.ref_id || liveData?.txn_id) {
+              const createdTimestamp = liveData?.created_at ? new Date(liveData.created_at).getTime() : Date.now();
+              const paidTimestamp = liveData?.paid_at ? new Date(liveData.paid_at).getTime() : null;
+              order = {
+                orderId: liveData.ref_id || String(liveData.txn_id),
+                ref_id: liveData.ref_id || String(liveData.txn_id),
+                txnId: liveData.txn_id || Number(cleanRef),
+                amount: liveData.amount || 25000,
+                uniqueAmount: liveData.unique_amount || liveData.amount || 25000,
+                fee: liveData.fee || 0,
+                plan: 'annual',
+                customerName: 'Pelanggan QRIS',
+                customerEmail: '',
+                status: liveData.status || 'pending',
+                createdAt: createdTimestamp,
+                paidAt: paidTimestamp,
+                expiresAt: liveData?.expired_at ? new Date(liveData.expired_at).getTime() : Date.now() + 1800000,
+                paymentUrl: liveData.payment_url || '',
+                checkoutUrl: liveData.payment_url || '',
+                simulateUrl: liveData.simulate_url || '',
+                mode: liveData.mode || 'sandbox',
+                qrisString: liveData.qris_string || '',
+                apiKeyUsed: activeApiKey,
+              };
+              instanpayOrders.set(order.orderId, order);
+              if (order.txnId) {
+                instanpayOrders.set(String(order.txnId), order);
+              }
+              persistTransactions();
+            }
+          }
+        } else {
+          // Idempotent create / query ke pay.instanlive.id
+          const idempotentRes = await fetch('https://pay.instanlive.id/api/v1/transaction/create', {
+            method: 'POST',
+            headers: {
+              'X-Api-Key': activeApiKey,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              ref_id: cleanRef,
+              amount: 25000,
+            }),
+          });
+          if (idempotentRes.ok) {
+            const rawJson = await idempotentRes.json();
+            const liveData = rawJson?.data || rawJson;
+            if (liveData?.ref_id || liveData?.txn_id) {
+              const createdTimestamp = liveData?.created_at ? new Date(liveData.created_at).getTime() : Date.now();
+              const paidTimestamp = liveData?.paid_at ? new Date(liveData.paid_at).getTime() : null;
+              order = {
+                orderId: liveData.ref_id || cleanRef,
+                ref_id: liveData.ref_id || cleanRef,
+                txnId: liveData.txn_id || null,
+                amount: liveData.amount || 25000,
+                uniqueAmount: liveData.unique_amount || liveData.amount || 25000,
+                fee: liveData.fee || 0,
+                plan: 'annual',
+                customerName: 'Pelanggan QRIS',
+                customerEmail: '',
+                status: liveData.status || 'pending',
+                createdAt: createdTimestamp,
+                paidAt: paidTimestamp,
+                expiresAt: liveData?.expired_at ? new Date(liveData.expired_at).getTime() : Date.now() + 1800000,
+                paymentUrl: liveData.payment_url || '',
+                checkoutUrl: liveData.payment_url || '',
+                simulateUrl: liveData.simulate_url || '',
+                mode: liveData.mode || 'sandbox',
+                qrisString: liveData.qris_string || '',
+                apiKeyUsed: activeApiKey,
+              };
+              instanpayOrders.set(order.orderId, order);
+              if (order.txnId) {
+                instanpayOrders.set(String(order.txnId), order);
+              }
+              persistTransactions();
+            }
+          }
+        }
+      } catch (errApi) {
+        console.warn('Gagal mencari transaksi di InstanLive API:', errApi);
+      }
+    }
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        error: `Transaksi dengan ref_id "${ref_id}" tidak ditemukan.`,
+      });
+    }
+
+    const normalized = normalizeStatus(order);
+    return res.json({
+      success: true,
+      transaction: {
+        ref_id: order.orderId || order.ref_id,
+        orderId: order.orderId || order.ref_id,
+        txnId: order.txnId || null,
+        amount: order.amount || 0,
+        uniqueAmount: order.uniqueAmount || order.amount || 0,
+        fee: order.fee || 0,
+        plan: order.plan || 'annual',
+        customerName: order.customerName || 'Pelanggan Hidup Sehat',
+        customerEmail: order.customerEmail || '',
+        status: normalized, // 'pending' | 'successful' | 'failed'
+        rawStatus: order.status || 'pending',
+        createdAt: order.createdAt || Date.now(),
+        paidAt: order.paidAt || null,
+        expiresAt: order.expiresAt || null,
+        paymentUrl: order.paymentUrl || order.checkoutUrl || '',
+        checkoutUrl: order.checkoutUrl || order.paymentUrl || '',
+        simulateUrl: order.simulateUrl || '',
+        mode: order.mode || 'sandbox',
+        qrisString: order.qrisString || '',
+      },
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message });
   }
 });
 
@@ -3348,6 +3633,7 @@ app.post('/api/instanpay/simulate-payment', async (req: Request, res: Response) 
         paidAt: Date.now(),
       });
     }
+    persistTransactions();
 
     return res.json({
       success: true,
@@ -3418,6 +3704,7 @@ const universalWebhookHandler = async (req: Request, res: Response) => {
         webhookPayload: payload,
       });
     }
+    persistTransactions();
 
     return res.status(200).json({
       success: true,

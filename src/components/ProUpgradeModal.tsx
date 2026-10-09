@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useHealth } from '../context/HealthContext';
-import { Sparkles, FileText, Cloud, Crown, X, Star, QrCode, ArrowLeft, CheckCircle2, Salad, Navigation, Gift, Clock, Zap, Trophy, Droplet, Bluetooth, MessageSquare, AlertTriangle, Building } from 'lucide-react';
+import { Sparkles, FileText, Cloud, Crown, X, Star, QrCode, ArrowLeft, CheckCircle2, Salad, Navigation, Gift, Clock, Zap, Trophy, Droplet, Bluetooth, MessageSquare, AlertTriangle, Building, Receipt } from 'lucide-react';
 import { createClientQrisPayload } from '../utils/qrisGenerator';
 
 interface ProUpgradeModalProps {
@@ -19,6 +19,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
     upgradeToPro,
     profile,
     setIsTumblerModalOpen,
+    setIsPaymentHistoryOpen,
   } = useHealth();
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>('annual');
   const [step, setStep] = useState<'plans' | 'instapay_qris' | 'success'>('plans');
@@ -421,6 +422,17 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
                       <span>⚡ Uji Coba Bayar QRIS Selesai (Sandbox Simulator)</span>
                     </button>
                   )}
+
+                  <button
+                    onClick={() => {
+                      onClose();
+                      setIsPaymentHistoryOpen(true);
+                    }}
+                    className="w-full py-2.5 rounded-2xl bg-slate-900 border border-slate-750 hover:bg-slate-800 text-cyan-300 hover:text-cyan-200 font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                  >
+                    <Receipt className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Lihat Riwayat Pembayaran & Cek Status (Ref ID: {qrisData?.orderId})</span>
+                  </button>
                 </div>
               </div>
             ) : (
@@ -683,6 +695,19 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
             >
               <QrCode className="w-5 h-5" />
               <span>{isLoadingQris ? 'Memproses QRIS iPaymu...' : 'Bayar dengan iPaymu / InstantPay QRIS'}</span>
+            </button>
+
+            {/* Link to Payment History Modal */}
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                setIsPaymentHistoryOpen(true);
+              }}
+              className="w-full py-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-300 hover:text-white text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Receipt className="w-3.5 h-3.5 text-cyan-400" />
+              <span>Sudah bayar? Cek Riwayat Pembayaran & Status Ref ID</span>
             </button>
 
             <p className="text-[10px] text-center text-slate-500">
