@@ -131,9 +131,7 @@ export function generateNationalQRIS(options: {
 
   payload += formatTag('52', '8099');
   payload += formatTag('53', '360');
-
-  const amountStr = Math.round(amount).toString();
-  payload += formatTag('54', amountStr);
+  payload += formatTag('54', Math.round(amount).toString());
   payload += formatTag('58', 'ID');
   payload += formatTag('59', merchantName.slice(0, 25).toUpperCase());
   payload += formatTag('60', merchantCity.slice(0, 15).toUpperCase());
@@ -146,6 +144,5 @@ export function generateNationalQRIS(options: {
 
   const dataForCrc = payload + '6304';
   const crc = calculateCRC16(dataForCrc);
-
   return dataForCrc + crc;
 }
