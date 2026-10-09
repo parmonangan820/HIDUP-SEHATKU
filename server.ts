@@ -290,42 +290,13 @@ app.delete('/api/supabase/config', async (_req: Request, res: Response) => {
   }
 });
 
-// Ambil seluruh akun terdaftar untuk fitur Switch / Ganti Akun & Login
+// Ambil akun terdaftar - dilindungi demi privasi agar daftar akun tidak muncul di publik
 app.get('/api/accounts', async (_req: Request, res: Response) => {
-  const supabase = getSupabaseClient();
-  if (!supabase) {
-    return res.json({ configured: false, accounts: [] });
-  }
-
-  try {
-    const { data: profiles, error } = await supabase
-      .from('profiles')
-      .select('id, name, phone, age, gender, weight, height, target_water_ml, daily_workout_minutes_target, is_registered, created_at')
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-
-    const accounts = (profiles || []).map((p: any) => ({
-      id: p.id,
-      name: p.name || 'Pengguna Hidup Sehat',
-      phone: p.phone || '-',
-      age: p.age || 25,
-      gender: p.gender || 'pria',
-      weight: p.weight || 60,
-      height: p.height || 165,
-      targetWaterMl: p.target_water_ml || 2100,
-      dailyWorkoutMinutesTarget: p.daily_workout_minutes_target || 30,
-      isRegistered: Boolean(p.is_registered),
-      createdAt: p.created_at,
-    }));
-
-    return res.json({ configured: true, accounts });
-  } catch (err: any) {
-    return res.status(500).json({ error: err?.message || 'Gagal memuat akun' });
-  }
+  // Akun tersimpan privat di Supabase dan tidak dimunculkan sebagai daftar publik di aplikasi
+  return res.json({ configured: true, accounts: [] });
 });
 
-// Login / Pindah ke akun tertentu (berdasarkan profileId atau Nomor HP / Nama)
+// Login ke akun tertentu (berdasarkan profileId atau Nomor HP / Email / Nama)
 app.post('/api/accounts/login', async (req: Request, res: Response) => {
   const supabase = getSupabaseClient();
   const { profileId, identifier } = req.body || {};
@@ -335,18 +306,35 @@ app.post('/api/accounts/login', async (req: Request, res: Response) => {
   }
 
   try {
-    let query = supabase.from('profiles').select('*');
+    let profiles: any[] | null = null;
     if (profileId) {
-      query = query.eq('id', profileId);
+      const res = await supabase.from('profiles').select('*').eq('id', profileId).limit(1);
+      profiles = res.data;
     } else if (identifier) {
       const clean = String(identifier).trim();
-      query = query.or(`phone.eq.${clean},name.ilike.%${clean}%`);
-    } else {
-      return res.status(400).json({ success: false, message: 'ID akun atau nomor telepon wajib diisi.' });
-    }
+      if (clean.includes('@')) {
+        // Coba cari berdasarkan email jika kolom tersedia
+        try {
+          const emailCheck = await supabase.from('profiles').select('*').eq('email', clean).limit(1);
+          if (emailCheck.data && emailCheck.data.length > 0) {
+            profiles = emailCheck.data;
+          }
+        } catch (e) {
+          // Abaikan jika kolom email belum ada
+        }
 
-    const { data: profiles, error } = await query.limit(1);
-    if (error) throw error;
+        if (!profiles || profiles.length === 0) {
+          const username = clean.split('@')[0];
+          const query = await supabase.from('profiles').select('*').or(`name.ilike.%${username}%,phone.eq.${clean}`).limit(1);
+          profiles = query.data;
+        }
+      } else {
+        const query = await supabase.from('profiles').select('*').or(`phone.eq.${clean},name.ilike.%${clean}%`).limit(1);
+        profiles = query.data;
+      }
+    } else {
+      return res.status(400).json({ success: false, message: 'Email atau nomor telepon wajib diisi.' });
+    }
 
     if (!profiles || profiles.length === 0) {
       return res.status(404).json({

@@ -647,6 +647,7 @@ export function extractAccurateVoiceIntent(rawText: string, currentOriginFallbac
 
   let extractedOrigin = '';
   let extractedDestination = '';
+  let hasExplicitOrigin = false;
 
   // Pattern 1: Reverse order: "Mau ke [B] dari [A]" or "Ke [B] dari [A]" or "Tolong antar ke [B] dari [A]"
   const patternRev =
@@ -655,6 +656,7 @@ export function extractAccurateVoiceIntent(rawText: string, currentOriginFallbac
   if (mRev) {
     extractedDestination = cleanPlaceName(mRev[1]);
     extractedOrigin = cleanPlaceName(mRev[2]);
+    hasExplicitOrigin = true;
   }
 
   // Pattern 2: Normal order: "Dari [A] mau ke / menuju / ke / sampai [B]" or "(Saya) dari [A] ke [B]"
@@ -665,6 +667,7 @@ export function extractAccurateVoiceIntent(rawText: string, currentOriginFallbac
     if (mNormal) {
       extractedOrigin = cleanPlaceName(mNormal[1]);
       extractedDestination = cleanPlaceName(mNormal[2]);
+      hasExplicitOrigin = true;
     }
   }
 
@@ -677,6 +680,7 @@ export function extractAccurateVoiceIntent(rawText: string, currentOriginFallbac
     if (mDest) {
       extractedDestination = cleanPlaceName(mDest[1]);
       extractedOrigin = '';
+      hasExplicitOrigin = false;
     }
   }
 
@@ -691,8 +695,10 @@ export function extractAccurateVoiceIntent(rawText: string, currentOriginFallbac
       if (candA) {
         extractedOrigin = candA;
         extractedDestination = candB;
+        hasExplicitOrigin = true;
       } else {
         extractedDestination = candB;
+        hasExplicitOrigin = false;
       }
     }
   }
@@ -700,6 +706,7 @@ export function extractAccurateVoiceIntent(rawText: string, currentOriginFallbac
   // Pattern 5: Fallback if destination still empty, take entire clean text as destination
   if (!extractedDestination) {
     extractedDestination = cleanPlaceName(cleanText);
+    hasExplicitOrigin = false;
   }
 
   extractedOrigin = cleanPlaceName(extractedOrigin);
@@ -712,8 +719,10 @@ export function extractAccurateVoiceIntent(rawText: string, currentOriginFallbac
   if (extractedOrigin) extractedOrigin = capitalizeWords(extractedOrigin);
   if (extractedDestination) extractedDestination = capitalizeWords(extractedDestination);
 
+  let finalOrigin = (hasExplicitOrigin && extractedOrigin) ? extractedOrigin : 'Lokasi Saya';
+
   return {
-    origin: extractedOrigin || currentOriginFallback || 'Lokasi Saya',
+    origin: finalOrigin,
     destination: extractedDestination,
     mode,
   };

@@ -1113,16 +1113,12 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [registeredAccounts, setRegisteredAccounts] = useState<AccountSummary[]>([]);
 
   const loadRegisteredAccounts = async () => {
-    try {
-      const accs = await fetchRegisteredAccounts();
-      setRegisteredAccounts(accs);
-    } catch (e) {
-      console.error('Error fetching accounts:', e);
-    }
+    // Akun tersimpan aman di database Supabase dan tidak dimunculkan sebagai daftar publik di aplikasi
+    setRegisteredAccounts([]);
   };
 
   useEffect(() => {
-    loadRegisteredAccounts();
+    // Tidak memuat daftar akun ke frontend demi privasi dan keamanan pengguna
   }, []);
 
   const loginWithAccount = async (params: { profileId?: string; identifier?: string }) => {

@@ -1,23 +1,18 @@
 import React, { useState } from 'react';
 import { useHealth } from '../context/HealthContext';
-import { AccountSummary } from '../services/accountService';
 import { signInWithSupabase } from '../services/supabaseService';
 import {
-  Users,
-  UserCheck,
-  UserPlus,
   LogIn,
-  LogOut,
+  ShieldCheck,
   Phone,
   Mail,
   Lock,
-  Droplets,
-  Flame,
+  Eye,
+  EyeOff,
   CheckCircle2,
   AlertCircle,
   X,
-  Search,
-  ArrowRight,
+  UserPlus,
   RefreshCw,
   Sparkles,
 } from 'lucide-react';
@@ -29,150 +24,210 @@ interface AccountSwitchModalProps {
 
 export const AccountSwitchModal: React.FC<AccountSwitchModalProps> = ({ onOpenRegister }) => {
   const {
-    profile,
     isAccountModalOpen,
     setIsAccountModalOpen,
-    registeredAccounts,
-    loadRegisteredAccounts,
-    switchAccount,
     loginWithAccount,
-    logoutAccount,
   } = useHealth();
 
-  const [activeTab, setActiveTab] = useState<'switch' | 'login'>('switch');
+  const [loginMethod, setLoginMethod] = useState<'email' | 'phone'>('email');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
 
   if (!isAccountModalOpen) return null;
 
-  const handleSelectAccount = async (acc: AccountSummary) => {
-    if (acc.id === profile.id) {
-      setFeedback({ type: 'success', message: 'Anda sudah berada di akun ini.' });
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanEmail = email.trim();
+    const cleanPassword = password.trim();
+
+    if (!cleanEmail || !cleanPassword) {
+      setFeedback({ type: 'error', message: 'Email dan password wajib diisi.' });
       return;
     }
 
     setLoading(true);
     setFeedback(null);
-    const res = await switchAccount(acc);
-    setLoading(false);
 
-    if (res.success) {
-      setFeedback({ type: 'success', message: `Berhasil beralih ke akun ${acc.name}!` });
-      try {
-        confetti({
-          particleCount: 50,
-          spread: 60,
-          origin: { y: 0.6 },
+    try {
+      // 1. Coba autentikasi resmi Supabase Auth
+      const authRes = await signInWithSupabase(cleanEmail, cleanPassword);
+
+      // 2. Ambil profil & riwayat pengguna dari Supabase
+      const loginRes = await loginWithAccount({ identifier: cleanEmail });
+
+      if (authRes.success || loginRes.success) {
+        setFeedback({
+          type: 'success',
+          message: loginRes.message || 'Login berhasil! Selamat datang kembali.',
         });
-      } catch (e) {
-        // ignore
+
+        try {
+          confetti({
+            particleCount: 60,
+            spread: 60,
+            origin: { y: 0.6 },
+          });
+        } catch (e) {
+          // ignore
+        }
+
+        setTimeout(() => {
+          setIsAccountModalOpen(false);
+          setFeedback(null);
+          setPassword('');
+        }, 800);
+      } else {
+        setFeedback({
+          type: 'error',
+          message: authRes.message || loginRes.message || 'Email atau password salah. Pastikan akun sudah terdaftar.',
+        });
       }
-      setTimeout(() => {
-        setIsAccountModalOpen(false);
-      }, 700);
-    } else {
-      setFeedback({ type: 'error', message: res.message });
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err?.message || 'Terjadi kesalahan saat memproses login.',
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleLoginSubmit = async (e: React.FormEvent) => {
+  const handlePhoneLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim() || !password.trim()) return;
+    const cleanPhone = phone.trim();
+
+    if (!cleanPhone) {
+      setFeedback({ type: 'error', message: 'Nomor telepon wajib diisi.' });
+      return;
+    }
 
     setLoading(true);
     setFeedback(null);
-    const res = await signInWithSupabase(email.trim(), password.trim());
-    setLoading(false);
 
-    if (res.success) {
-      setFeedback({ type: 'success', message: 'Login Supabase Berhasil! Selamat datang.' });
-      try {
-        confetti({
-          particleCount: 50,
-          spread: 60,
-          origin: { y: 0.6 },
+    try {
+      const res = await loginWithAccount({ identifier: cleanPhone });
+
+      if (res.success) {
+        setFeedback({
+          type: 'success',
+          message: res.message || 'Login berhasil! Selamat datang kembali.',
         });
-      } catch (e) {
-        // ignore
+
+        try {
+          confetti({
+            particleCount: 60,
+            spread: 60,
+            origin: { y: 0.6 },
+          });
+        } catch (e) {
+          // ignore
+        }
+
+        setTimeout(() => {
+          setIsAccountModalOpen(false);
+          setFeedback(null);
+          setPassword('');
+        }, 800);
+      } else {
+        setFeedback({
+          type: 'error',
+          message: res.message || 'Akun dengan nomor HP tersebut tidak ditemukan di Supabase. Silakan daftar baru.',
+        });
       }
-      setTimeout(() => {
-        setIsAccountModalOpen(false);
-      }, 700);
-    } else {
-      setFeedback({ type: 'error', message: res.message });
+    } catch (err: any) {
+      setFeedback({
+        type: 'error',
+        message: err?.message || 'Gagal masuk dengan nomor telepon.',
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
-  const filteredAccounts = registeredAccounts.filter((acc) => {
-    const q = searchQuery.toLowerCase();
-    return acc.name.toLowerCase().includes(q) || acc.phone.toLowerCase().includes(q);
-  });
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in">
-      <div className="w-full max-w-md max-h-[90vh] rounded-3xl bg-slate-900 border border-slate-800 p-5 shadow-2xl relative flex flex-col overflow-hidden">
+      <div className="w-full max-w-md max-h-[92vh] rounded-3xl bg-slate-900 border border-slate-800 p-5 sm:p-6 shadow-2xl relative flex flex-col overflow-hidden">
         {/* Close Button */}
         <button
           onClick={() => {
             setIsAccountModalOpen(false);
             setFeedback(null);
           }}
-          className="absolute top-4 right-4 p-1.5 rounded-full bg-slate-800 text-slate-400 hover:text-white transition-colors"
+          className="absolute top-4 right-4 p-2 rounded-full bg-slate-800 text-slate-400 hover:text-white transition-colors"
+          title="Tutup Modal"
         >
           <X className="w-4 h-4" />
         </button>
 
         {/* Modal Header */}
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 p-[2px] shadow-lg shadow-cyan-500/20 flex-shrink-0">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-cyan-500 to-blue-600 p-[2px] shadow-lg shadow-cyan-500/20 flex-shrink-0">
             <div className="w-full h-full rounded-2xl bg-slate-900 flex items-center justify-center text-cyan-300">
-              <Users className="w-5 h-5" />
+              <LogIn className="w-6 h-6 stroke-[2.2]" />
             </div>
           </div>
           <div>
-            <h3 className="text-base font-extrabold text-white">Ganti Akun & Masuk</h3>
+            <h3 className="text-base sm:text-lg font-extrabold text-white">Masuk ke Akun</h3>
             <p className="text-xs text-slate-400">
-              Pilih akun yang sudah terdaftar atau masuk dengan nomor telepon
+              Masukkan kredensial akun terdaftar Anda untuk memuat profil kesehatan.
             </p>
           </div>
         </div>
 
-        {/* Tab Selector */}
-        <div className="grid grid-cols-2 gap-1 p-1 bg-slate-950 rounded-2xl border border-slate-800 mb-4 text-xs font-bold">
+        {/* Privacy & Security Notice Banner */}
+        <div className="p-3 rounded-2xl bg-slate-950/90 border border-cyan-500/20 mb-4 flex items-start gap-2.5">
+          <ShieldCheck className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
+          <div className="text-[11px] text-slate-300 leading-relaxed">
+            <span className="font-bold text-white">Privasi Akun Terlindungi: </span>
+            Daftar akun pengguna tersimpan aman di database Supabase dan tidak dimunculkan ke publik agar akun Anda tidak dapat diakses orang lain.
+          </div>
+        </div>
+
+        {/* Tab Switcher: Email vs Phone */}
+        <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-950 rounded-2xl border border-slate-800 mb-4 text-xs font-bold">
           <button
-            onClick={() => setActiveTab('switch')}
+            type="button"
+            onClick={() => {
+              setLoginMethod('email');
+              setFeedback(null);
+            }}
             className={`py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all ${
-              activeTab === 'switch'
+              loginMethod === 'email'
                 ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 shadow-md shadow-cyan-500/20'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            <Users className="w-3.5 h-3.5" />
-            <span>Pilih Akun ({registeredAccounts.length})</span>
+            <Mail className="w-3.5 h-3.5" />
+            <span>Email & Password</span>
           </button>
           <button
-            onClick={() => setActiveTab('login')}
+            type="button"
+            onClick={() => {
+              setLoginMethod('phone');
+              setFeedback(null);
+            }}
             className={`py-2 rounded-xl flex items-center justify-center gap-1.5 transition-all ${
-              activeTab === 'login'
+              loginMethod === 'phone'
                 ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 shadow-md shadow-cyan-500/20'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            <LogIn className="w-3.5 h-3.5" />
-            <span>Masuk No. HP / Nama</span>
+            <Phone className="w-3.5 h-3.5" />
+            <span>Nomor Telepon</span>
           </button>
         </div>
 
-        {/* Feedback message */}
+        {/* Feedback Alert */}
         {feedback && (
           <div
             className={`p-3 rounded-2xl text-xs mb-3 flex items-start gap-2 animate-in fade-in ${
               feedback.type === 'success'
-                ? 'bg-emerald-950/40 border border-emerald-500/30 text-emerald-300'
-                : 'bg-rose-950/40 border border-rose-500/30 text-rose-300'
+                ? 'bg-emerald-950/50 border border-emerald-500/30 text-emerald-300'
+                : 'bg-rose-950/50 border border-rose-500/30 text-rose-300'
             }`}
           >
             {feedback.type === 'success' ? (
@@ -184,123 +239,10 @@ export const AccountSwitchModal: React.FC<AccountSwitchModalProps> = ({ onOpenRe
           </div>
         )}
 
-        {/* Content Body */}
-        <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-          {/* TAB 1: SWITCH AKUN DARI DAFTAR */}
-          {activeTab === 'switch' && (
-            <div className="space-y-3">
-              {/* Search filter if more than 3 accounts */}
-              {registeredAccounts.length > 3 && (
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Cari akun..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white focus:outline-none focus:border-cyan-500"
-                  />
-                  <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5" />
-                </div>
-              )}
-
-              {registeredAccounts.length === 0 ? (
-                <div className="text-center py-8 p-4 rounded-2xl bg-slate-950/50 border border-slate-800">
-                  <Users className="w-8 h-8 text-slate-600 mx-auto mb-2" />
-                  <p className="text-xs font-bold text-slate-300">Belum ada akun lain di database</p>
-                  <p className="text-[11px] text-slate-500 mt-1">
-                    Buat akun baru untuk memulai profil kesehatan terpisah.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {filteredAccounts.map((acc) => {
-                    const isCurrent = acc.id === profile.id || (!profile.id && acc.name === profile.name);
-
-                    return (
-                      <div
-                        key={acc.id}
-                        className={`p-3 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
-                          isCurrent
-                            ? 'bg-cyan-950/30 border-cyan-500/40 ring-1 ring-cyan-500/30'
-                            : 'bg-slate-950/80 border-slate-800 hover:border-slate-700'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="w-9 h-9 rounded-2xl bg-slate-900 border border-slate-750 flex items-center justify-center text-cyan-300 font-extrabold text-sm flex-shrink-0">
-                            {acc.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-xs font-bold text-white truncate">{acc.name}</span>
-                              {isCurrent && (
-                                <span className="text-[9px] px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 font-bold">
-                                  Aktif
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 text-[10px] text-slate-400 mt-0.5">
-                              {acc.phone && acc.phone !== '-' && (
-                                <span className="font-mono">{acc.phone}</span>
-                              )}
-                              <span>•</span>
-                              <span className="text-cyan-400 font-medium">{acc.targetWaterMl} ml</span>
-                              <span>•</span>
-                              <span className="text-emerald-400 font-medium">{acc.dailyWorkoutMinutesTarget} mnt</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div>
-                          {isCurrent ? (
-                            <span className="text-[11px] text-cyan-400 font-bold px-2 py-1 rounded-lg bg-cyan-500/10">
-                              ✓ Sedang Digunakan
-                            </span>
-                          ) : (
-                            <button
-                              onClick={() => handleSelectAccount(acc)}
-                              disabled={loading}
-                              className="py-1.5 px-3 rounded-xl bg-slate-800 hover:bg-cyan-500 hover:text-slate-950 text-slate-200 text-xs font-bold transition-all flex items-center gap-1 disabled:opacity-50"
-                            >
-                              <span>Pilih</span>
-                              <ArrowRight className="w-3 h-3" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Action Buttons: Buat Akun Baru / Muat Ulang */}
-              <div className="pt-2 flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsAccountModalOpen(false);
-                    onOpenRegister();
-                  }}
-                  className="flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 text-slate-950 text-xs font-extrabold flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/20 hover:brightness-110 active:scale-95 transition-all"
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>Buat Akun Baru</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={loadRegisteredAccounts}
-                  className="p-2.5 rounded-xl bg-slate-800 text-slate-300 hover:text-white"
-                  title="Muat Ulang Akun"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 2: FORM MASUK / LOGIN DENGAN EMAIL & PASSWORD SUPABASE */}
-          {activeTab === 'login' && (
-            <form onSubmit={handleLoginSubmit} className="space-y-3.5 p-1">
+        {/* Content / Login Forms */}
+        <div className="flex-1 overflow-y-auto pr-0.5 space-y-4">
+          {loginMethod === 'email' ? (
+            <form onSubmit={handleEmailLogin} className="space-y-3.5">
               <div>
                 <label className="text-xs font-semibold text-slate-300 block mb-1">
                   Email Akun Terdaftar <span className="text-cyan-400">*</span>
@@ -312,7 +254,7 @@ export const AccountSwitchModal: React.FC<AccountSwitchModalProps> = ({ onOpenRe
                     placeholder="namaanda@gmail.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 font-medium"
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-950 border border-slate-750 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 font-medium"
                   />
                   <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
                 </div>
@@ -320,33 +262,41 @@ export const AccountSwitchModal: React.FC<AccountSwitchModalProps> = ({ onOpenRe
 
               <div>
                 <label className="text-xs font-semibold text-slate-300 block mb-1">
-                  Password <span className="text-cyan-400">*</span>
+                  Password Login <span className="text-cyan-400">*</span>
                 </label>
                 <div className="relative">
                   <input
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     required
                     placeholder="Masukkan password Anda"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 font-medium"
+                    className="w-full pl-9 pr-10 py-2.5 rounded-xl bg-slate-950 border border-slate-750 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 font-medium"
                   />
                   <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-3 text-slate-500 hover:text-slate-300"
+                    title={showPassword ? 'Sembunyikan password' : 'Tampilkan password'}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
                 </div>
                 <p className="text-[10px] text-slate-500 mt-1">
-                  Masuk menggunakan kredensial Supabase Auth terdaftar.
+                  Kredensial Anda dienkripsi secara aman melalui Supabase Auth.
                 </p>
               </div>
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-cyan-500/20 hover:brightness-110 active:scale-95 disabled:opacity-50 transition-all"
+                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-cyan-500/20 hover:brightness-110 active:scale-95 disabled:opacity-50 transition-all cursor-pointer"
               >
                 {loading ? (
                   <>
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Autentikasi Supabase Auth...</span>
+                    <span>Memverifikasi Akun di Supabase...</span>
                   </>
                 ) : (
                   <>
@@ -355,23 +305,70 @@ export const AccountSwitchModal: React.FC<AccountSwitchModalProps> = ({ onOpenRe
                   </>
                 )}
               </button>
-
-              <div className="pt-2 text-center">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsAccountModalOpen(false);
-                    onOpenRegister();
-                  }}
-                  className="text-xs text-cyan-400 hover:underline font-semibold"
-                >
-                  Belum punya akun? Buat Akun Baru
-                </button>
+            </form>
+          ) : (
+            <form onSubmit={handlePhoneLogin} className="space-y-3.5">
+              <div>
+                <label className="text-xs font-semibold text-slate-300 block mb-1">
+                  Nomor HP / WhatsApp Terdaftar <span className="text-cyan-400">*</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="tel"
+                    required
+                    placeholder="Contoh: 085760525942"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-950 border border-slate-750 text-xs text-white placeholder:text-slate-500 focus:outline-none focus:border-cyan-500 font-medium"
+                  />
+                  <Phone className="w-4 h-4 text-slate-500 absolute left-3 top-3" />
+                </div>
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Masukkan nomor telepon yang digunakan saat mendaftar akun di aplikasi ini.
+                </p>
               </div>
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-cyan-500/20 hover:brightness-110 active:scale-95 disabled:opacity-50 transition-all cursor-pointer"
+              >
+                {loading ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Mencari Profil di Supabase...</span>
+                  </>
+                ) : (
+                  <>
+                    <LogIn className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <span>Masuk dengan Nomor HP</span>
+                  </>
+                )}
+              </button>
             </form>
           )}
+
+          {/* Action to Register New Account */}
+          <div className="pt-2 border-t border-slate-800/80 text-center space-y-2">
+            <p className="text-xs text-slate-400">
+              Belum memiliki akun kesehatan terdaftar?
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                setIsAccountModalOpen(false);
+                onOpenRegister();
+              }}
+              className="w-full py-2 px-3 rounded-xl bg-slate-800 hover:bg-slate-750 text-cyan-400 hover:text-cyan-300 text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
+            >
+              <UserPlus className="w-3.5 h-3.5" />
+              <span>Buat Akun Baru Sekarang</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
   );
 };
+
+export const LoginModal = AccountSwitchModal;

@@ -32,48 +32,9 @@ function getDirectClient() {
 }
 
 export async function fetchRegisteredAccounts(): Promise<AccountSummary[]> {
-  // 1. Try backend API first
-  try {
-    const res = await fetch('/api/accounts');
-    if (res.ok) {
-      const data = await res.json();
-      if (data.configured && data.accounts) {
-        return data.accounts;
-      }
-    }
-  } catch (err) {
-    // try direct client fallback
-  }
-
-  // 2. Direct client fallback (for cross-browser sync & Vercel)
-  const client = getDirectClient();
-  if (!client) return [];
-
-  try {
-    const { data: profiles, error } = await client
-      .from('profiles')
-      .select('id, name, phone, age, gender, weight, height, target_water_ml, daily_workout_minutes_target, is_registered, created_at')
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-
-    return (profiles || []).map((p: any) => ({
-      id: p.id,
-      name: p.name || 'Pengguna Hidup Sehat',
-      phone: p.phone || '-',
-      age: p.age || 25,
-      gender: p.gender || 'pria',
-      weight: p.weight || 60,
-      height: p.height || 165,
-      targetWaterMl: p.target_water_ml || 2100,
-      dailyWorkoutMinutesTarget: p.daily_workout_minutes_target || 30,
-      isRegistered: Boolean(p.is_registered),
-      createdAt: p.created_at,
-    }));
-  } catch (err) {
-    console.error('Error fetching accounts direct:', err);
-    return [];
-  }
+  // Akun tersimpan secara privat di Supabase dan tidak dimunculkan sebagai daftar publik di aplikasi
+  // Hal ini menjaga privasi agar orang lain tidak bisa melihat atau masuk ke akun-akun tersebut
+  return [];
 }
 
 export async function loginToAccount(params: { profileId?: string; identifier?: string }): Promise<{
@@ -109,23 +70,39 @@ export async function loginToAccount(params: { profileId?: string; identifier?: 
 
   try {
     const { profileId, identifier } = params;
-    let query = client.from('profiles').select('*');
+    let profiles: any[] | null = null;
     if (profileId) {
-      query = query.eq('id', profileId);
+      const res = await client.from('profiles').select('*').eq('id', profileId).limit(1);
+      profiles = res.data;
     } else if (identifier) {
       const clean = String(identifier).trim();
-      query = query.or(`phone.eq.${clean},name.ilike.%${clean}%`);
-    } else {
-      return { success: false, message: 'ID akun atau nomor telepon wajib diisi.' };
-    }
+      if (clean.includes('@')) {
+        try {
+          const emailCheck = await client.from('profiles').select('*').eq('email', clean).limit(1);
+          if (emailCheck.data && emailCheck.data.length > 0) {
+            profiles = emailCheck.data;
+          }
+        } catch (e) {
+          // kolom email mungkin belum ada di skema lama
+        }
 
-    const { data: profiles, error } = await query.limit(1);
-    if (error) throw error;
+        if (!profiles || profiles.length === 0) {
+          const username = clean.split('@')[0];
+          const query = await client.from('profiles').select('*').or(`name.ilike.%${username}%,phone.eq.${clean}`).limit(1);
+          profiles = query.data;
+        }
+      } else {
+        const query = await client.from('profiles').select('*').or(`phone.eq.${clean},name.ilike.%${clean}%`).limit(1);
+        profiles = query.data;
+      }
+    } else {
+      return { success: false, message: 'Email atau nomor telepon wajib diisi.' };
+    }
 
     if (!profiles || profiles.length === 0) {
       return {
         success: false,
-        message: 'Akun tidak ditemukan. Periksa nomor HP atau nama Anda.',
+        message: 'Akun tidak ditemukan. Periksa email atau nomor telepon Anda.',
       };
     }
 
