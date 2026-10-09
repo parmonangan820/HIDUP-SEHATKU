@@ -3140,6 +3140,49 @@ app.post('/api/instanpay/config', async (req: Request, res: Response) => {
   });
 });
 
+// Uji koneksi API Key InstanLive secara langsung
+app.post('/api/instanpay/test-connection', async (req: Request, res: Response) => {
+  try {
+    const { apiKey } = req.body || {};
+    const keyToTest = (apiKey || '').trim() || process.env.INSTANPAY_API_KEY || DEFAULT_INSTANPAY_API_KEY;
+    if (!keyToTest) {
+      return res.status(400).json({ success: false, error: 'API Key wajib diisi untuk diuji' });
+    }
+
+    const testRes = await fetch('https://pay.instanlive.id/api/v1/transaction/create', {
+      method: 'POST',
+      headers: {
+        'X-Api-Key': keyToTest,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        ref_id: `PING-${Date.now()}`,
+        amount: 10000,
+      }),
+    });
+
+    const data = await testRes.json().catch(() => null);
+    if (testRes.ok && data?.ok) {
+      const mode = data?.data?.mode || (keyToTest.startsWith('sk_live_') ? 'live' : 'sandbox');
+      return res.json({
+        success: true,
+        valid: true,
+        mode,
+        message: `Koneksi InstanLive Berhasil! Mode Gateway: ${mode.toUpperCase()}`,
+        data: data.data,
+      });
+    } else {
+      return res.json({
+        success: false,
+        valid: false,
+        error: data?.message || data?.error || `Gagal terhubung (Status: ${testRes.status})`,
+      });
+    }
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err?.message || 'Gagal menghubungi server InstanLive' });
+  }
+});
+
 app.post('/api/instanpay/create-qris', async (req: Request, res: Response) => {
   try {
     const { plan, amount, customerName, customerEmail, adminConfig, ref_id } = req.body || {};
@@ -3640,6 +3683,57 @@ app.post('/api/instanpay/simulate-payment', async (req: Request, res: Response) 
       orderId,
       status: 'paid',
       message: 'Simulasi scan dan pembayaran QRIS InstanLive berhasil! Status telah menjadi PAID.',
+    });
+  } catch (error: any) {
+    return res.status(500).json({ success: false, error: error?.message });
+  }
+});
+
+// Konfirmasi manual atau aktivasi instan pembayaran QRIS (Toko/Transfer/Live)
+app.post('/api/instanpay/confirm-paid', async (req: Request, res: Response) => {
+  try {
+    const { orderId, plan, customerName, senderInfo } = req.body || {};
+    if (!orderId) {
+      return res.status(400).json({ success: false, error: 'Order ID is required' });
+    }
+
+    let order = instanpayOrders.get(orderId) || instanpayOrders.get(String(orderId));
+    if (order) {
+      order.status = 'paid';
+      order.paidAt = Date.now();
+      if (plan) order.plan = plan;
+      if (customerName) order.customerName = customerName;
+      if (senderInfo) order.senderInfo = senderInfo;
+    } else {
+      order = {
+        orderId,
+        ref_id: orderId,
+        txnId: null,
+        amount: plan === 'monthly' ? 15000 : 100000,
+        uniqueAmount: plan === 'monthly' ? 15000 : 100000,
+        fee: 0,
+        plan: plan || 'annual',
+        customerName: customerName || 'Sahabat Sehat',
+        customerEmail: '',
+        status: 'paid',
+        senderInfo: senderInfo || 'Konfirmasi Manual User',
+        createdAt: Date.now(),
+        paidAt: Date.now(),
+        expiresAt: Date.now() + 1800000,
+        paymentUrl: '',
+        checkoutUrl: '',
+        mode: 'manual',
+        qrisString: '',
+      };
+      instanpayOrders.set(orderId, order);
+    }
+    persistTransactions();
+
+    return res.json({
+      success: true,
+      orderId,
+      status: 'paid',
+      message: 'Pembayaran QRIS berhasil dikonfirmasi dan status akun PRO telah aktif!',
     });
   } catch (error: any) {
     return res.status(500).json({ success: false, error: error?.message });

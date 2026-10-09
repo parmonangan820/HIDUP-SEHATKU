@@ -60,6 +60,7 @@ import {
   ExternalLink,
   Smartphone,
   Palette,
+  Upload,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import QRCode from 'qrcode';
@@ -180,6 +181,48 @@ CREATE INDEX IF NOT EXISTS idx_profiles_name ON public.profiles(name);`;
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const [isSavingInstanpay, setIsSavingInstanpay] = useState(false);
   const [instanpaySaveMessage, setInstanpaySaveMessage] = useState<string | null>(null);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [testConnectionResult, setTestConnectionResult] = useState<{
+    success: boolean;
+    valid?: boolean;
+    mode?: string;
+    message?: string;
+    error?: string;
+  } | null>(null);
+
+  const handleTestConnection = async () => {
+    setIsTestingConnection(true);
+    setTestConnectionResult(null);
+    try {
+      const key = instanpayConfig.mode === 'live' ? instanpayConfig.liveApiKey : instanpayConfig.sandboxApiKey;
+      const res = await fetch('/api/instanpay/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: key }),
+      });
+      const data = await res.json();
+      setTestConnectionResult(data);
+    } catch (err: any) {
+      setTestConnectionResult({
+        success: false,
+        error: err?.message || 'Gagal menghubungi server.',
+      });
+    } finally {
+      setIsTestingConnection(false);
+    }
+  };
+
+  const handleUploadQrisFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const result = event.target?.result as string;
+        setInstanpayConfig((prev: any) => ({ ...prev, customQrisImageUrl: result }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleCopyField = (text: string, label: string) => {
     if (!text) return;
@@ -828,6 +871,58 @@ CREATE INDEX IF NOT EXISTS idx_profiles_name ON public.profiles(name);`;
                   </div>
                 </div>
 
+                {/* Tombol Uji Koneksi API Key */}
+                <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800 space-y-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <div>
+                      <h6 className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <Key className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>Verifikasi Kunci API Gateway</span>
+                      </h6>
+                      <p className="text-[10px] text-slate-400">
+                        Uji apakah API Key yang dimasukkan ({instanpayConfig.mode.toUpperCase()}) aktif dan terhubung ke server InstanLive.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleTestConnection}
+                      disabled={isTestingConnection}
+                      className="py-1.5 px-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-black text-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      {isTestingConnection ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Menguji...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>🔍 Uji Koneksi API Key</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {testConnectionResult && (
+                    <div
+                      className={`p-2.5 rounded-xl text-xs flex items-center gap-2 ${
+                        testConnectionResult.success
+                          ? 'bg-emerald-950/70 border border-emerald-500/40 text-emerald-300'
+                          : 'bg-rose-950/70 border border-rose-500/40 text-rose-300'
+                      }`}
+                    >
+                      {testConnectionResult.success ? (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                      ) : (
+                        <AlertTriangle className="w-4 h-4 text-rose-400 flex-shrink-0" />
+                      )}
+                      <div className="flex-1 text-[11px] font-bold">
+                        {testConnectionResult.message || testConnectionResult.error}
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {/* Callback URL */}
                 <div className="space-y-1.5 p-3.5 rounded-2xl bg-slate-950/90 border border-slate-800">
                   <div className="flex items-center justify-between">
@@ -932,14 +1027,53 @@ CREATE INDEX IF NOT EXISTS idx_profiles_name ON public.profiles(name);`;
                   </div>
 
                   <div>
-                    <label className="text-xs font-bold text-slate-300 block mb-1">URL Gambar Barcode QRIS Toko Asli (Opsional)</label>
-                    <input
-                      type="text"
-                      value={instanpayConfig.customQrisImageUrl || ''}
-                      onChange={(e) => setInstanpayConfig((prev: any) => ({ ...prev, customQrisImageUrl: e.target.value }))}
-                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs focus:outline-none focus:border-cyan-500 font-mono"
-                      placeholder="https://.../qris-toko-anda.png (Kosongkan jika menggunakan QRIS dinamis)"
-                    />
+                    <label className="text-xs font-bold text-slate-300 block mb-1">
+                      Gambar Barcode QRIS Toko Asli (BCA, Mandiri, GoPay, DANA, dll)
+                    </label>
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={instanpayConfig.customQrisImageUrl || ''}
+                          onChange={(e) => setInstanpayConfig((prev: any) => ({ ...prev, customQrisImageUrl: e.target.value }))}
+                          className="flex-1 px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs focus:outline-none focus:border-cyan-500 font-mono"
+                          placeholder="Masukkan URL Gambar (https://...) atau upload file di samping"
+                        />
+                        <label className="px-3 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-xs cursor-pointer flex-shrink-0 transition-colors flex items-center gap-1">
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>Upload File QR</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleUploadQrisFile}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+
+                      {instanpayConfig.customQrisImageUrl && (
+                        <div className="p-3 rounded-2xl bg-slate-900 border border-slate-800 flex items-center gap-3">
+                          <img
+                            src={instanpayConfig.customQrisImageUrl}
+                            alt="Preview QRIS Toko"
+                            className="w-16 h-16 object-contain bg-white rounded-xl p-1 border border-slate-700"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <span className="text-xs font-bold text-emerald-400 block">✓ Barcode QRIS Toko Terpasang</span>
+                            <span className="text-[10px] text-slate-400 block truncate">
+                              Gambar ini akan ditampilkan saat pelanggan memilih metode pembayaran QRIS Toko.
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setInstanpayConfig((prev: any) => ({ ...prev, customQrisImageUrl: '' }))}
+                              className="text-[10px] text-rose-400 hover:underline font-bold mt-1"
+                            >
+                              Hapus Gambar
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
