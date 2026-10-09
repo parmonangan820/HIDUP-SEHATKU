@@ -3759,6 +3759,34 @@ app.post('/api/instanpay/check-status', async (req: Request, res: Response) => {
       }
     }
 
+    // 2. Direct token status check jika ada token atau payment_url
+    const effToken = req.body?.token || (req.body?.paymentUrl || order?.paymentUrl || '').match(/\/pay\/([a-zA-Z0-9]+)/)?.[1];
+    if (effToken) {
+      try {
+        const tokenRes = await fetch(`https://pay.instanlive.id/pay/${effToken}/status`, {
+          headers: { 'Accept': 'application/json' },
+        });
+        if (tokenRes.ok) {
+          const tokenData = await tokenRes.json();
+          if (tokenData && tokenData.status === 'paid') {
+            if (order) {
+              order.status = 'paid';
+              order.paidAt = Date.now();
+            }
+            return res.json({
+              success: true,
+              orderId,
+              status: 'paid',
+              paidAt: Date.now(),
+              message: 'Pembayaran QRIS InstanLive berhasil dikonfirmasi secara real-time!',
+            });
+          }
+        }
+      } catch (err) {
+        console.warn('InstanLive token status check warning:', err);
+      }
+    }
+
     if (!order) {
       return res.json({
         success: true,

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useHealth } from '../context/HealthContext';
 import { Sparkles, FileText, Cloud, Crown, X, Star, QrCode, ArrowLeft, CheckCircle2, Salad, Navigation, Gift, Clock, Zap, Trophy, Droplet, Bluetooth, MessageSquare, AlertTriangle, Building, Receipt, Copy, Check, Download, ExternalLink } from 'lucide-react';
 import confetti from 'canvas-confetti';
-import { createClientQrisPayload, generateNationalQRIS } from '../utils/qrisGenerator';
+import { createClientQrisPayload, createClientQrisPayloadAsync, generateNationalQRIS } from '../utils/qrisGenerator';
 
 interface ProUpgradeModalProps {
   isOpen: boolean;
@@ -32,6 +32,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
     uniqueAmount?: number;
     fee?: number;
     txnId?: number;
+    paymentToken?: string;
     paymentUrl?: string;
     qrisString: string;
     dynamicQrisString?: string;
@@ -135,13 +136,13 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
     setStatusFeedback(null);
     const finalAmount = selectedPlan === 'monthly' ? 15000 : 100000;
 
+    let adminConfig = null;
     try {
-      let adminConfig = null;
-      try {
-        const savedConfig = localStorage.getItem('hidupsehat_instanpay_admin_config');
-        if (savedConfig) adminConfig = JSON.parse(savedConfig);
-      } catch {}
+      const savedConfig = localStorage.getItem('hidupsehat_instanpay_admin_config');
+      if (savedConfig) adminConfig = JSON.parse(savedConfig);
+    } catch {}
 
+    try {
       const res = await fetch('/api/instanpay/create-qris', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -160,7 +161,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
           const text = await res.text();
           data = JSON.parse(text);
         } catch {}
-        if (data && data.success && data.qrisString) {
+        if (data && data.success && (data.qrisString || data.qrImageUrl)) {
           setQrisData(data);
           setCountdown(300);
           setStep('instapay_qris');
@@ -172,17 +173,21 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
       console.warn('Backend QRIS API not available, falling back to client generator:', err);
     }
 
-    // Direct client fallback for static hosting / cPanel / Vercel static export
+    // Direct client fallback for static hosting / offline / fallback
     let customStaticQris = '';
     try {
-      const savedConfig = localStorage.getItem('hidupsehat_instanpay_admin_config');
-      if (savedConfig) {
-        const parsed = JSON.parse(savedConfig);
-        customStaticQris = parsed.customStaticQrisString || '';
+      if (adminConfig?.customStaticQrisString) {
+        customStaticQris = adminConfig.customStaticQrisString;
       }
     } catch {}
 
-    const fallbackPayload = createClientQrisPayload(selectedPlan, finalAmount, customStaticQris);
+    const fallbackPayload = await createClientQrisPayloadAsync(selectedPlan, finalAmount, customStaticQris);
+    if (adminConfig) {
+      if (adminConfig.bankAccountInfo) fallbackPayload.bankAccountInfo = adminConfig.bankAccountInfo;
+      if (adminConfig.whatsappConfirmationNumber) fallbackPayload.whatsappConfirmationNumber = adminConfig.whatsappConfirmationNumber;
+      if (adminConfig.customQrisMerchantName) fallbackPayload.customQrisMerchantName = adminConfig.customQrisMerchantName;
+      if (adminConfig.customQrisImageUrl) fallbackPayload.customQrisImageUrl = adminConfig.customQrisImageUrl;
+    }
     setQrisData(fallbackPayload);
     setCountdown(300);
     setStep('instapay_qris');
@@ -208,7 +213,12 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
         const res = await fetch('/api/instanpay/check-status', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ orderId: qrisData.orderId, adminConfig }),
+          body: JSON.stringify({
+            orderId: qrisData.orderId,
+            paymentUrl: qrisData.paymentUrl || qrisData.checkoutUrl,
+            token: qrisData.paymentToken,
+            adminConfig,
+          }),
         });
         const text = await res.text();
         data = JSON.parse(text);
@@ -217,7 +227,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
       }
 
       if (data && data.status === 'paid') {
-        handlePaymentSuccess();
+        await handlePaymentSuccess();
         return;
       } else if (data && data.status === 'expired') {
         setStatusFeedback({ type: 'error', message: 'Waktu pembayaran telah kedaluwarsa. Silakan buat QRIS baru.' });
@@ -225,14 +235,14 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
       } else {
         setStatusFeedback({
           type: 'warning',
-          message: '⚠️ Pembayaran belum terdeteksi. Silakan scan barcode QRIS dan selesaikan transaksi melalui m-Banking atau E-Wallet Anda.',
+          message: '⚠️ Pembayaran belum terdeteksi. Silakan scan barcode QRIS atau klik "Saya Sudah Bayar QRIS" di bawah jika Anda telah menyelesaikan pembayaran.',
         });
         return;
       }
     } catch (err) {
       setStatusFeedback({
         type: 'warning',
-        message: '⚠️ Pembayaran belum terdeteksi. Silakan scan barcode QRIS di atas untuk menyelesaikan.',
+        message: '⚠️ Pembayaran belum terdeteksi. Silakan scan barcode QRIS atau selesaikan via E-Wallet Anda.',
       });
     } finally {
       setCheckingStatus(false);

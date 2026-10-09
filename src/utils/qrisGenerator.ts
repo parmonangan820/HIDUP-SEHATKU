@@ -1,3 +1,5 @@
+import QRCode from 'qrcode';
+
 export function calculateCRC16(data: string): string {
   let crc = 0xffff;
   for (let i = 0; i < data.length; i++) {
@@ -188,5 +190,23 @@ export function createClientQrisPayload(plan: 'monthly' | 'annual', amount: numb
     status: 'pending',
     expiresInSeconds: 1800,
     isSandbox: false,
+    bankAccountInfo: 'BCA / Mandiri / GoPay / DANA: 085760525942 a.n Canggih Marbun',
+    whatsappConfirmationNumber: '085760525942',
+    customQrisMerchantName: 'HIDUP SEHATKU PRO',
+    customQrisImageUrl: '',
+    paymentToken: '',
   };
+}
+
+export async function createClientQrisPayloadAsync(plan: 'monthly' | 'annual', amount: number, customStaticQris?: string) {
+  const payload = createClientQrisPayload(plan, amount, customStaticQris);
+  try {
+    const dataUrl = await QRCode.toDataURL(payload.qrisString, {
+      width: 340,
+      margin: 2,
+      color: { dark: '#0f172a', light: '#ffffff' },
+    });
+    payload.qrImageUrl = dataUrl;
+  } catch {}
+  return payload;
 }
