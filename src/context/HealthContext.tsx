@@ -36,6 +36,11 @@ import {
   fetchRegisteredAccounts,
   loginToAccount,
 } from '../services/accountService';
+import {
+  recordAffiliateScanOrClick,
+  processAffiliateProPurchase,
+  STORAGE_KEY_REFERRER,
+} from '../services/affiliateService';
 
 interface HealthContextType {
   profile: UserProfile;
@@ -71,6 +76,8 @@ interface HealthContextType {
   setIsProModalOpen: (open: boolean) => void;
   isTumblerModalOpen: boolean;
   setIsTumblerModalOpen: (open: boolean) => void;
+  isAffiliateOpen: boolean;
+  setIsAffiliateOpen: (open: boolean) => void;
   userProPlan: 'monthly' | 'annual' | null;
   upgradeToPro: (plan: 'monthly' | 'annual') => void;
   registeredAccounts: AccountSummary[];
@@ -881,6 +888,7 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
   const [isProModalOpen, setIsProModalOpen] = useState<boolean>(false);
   const [isTumblerModalOpen, setIsTumblerModalOpen] = useState<boolean>(false);
+  const [isAffiliateOpen, setIsAffiliateOpen] = useState<boolean>(false);
   const [userProPlan, setUserProPlan] = useState<'monthly' | 'annual' | null>(() => {
     try {
       const saved = localStorage.getItem('hidupsehat_pro_plan');
@@ -1055,7 +1063,35 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     localStorage.setItem('hidupsehat_is_pro', JSON.stringify(true));
     localStorage.setItem('hidupsehat_pro_plan', plan);
     localStorage.setItem(`hidupsehat_plan_${accKey}`, plan);
+
+    // Attribute commission to affiliate whenever user buys PRO (now, tomorrow, or anytime in the future!)
+    try {
+      processAffiliateProPurchase(plan, {
+        name: profile.name,
+        phone: profile.phone,
+        id: profile.id,
+      });
+    } catch (e) {
+      console.error('Affiliate commission attribution error:', e);
+    }
   };
+
+  // Automatically record QR scan or referral link if user opens via ?ref= or ?aff=
+  useEffect(() => {
+    try {
+      const urlParams = new URLSearchParams(window.location.search);
+      const refParam = urlParams.get('ref') || urlParams.get('aff');
+      if (refParam) {
+        recordAffiliateScanOrClick(refParam, {
+          name: profile.name || 'Calon User (Scan QR)',
+          phone: profile.phone || '',
+          id: profile.id,
+        });
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, [profile.name, profile.phone]);
 
   // Pro Auto Cloud Sync Effect to Supabase
   useEffect(() => {
@@ -1927,6 +1963,8 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setIsProModalOpen,
         isTumblerModalOpen,
         setIsTumblerModalOpen,
+        isAffiliateOpen,
+        setIsAffiliateOpen,
         userProPlan,
         upgradeToPro,
         registeredAccounts,

@@ -31,6 +31,7 @@ import {
   ShoppingBag,
   Trophy,
   Gift,
+  QrCode,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import smartTumblerImg from '../assets/images/smart_tumbler_iot_1791423087354.jpg';
@@ -65,6 +66,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
     isProTrial,
     isPaidPro,
     setIsTumblerModalOpen,
+    setIsAffiliateOpen,
   } = useHealth();
 
   const totalWater = todayRecord.totalWaterMl;
@@ -709,6 +711,40 @@ export const HomeTab: React.FC<HomeTabProps> = ({
         >
           Baca Edukasi & Manfaat Lengkap
           <ArrowRight className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+      {/* Program Afiliasi & QR Code Penghasilan Pasif Showcase Banner */}
+      <div className="rounded-3xl bg-gradient-to-br from-amber-500/20 via-slate-900 to-teal-500/15 border-2 border-amber-500/40 p-4 sm:p-5 shadow-2xl relative overflow-hidden flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="flex items-start gap-3.5 min-w-0 text-left">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-400 to-yellow-500 flex items-center justify-center text-slate-950 font-black shadow-lg shadow-amber-500/20 shrink-0">
+            <QrCode className="w-6 h-6 stroke-[2.5] animate-pulse" />
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-950 text-[10px] font-black uppercase">
+                PELUANG CUAN SEUMUR HIDUP
+              </span>
+              <span className="text-xs font-bold text-amber-300">
+                Komisi 20% - 25% Pasif
+              </span>
+            </div>
+            <h3 className="text-sm sm:text-base font-black text-white leading-snug">
+              Punya Komunitas atau Teman Kantor? Sebarkan QR Code Afiliasi Anda!
+            </h3>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Dapatkan komisi hingga <strong>Rp 25.000 / member</strong> setiap kali teman yang scan QR Code Anda membeli versi PRO. Kapan pun mereka upgrade (hari ini atau bulan depan), komisi otomatis masuk ke akun Anda!
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setIsAffiliateOpen(true)}
+          className="shrink-0 w-full md:w-auto px-5 py-3 rounded-2xl bg-gradient-to-r from-amber-400 via-yellow-400 to-amber-500 hover:brightness-110 active:scale-95 text-slate-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-lg shadow-amber-500/25 cursor-pointer transition-all"
+        >
+          <QrCode className="w-4 h-4 stroke-[2.5]" />
+          <span>Buka QR Code & Dasbor Afiliasi</span>
         </button>
       </div>
     </div>

@@ -633,14 +633,23 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({ isOpen, onClose, onO
               onClose();
               onOpenAffiliate();
             }}
-            className="w-full py-2.5 px-3 rounded-2xl bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-amber-600/20 hover:from-amber-500/30 hover:to-amber-600/30 border border-amber-500/40 text-amber-300 hover:text-amber-200 transition-all flex items-center justify-between font-bold text-xs shadow-md shadow-amber-500/10 group"
+            className="w-full py-3 px-3.5 rounded-2xl bg-gradient-to-r from-amber-500/20 via-yellow-500/20 to-teal-500/20 hover:from-amber-500/30 hover:to-teal-500/30 border-2 border-amber-500/50 text-amber-300 hover:text-amber-200 transition-all flex items-center justify-between font-bold text-xs shadow-lg shadow-amber-500/15 group cursor-pointer"
           >
-            <div className="flex items-center gap-2">
-              <Share2 className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
-              <span>Affiliate Hidup Sehatku (Komisi 10%)</span>
+            <div className="flex items-center gap-2.5 text-left">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Share2 className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="block text-white font-extrabold text-xs">
+                  Dasbor Afiliasi & QR Code Siap Sebar
+                </span>
+                <span className="text-[10px] text-amber-300 font-semibold">
+                  Komisi 20% - 25% Seumur Hidup • Cuan Pasif
+                </span>
+              </div>
             </div>
-            <span className="text-[10px] px-2.5 py-1 rounded-xl bg-amber-500 text-slate-950 font-black flex items-center gap-1 group-hover:brightness-110">
-              Buka Dashboard
+            <span className="text-[10px] px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 font-black flex items-center gap-1 group-hover:brightness-110 shadow-sm shrink-0">
+              Buka Dasbor
             </span>
           </button>
         </div>

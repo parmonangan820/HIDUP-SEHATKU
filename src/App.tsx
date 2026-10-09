@@ -42,6 +42,8 @@ function MainApp() {
     setIsProModalOpen,
     isTumblerModalOpen,
     setIsTumblerModalOpen,
+    isAffiliateOpen,
+    setIsAffiliateOpen,
     isAdminModalOpen,
     setIsAdminModalOpen,
     isAdminLoginModalOpen,
@@ -59,7 +61,6 @@ function MainApp() {
   const [isDietModalOpen, setIsDietModalOpen] = useState(false);
   const [isVoiceDrinkOpen, setIsVoiceDrinkOpen] = useState(false);
   const [isSupabaseSyncOpen, setIsSupabaseSyncOpen] = useState(false);
-  const [isAffiliateOpen, setIsAffiliateOpen] = useState(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
 
   // Check if any modal is currently active
