@@ -1,4 +1,4 @@
-import { generateNationalQRIS, convertStaticToDynamicQRIS } from './qrisHelper';
+import { generateNationalQRIS, convertStaticToDynamicQRIS } from './_qrisHelper';
 
 export default async function handler(req: any, res: any) {
   res.setHeader('Access-Control-Allow-Origin', '*');

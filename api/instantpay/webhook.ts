@@ -1,4 +1,4 @@
-import { instanpayOrderStore } from '../instanpay/store';
+import { instanpayOrderStore } from '../instanpay/_store';
 
 export default async function handler(req: any, res: any) {
   // Always allow CORS & preflight

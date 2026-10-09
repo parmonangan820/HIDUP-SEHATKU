@@ -1,5 +1,5 @@
-import { generateNationalQRIS, convertStaticToDynamicQRIS } from './qrisHelper';
-import { instanpayOrderStore } from './store';
+import { generateNationalQRIS, convertStaticToDynamicQRIS } from './_qrisHelper';
+import { instanpayOrderStore } from './_store';
 
 const DEFAULT_INSTANPAY_API_KEY = 'sk_test_f477df17909b8f706efa39f1f6ac826c4fb7';
 

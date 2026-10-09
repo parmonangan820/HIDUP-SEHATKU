@@ -1883,7 +1883,13 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         throw new Error('AI analysis network error');
       }
 
-      const data = await res.json();
+      let data: any = {};
+      try {
+        const text = await res.text();
+        data = JSON.parse(text);
+      } catch {
+        throw new Error('Respon server bukan format JSON yang valid');
+      }
       const analysis: AIHealthAnalysis = {
         category: data.category || 'Pejuang Hidup Sehat',
         waterStatus: data.waterStatus || 'Cukup Sehat',

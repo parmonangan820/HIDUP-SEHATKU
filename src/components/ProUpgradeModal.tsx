@@ -110,8 +110,12 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
             body: JSON.stringify({ orderId: qrisData.orderId }),
           });
           if (res.ok) {
-            const data = await res.json();
-            if (data.status === 'paid') {
+            let data: any = null;
+            try {
+              const text = await res.text();
+              data = JSON.parse(text);
+            } catch {}
+            if (data && data.status === 'paid') {
               clearInterval(pollInterval);
               handlePaymentSuccess();
             }
