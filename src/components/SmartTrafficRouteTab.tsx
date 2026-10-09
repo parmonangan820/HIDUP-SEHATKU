@@ -578,10 +578,52 @@ export function cleanSpokenText(text: string): string {
   return text.replace(/\s+/g, ' ').trim();
 }
 
+// Clean place names: strip conversational filler words, prefixes, and transport modes
+export function cleanPlaceName(p: string): string {
+  if (!p) return '';
+  let s = p.trim();
+  let prev = '';
+  // Iteratively strip conversational command phrases & pronouns
+  while (s !== prev) {
+    prev = s;
+    s = s
+      .replace(
+        /^(?:saya|aku|kami|kita|tolong|mohon|coba|tolong\s+carikan|carikan|cari\s+rute\s+ke|cari\s+rute\s+dari|cari\s+rute|cari|pandu\s+saya|pandu|navigasi\s+ke|navigasi|antar\s+saya\s+ke|antarkan\s+saya\s+ke|antar\s+saya|antarkan\s+saya|antar\s+ke|antarkan\s+ke|antar|antarkan|menuju\s+ke|menuju|mau\s+ke|mau\s+pergi\s+ke|mau|ke|dari|posisi\s+di|posisi|lokasi\s+di|lokasi|lagi\s+di|sedang\s+di|berangkat\s+dari|mulai\s+dari|start\s+dari)\s+/i,
+        ''
+      )
+      .trim();
+  }
+  // Strip trailing mode and navigation qualifiers
+  s = s
+    .replace(
+      /\s+(?:naik\s+motor|naik\s+mobil|naik\s+sepeda|jalan\s+kaki|lewat\s+tol|tanpa\s+tol|bebas\s+macet|tercepat|sekarang)$/i,
+      ''
+    )
+    .trim();
+  // Strip leading and trailing punctuation
+  s = s.replace(/^[,\s.:;-]+|[,\s.:;-]+$/g, '').trim();
+
+  // If the result is just a pronoun, filler word, or current location reference, treat as empty
+  if (
+    /^(?:saya|aku|kami|kita|posisi|posisiku|lokasi|lokasiku|sekarang|saat\s+ini|sini|tempat\s+ini|lokasi\s+saya|mau|ingin|rute|arah|jalur|pergi|antar|antar\s+saya|antarkan)$/i.test(
+      s
+    )
+  ) {
+    return '';
+  }
+  return s;
+}
+
 // Highly accurate Indonesian Speech Intent Extractor
 export function extractAccurateVoiceIntent(rawText: string, currentOriginFallback: string = '') {
   let text = cleanSpokenText(rawText);
-  if (!text) return { origin: currentOriginFallback || '', destination: '', mode: 'DRIVE' as const };
+  if (!text) {
+    return {
+      origin: currentOriginFallback || 'Lokasi Saya',
+      destination: '',
+      mode: 'DRIVE' as const,
+    };
+  }
 
   const textLower = text.toLowerCase();
 
@@ -597,70 +639,71 @@ export function extractAccurateVoiceIntent(rawText: string, currentOriginFallbac
 
   // Strip travel mode qualifiers from the end so they don't pollute place names
   let cleanText = text
-    .replace(/\s+(?:naik\s+mobil|naik\s+motor|naik\s+sepeda|jalan\s+kaki|dengan\s+mobil|dengan\s+motor|cepat|tercepat|bebas\s+macet)$/i, '')
+    .replace(
+      /\s+(?:naik\s+mobil|naik\s+motor|naik\s+sepeda|jalan\s+kaki|dengan\s+mobil|dengan\s+motor|cepat|tercepat|bebas\s+macet)$/i,
+      ''
+    )
     .trim();
 
   let extractedOrigin = '';
   let extractedDestination = '';
 
-  // Pattern A: "Mau ke [B] dari [A]" or "Menuju [B] dari [A]" or "Tolong antar ke [B] dari [A]"
-  const patternRev = /^(?:tolong\s+)?(?:saya\s+)?(?:mau\s+ke|menuju\s+ke|menuju|tujuan\s+ke|ke|sampai\s+ke|sampai)\s+(.+?)\s+(?:dari|start\s+dari|posisi\s+di|lokasi\s+di|mulai\s+dari)\s+(.+)$/i;
+  // Pattern 1: Reverse order: "Mau ke [B] dari [A]" or "Ke [B] dari [A]" or "Tolong antar ke [B] dari [A]"
+  const patternRev =
+    /^(?:tolong\s+)?(?:saya\s+)?(?:mau\s+ke|menuju\s+ke|menuju|tujuan\s+ke|tujuan|ke|sampai\s+ke|sampai|antar\s+ke|antarkan\s+ke)\s+(.+?)\s+(?:dari|start\s+dari|posisi\s+di|lokasi\s+di|mulai\s+dari|berangkat\s+dari)\s+(.+)$/i;
   const mRev = cleanText.match(patternRev);
   if (mRev) {
-    extractedDestination = mRev[1].trim();
-    extractedOrigin = mRev[2].trim();
+    extractedDestination = cleanPlaceName(mRev[1]);
+    extractedOrigin = cleanPlaceName(mRev[2]);
   }
 
-  // Pattern B: "Dari [A] mau ke / menuju / ke / sampai [B]" or "(Saya) dari [A] ke [B]"
+  // Pattern 2: Normal order: "Dari [A] mau ke / menuju / ke / sampai [B]" or "(Saya) dari [A] ke [B]"
   if (!extractedOrigin || !extractedDestination) {
-    const patternNormal = /^(?:tolong\s+)?(?:saya\s+)?(?:dari|posisi\s+di|lokasi\s+di|lagi\s+di|start\s+dari|mulai\s+dari)\s+(.+?)\s+(?:menuju\s+ke|menuju|mau\s+ke|tujuan\s+ke|tujuan|ke|sampai\s+ke|sampai)\s+(.+)$/i;
+    const patternNormal =
+      /^(?:tolong\s+)?(?:saya\s+)?(?:dari|posisi\s+di|lokasi\s+di|lagi\s+di|start\s+dari|mulai\s+dari|berangkat\s+dari)\s+(.+?)\s+(?:menuju\s+ke|menuju|mau\s+ke|mau|tujuan\s+ke|tujuan|ke|sampai\s+ke|sampai)\s+(.+)$/i;
     const mNormal = cleanText.match(patternNormal);
     if (mNormal) {
-      extractedOrigin = mNormal[1].trim();
-      extractedDestination = mNormal[2].trim();
+      extractedOrigin = cleanPlaceName(mNormal[1]);
+      extractedDestination = cleanPlaceName(mNormal[2]);
     }
   }
 
-  // Pattern C: "[A] ke / menuju / sampai [B]"
-  if (!extractedOrigin || !extractedDestination) {
-    const patternDirect = /^(.+?)\s+(?:menuju\s+ke|menuju|mau\s+ke|tujuan\s+ke|tujuan|ke|sampai\s+ke|sampai)\s+(.+)$/i;
+  // Pattern 3: Destination only with action starter:
+  // "Mau ke [B]" / "Saya mau ke [B]" / "Cari rute ke [B]" / "Ke [B]" / "Antar saya ke [B]" / "Menuju [B]"
+  if (!extractedOrigin && !extractedDestination) {
+    const patternDestOnly =
+      /^(?:tolong\s+)?(?:saya\s+)?(?:antar\s+saya\s+ke|antarkan\s+saya\s+ke|antar\s+ke|antarkan\s+ke|mau\s+pergi\s+ke|mau\s+ke|ingin\s+ke|pengen\s+ke|menuju\s+ke|menuju|tujuan\s+ke|tujuan|ke|sampai\s+ke|sampai|cari\s+rute\s+ke|navigasi\s+ke|arah\s+ke|jalur\s+ke)\s+(.+)$/i;
+    const mDest = cleanText.match(patternDestOnly);
+    if (mDest) {
+      extractedDestination = cleanPlaceName(mDest[1]);
+      extractedOrigin = '';
+    }
+  }
+
+  // Pattern 4: Direct pair "[A] ke / menuju / sampai [B]"
+  if (!extractedOrigin && !extractedDestination) {
+    const patternDirect =
+      /^(.+?)\s+(?:menuju\s+ke|menuju|mau\s+ke|tujuan\s+ke|tujuan|ke|sampai\s+ke|sampai)\s+(.+)$/i;
     const mDirect = cleanText.match(patternDirect);
     if (mDirect) {
-      const candA = mDirect[1].trim().replace(/^(?:saya|tolong|posisi|lokasi|lagi|start)\s+/i, '');
-      const candB = mDirect[2].trim();
-      if (!/^(?:mau|ingin|hendak|tujuan)$/i.test(candA)) {
+      const candA = cleanPlaceName(mDirect[1]);
+      const candB = cleanPlaceName(mDirect[2]);
+      if (candA) {
         extractedOrigin = candA;
+        extractedDestination = candB;
+      } else {
         extractedDestination = candB;
       }
     }
   }
 
-  // Pattern D: Only Destination mentioned: "Mau ke [B]" or "Ke [B]" or "Menuju [B]"
+  // Pattern 5: Fallback if destination still empty, take entire clean text as destination
   if (!extractedDestination) {
-    const patternDestOnly = /^(?:tolong\s+)?(?:saya\s+)?(?:mau\s+ke|menuju\s+ke|menuju|tujuan\s+ke|tujuan|ke|sampai\s+ke|sampai)\s+(.+)$/i;
-    const mDest = cleanText.match(patternDestOnly);
-    if (mDest) {
-      extractedDestination = mDest[1].trim();
-      extractedOrigin = currentOriginFallback || '';
-    }
+    extractedDestination = cleanPlaceName(cleanText);
   }
 
-  // Fallback: If no destination parsed, use entire text as destination
-  if (!extractedDestination && cleanText) {
-    extractedDestination = cleanText;
-    extractedOrigin = currentOriginFallback || '';
-  }
-
-  const cleanPlace = (p: string) => {
-    return (p || '')
-      .replace(/^(?:dari|ke|menuju|posisi\s+di|lokasi\s+di)\s+/i, '')
-      .replace(/\s+(?:naik\s+motor|naik\s+mobil|naik\s+sepeda|jalan\s+kaki)$/i, '')
-      .replace(/^[,\s.-]+|[,\s.-]+$/g, '')
-      .trim();
-  };
-
-  extractedOrigin = cleanPlace(extractedOrigin);
-  extractedDestination = cleanPlace(extractedDestination);
+  extractedOrigin = cleanPlaceName(extractedOrigin);
+  extractedDestination = cleanPlaceName(extractedDestination);
 
   const capitalizeWords = (str: string) => {
     return str.replace(/\b([a-z])/g, (c) => c.toUpperCase());
@@ -670,7 +713,7 @@ export function extractAccurateVoiceIntent(rawText: string, currentOriginFallbac
   if (extractedDestination) extractedDestination = capitalizeWords(extractedDestination);
 
   return {
-    origin: extractedOrigin || currentOriginFallback || '',
+    origin: extractedOrigin || currentOriginFallback || 'Lokasi Saya',
     destination: extractedDestination,
     mode,
   };
@@ -784,6 +827,20 @@ export const SmartTrafficRouteTab: React.FC = () => {
   });
   const recognitionRef = useRef<any>(null);
   const isListeningRef = useRef<boolean>(false);
+  const userCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
+
+  // Silently request and store GPS coordinates on component mount for real-time accurate origin
+  useEffect(() => {
+    if (typeof window !== 'undefined' && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          userCoordsRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        },
+        () => {},
+        { enableHighAccuracy: true, timeout: 6000 }
+      );
+    }
+  }, []);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const searchResultsRef = useRef<HTMLDivElement>(null);
@@ -1353,7 +1410,7 @@ export const SmartTrafficRouteTab: React.FC = () => {
   };
 
   // Step-by-Step Voice Pipeline: Voice -> Accurate Intent -> Instant UI Update -> Scroll to Results -> Google Maps Analysis
-  const handleProcessVoiceInput = async (spokenText: string) => {
+  const handleProcessVoiceInput = (spokenText: string) => {
     if (!isPro) {
       handleStopListening();
       setIsVoiceModalOpen(false);
@@ -1373,6 +1430,11 @@ export const SmartTrafficRouteTab: React.FC = () => {
     let targetDestination = localParsed.destination || destination;
     let targetMode = localParsed.mode;
 
+    // If targetOrigin is "Lokasi Saya" and real GPS coords exist, attach them for Google Routes
+    if (/^(?:lokasi\s+saya|posisi\s+saya)$/i.test(targetOrigin.trim()) && userCoordsRef.current) {
+      targetOrigin = `Lokasi Saya (${userCoordsRef.current.lat.toFixed(6)}, ${userCoordsRef.current.lng.toFixed(6)})`;
+    }
+
     // Immediately update input fields so user sees them on screen
     setOrigin(targetOrigin);
     if (targetDestination) {
@@ -1386,40 +1448,44 @@ export const SmartTrafficRouteTab: React.FC = () => {
       searchResultsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
 
-    try {
-      // AI enrichment from server with Gemini 3.8 Flash
-      const parseRes = await fetch('/api/smart-traffic/parse-voice-intent', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ speechText: text, currentOrigin: targetOrigin }),
-      });
+    // Execute Smart Route Analysis immediately with accurate origin & destination
+    if (targetOrigin && targetDestination) {
+      handleAnalyzeRoutes(targetOrigin, targetDestination);
+    }
 
-      if (parseRes.ok) {
-        const parseData = await parseRes.json();
-        if (parseData.success) {
-          if (parseData.origin && parseData.origin.trim()) {
+    // Background call to Gemini parser for natural speech enrichment
+    fetch('/api/smart-traffic/parse-voice-intent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ speechText: text, currentOrigin: targetOrigin }),
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((parseData) => {
+        if (parseData && parseData.success) {
+          let hasChange = false;
+          if (parseData.origin && parseData.origin.trim() && parseData.origin !== targetOrigin) {
             targetOrigin = parseData.origin.trim();
             setOrigin(targetOrigin);
+            hasChange = true;
           }
-          if (parseData.destination && parseData.destination.trim()) {
+          if (parseData.destination && parseData.destination.trim() && parseData.destination !== targetDestination) {
             targetDestination = parseData.destination.trim();
             setDestination(targetDestination);
+            hasChange = true;
           }
-          if (parseData.travelMode) {
+          if (parseData.travelMode && parseData.travelMode !== targetMode) {
             targetMode = parseData.travelMode;
             setTravelMode(targetMode);
           }
-          setVoiceDetectedToast({ origin: targetOrigin, destination: targetDestination });
+          if (hasChange) {
+            setVoiceDetectedToast({ origin: targetOrigin, destination: targetDestination });
+            handleAnalyzeRoutes(targetOrigin, targetDestination);
+          }
         }
-      }
-    } catch (e) {
-      console.warn('Voice intent parse API error, using instant accurate extraction:', e);
-    }
-
-    // Execute Smart Route Analysis with accurate origin & destination
-    if (targetOrigin && targetDestination) {
-      await handleAnalyzeRoutes(targetOrigin, targetDestination);
-    }
+      })
+      .catch((e) => {
+        console.warn('Background voice intent parse error:', e);
+      });
   };
 
   // Unified Voice & Manual Input Submit Handler:
@@ -1499,8 +1565,20 @@ export const SmartTrafficRouteTab: React.FC = () => {
           try {
             const geocoder = new googleMaps.Geocoder();
             let cleanAddr = addr.trim();
-            if (!/indonesia|jakarta|medan|bandung|surabaya|tangerang|bali/i.test(cleanAddr)) {
-              cleanAddr += ', Medan, Indonesia';
+            // Check for raw coordinates in string
+            const coordMatch = cleanAddr.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
+            if (coordMatch) {
+              const lat = parseFloat(coordMatch[1]);
+              const lng = parseFloat(coordMatch[2]);
+              if (!isNaN(lat) && !isNaN(lng)) {
+                return resolve({ lat, lng });
+              }
+            }
+            if (/^(?:lokasi\s+saya|posisi\s+saya|lokasi|posisi)$/i.test(cleanAddr)) {
+              if (userCoordsRef.current) return resolve(userCoordsRef.current);
+            }
+            if (!/indonesia/i.test(cleanAddr)) {
+              cleanAddr += ', Indonesia';
             }
             geocoder.geocode({ address: cleanAddr }, (results: any, status: any) => {
               if (status === 'OK' && results && results[0] && results[0].geometry) {
@@ -1521,12 +1599,11 @@ export const SmartTrafficRouteTab: React.FC = () => {
         geocodeAddress(destStr),
       ]);
 
-      const isMedanOrig = origStr.toLowerCase().includes('medan') || origStr.toLowerCase().includes('podomoro') || origStr.toLowerCase().includes('fair');
-      const defaultOrig = isMedanOrig ? { lat: 3.5908, lng: 98.6743 } : { lat: -6.175392, lng: 106.827153 };
-      const defaultDest = isMedanOrig ? { lat: 3.5185, lng: 98.648 } : { lat: -6.1275, lng: 106.6537 };
+      const defaultOrig = resolvePlaceCoordinates(origStr, true);
+      const defaultDest = resolvePlaceCoordinates(destStr, false);
 
-      const finalOrig = posA || defaultOrig;
-      const finalDest = posB || defaultDest;
+      const finalOrig = posA || { lat: defaultOrig[0], lng: defaultOrig[1] };
+      const finalDest = posB || { lat: defaultDest[0], lng: defaultDest[1] };
 
       // Create Origin Marker A
       const originMarker = new googleMaps.Marker({
@@ -1557,6 +1634,169 @@ export const SmartTrafficRouteTab: React.FC = () => {
       }
     } catch (e) {
       console.warn('Update map markers error:', e);
+    }
+  };
+
+  // Direct Google Routes API v2 caller from browser (Ensures live website hidupsehatku.my.id has identical real-time parity)
+  const callDirectGoogleRoutes = async (
+    origStr: string,
+    destStr: string,
+    mode: string,
+    avoidTollsOpt: boolean,
+    avoidHighwaysOpt: boolean,
+    key: string
+  ): Promise<TrafficRoute[] | null> => {
+    try {
+      const buildWaypoint = (addr: string, ctx: string) => {
+        let clean = (addr || '').trim();
+        const coordBracketMatch = clean.match(/\((-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\)/);
+        if (coordBracketMatch) {
+          return {
+            location: {
+              latLng: {
+                latitude: parseFloat(coordBracketMatch[1]),
+                longitude: parseFloat(coordBracketMatch[2]),
+              },
+            },
+          };
+        }
+        const coordMatch = clean.match(/^(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)$/);
+        if (coordMatch) {
+          return {
+            location: {
+              latLng: {
+                latitude: parseFloat(coordMatch[1]),
+                longitude: parseFloat(coordMatch[2]),
+              },
+            },
+          };
+        }
+        if (/^(?:lokasi\s+saya|posisi\s+saya|lokasi|posisi)$/i.test(clean) || !clean) {
+          if (userCoordsRef.current) {
+            return {
+              location: {
+                latLng: {
+                  latitude: userCoordsRef.current.lat,
+                  longitude: userCoordsRef.current.lng,
+                },
+              },
+            };
+          }
+        }
+        clean = clean.replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
+        if (!/indonesia/i.test(clean)) clean += ', Indonesia';
+        return { address: clean };
+      };
+
+      const originPayload = buildWaypoint(origStr, destStr);
+      const destPayload = buildWaypoint(destStr, origStr);
+      const validTravelMode =
+        mode === 'TWO_WHEELER'
+          ? 'TWO_WHEELER'
+          : mode === 'BICYCLE'
+          ? 'BICYCLE'
+          : mode === 'WALK'
+          ? 'WALK'
+          : 'DRIVE';
+
+      const reqBody: any = {
+        origin: originPayload,
+        destination: destPayload,
+        travelMode: validTravelMode,
+        computeAlternativeRoutes: true,
+        routeModifiers: {
+          avoidTolls: !!avoidTollsOpt,
+          avoidHighways: !!avoidHighwaysOpt,
+          avoidFerries: true,
+        },
+        languageCode: 'id-ID',
+        units: 'METRIC',
+      };
+
+      if (validTravelMode === 'DRIVE' || validTravelMode === 'TWO_WHEELER') {
+        reqBody.routingPreference = 'TRAFFIC_AWARE_OPTIMAL';
+      }
+
+      const routesResponse = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Goog-Api-Key': key,
+          'X-Goog-FieldMask':
+            'routes.duration,routes.staticDuration,routes.distanceMeters,routes.description,routes.polyline.encodedPolyline,routes.legs,routes.travelAdvisory,routes.routeLabels',
+        },
+        body: JSON.stringify(reqBody),
+      });
+
+      if (!routesResponse.ok) return null;
+      const json = await routesResponse.json();
+      if (!json.routes || json.routes.length === 0) return null;
+
+      const primaryDurationSec = parseInt((json.routes[0]?.duration || '0s').replace('s', ''), 10) || 1800;
+      const primaryDurationMin = Math.max(1, Math.round(primaryDurationSec / 60));
+
+      return json.routes.map((r: any, idx: number) => {
+        const distanceKm = Math.round(((r.distanceMeters || 0) / 1000) * 10) / 10;
+        const durationSec = parseInt((r.duration || '0s').replace('s', ''), 10) || 1800;
+        const staticDurationSec = parseInt((r.staticDuration || r.duration || '0s').replace('s', ''), 10) || durationSec;
+        const durationMinutes = Math.max(1, Math.round(durationSec / 60));
+        const staticDurationMinutes = Math.max(1, Math.round(staticDurationSec / 60));
+        const delayMinutes = Math.max(0, durationMinutes - staticDurationMinutes);
+        const avgSpeedKmh = distanceKm > 0 && durationMinutes > 0 ? Math.round(distanceKm / (durationMinutes / 60)) : 35;
+        const timeSavedMinutes = idx > 0 ? Math.max(0, primaryDurationMin - durationMinutes) : 0;
+
+        const leg = r.legs?.[0];
+        const startLocation = leg?.startLocation?.latLng
+          ? { latitude: leg.startLocation.latLng.latitude, longitude: leg.startLocation.latLng.longitude }
+          : undefined;
+        const endLocation = leg?.endLocation?.latLng
+          ? { latitude: leg.endLocation.latLng.latitude, longitude: leg.endLocation.latLng.longitude }
+          : undefined;
+
+        let trafficLevel: 'lancar' | 'ramai' | 'padat' | 'macet_parah' = 'lancar';
+        let stressIndex = 15;
+        if (delayMinutes >= 15 || avgSpeedKmh < 18) {
+          trafficLevel = 'macet_parah';
+          stressIndex = Math.min(95, 70 + delayMinutes);
+        } else if (delayMinutes >= 6 || avgSpeedKmh < 30) {
+          trafficLevel = 'padat';
+          stressIndex = Math.min(70, 45 + delayMinutes * 2);
+        } else if (delayMinutes >= 2 || avgSpeedKmh < 45) {
+          trafficLevel = 'ramai';
+          stressIndex = 30 + delayMinutes * 2;
+        } else {
+          trafficLevel = 'lancar';
+          stressIndex = Math.min(25, 10 + Math.round(distanceKm * 0.4));
+        }
+
+        const routeTitle = r.description
+          ? `Rute ${idx === 0 ? 'Utama' : `Alternatif ${idx}`}: dari ${origStr} ke ${destStr} (via ${r.description})`
+          : idx === 0
+          ? `Rute Utama: dari ${origStr} ke ${destStr} (Tercepat)`
+          : `Rute Alternatif ${idx}: dari ${origStr} ke ${destStr}`;
+
+        return {
+          id: `route-${idx + 1}`,
+          title: routeTitle,
+          summary: r.description
+            ? `Melalui ${r.description} dari ${origStr} menuju ${destStr}`
+            : `Jalur ${idx === 0 ? 'Utama' : `Alternatif ${idx}`}`,
+          distanceKm,
+          durationMinutes,
+          staticDurationMinutes,
+          delayMinutes,
+          avgSpeedKmh,
+          trafficLevel,
+          stressIndex,
+          timeSavedMinutes,
+          encodedPolyline: r.polyline?.encodedPolyline || '',
+          isToll: (r.description || '').toLowerCase().includes('tol') || !avoidTollsOpt,
+          startLocation,
+          endLocation,
+        };
+      });
+    } catch (e) {
+      return null;
     }
   };
 
@@ -1621,23 +1861,77 @@ export const SmartTrafficRouteTab: React.FC = () => {
 
           // Voice Readout Option
           speakTextSummary(alertMessage);
+          return;
         }
-      } else {
-        // High-precision geographic dynamic calculation if server response fails (e.g. on static hosting hidupsehatku.my.id)
-        const dynamicResult = computeDynamicRoutes(origToUse, destToUse);
-
-        setRoutes(dynamicResult.routes);
-        setSmartAlertText(dynamicResult.alert);
-        setTimeSavedMinutes(dynamicResult.timeSaved);
-        setAiEvaluation(dynamicResult.aiEval);
-        setSelectedRouteId('route-2');
-        setAnalyzedAt(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
-        saveToHistory(origToUse, destToUse, travelMode, dynamicResult.timeSaved, dynamicResult.routes[1]?.title);
-        updateMapMarkers(origToUse, destToUse);
-        speakTextSummary(dynamicResult.alert);
       }
+
+      // If server route didn't return success (or in static live deployment on hidupsehatku.my.id):
+      // Try direct Google Routes API v2
+      if (mapsApiKey) {
+        const directRoutes = await callDirectGoogleRoutes(
+          origToUse,
+          destToUse,
+          travelMode,
+          avoidTolls,
+          avoidHighways,
+          mapsApiKey
+        );
+        if (directRoutes && directRoutes.length > 0) {
+          setRoutes(directRoutes);
+          const bestRoute = directRoutes[1] || directRoutes[0];
+          const alertMsg = `Rute langsung dari Google Maps: ${directRoutes[0].title}. Jarak ${directRoutes[0].distanceKm} km, waktu tempuh ${directRoutes[0].durationMinutes} menit.`;
+          setSmartAlertText(alertMsg);
+          setTimeSavedMinutes(bestRoute.timeSavedMinutes || 0);
+          setSelectedRouteId(bestRoute.id);
+          setAnalyzedAt(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
+          saveToHistory(origToUse, destToUse, travelMode, bestRoute.timeSavedMinutes || 0, bestRoute.title);
+          updateMapMarkers(origToUse, destToUse);
+          speakTextSummary(alertMsg);
+          return;
+        }
+      }
+
+      // Fallback to high-precision geographic calculation if network unreachable
+      const dynamicResult = computeDynamicRoutes(origToUse, destToUse);
+      setRoutes(dynamicResult.routes);
+      setSmartAlertText(dynamicResult.alert);
+      setTimeSavedMinutes(dynamicResult.timeSaved);
+      setAiEvaluation(dynamicResult.aiEval);
+      setSelectedRouteId('route-2');
+      setAnalyzedAt(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
+      saveToHistory(origToUse, destToUse, travelMode, dynamicResult.timeSaved, dynamicResult.routes[1]?.title);
+      updateMapMarkers(origToUse, destToUse);
+      speakTextSummary(dynamicResult.alert);
     } catch (err) {
-      console.warn('Network exception while analyzing route, using high-precision dynamic routing:', err);
+      console.warn('Network exception while analyzing route, attempting direct Google Routes API:', err);
+      if (mapsApiKey) {
+        try {
+          const directRoutes = await callDirectGoogleRoutes(
+            origToUse,
+            destToUse,
+            travelMode,
+            avoidTolls,
+            avoidHighways,
+            mapsApiKey
+          );
+          if (directRoutes && directRoutes.length > 0) {
+            setRoutes(directRoutes);
+            const bestRoute = directRoutes[1] || directRoutes[0];
+            const alertMsg = `Rute langsung dari Google Maps: ${directRoutes[0].title}. Jarak ${directRoutes[0].distanceKm} km, waktu tempuh ${directRoutes[0].durationMinutes} menit.`;
+            setSmartAlertText(alertMsg);
+            setTimeSavedMinutes(bestRoute.timeSavedMinutes || 0);
+            setSelectedRouteId(bestRoute.id);
+            setAnalyzedAt(new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }));
+            saveToHistory(origToUse, destToUse, travelMode, bestRoute.timeSavedMinutes || 0, bestRoute.title);
+            updateMapMarkers(origToUse, destToUse);
+            speakTextSummary(alertMsg);
+            return;
+          }
+        } catch (directErr) {
+          console.warn('Direct Google Routes API fallback error:', directErr);
+        }
+      }
+
       const dynamicResult = computeDynamicRoutes(origToUse, destToUse);
       setRoutes(dynamicResult.routes);
       setSmartAlertText(dynamicResult.alert);
@@ -1656,12 +1950,17 @@ export const SmartTrafficRouteTab: React.FC = () => {
   // GPS Auto-detect
   const handleUseMyLocation = () => {
     if (!navigator.geolocation) {
-      setOrigin('Podomoro City Deli Medan (Pudumoro)');
+      if (userCoordsRef.current) {
+        setOrigin(`Lokasi Saya (${userCoordsRef.current.lat.toFixed(6)}, ${userCoordsRef.current.lng.toFixed(6)})`);
+      } else {
+        setOrigin('Lokasi Saya');
+      }
       return;
     }
     setGeoLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
+        userCoordsRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         const coords = `${pos.coords.latitude.toFixed(6)}, ${pos.coords.longitude.toFixed(6)}`;
         setOrigin(`Lokasi Saya (${coords})`);
         setGeoLocating(false);
@@ -1677,9 +1976,13 @@ export const SmartTrafficRouteTab: React.FC = () => {
       (err) => {
         console.warn('Geolocation error:', err);
         setGeoLocating(false);
-        setOrigin('Podomoro City Deli Medan (Pudumoro)');
+        if (userCoordsRef.current) {
+          setOrigin(`Lokasi Saya (${userCoordsRef.current.lat.toFixed(6)}, ${userCoordsRef.current.lng.toFixed(6)})`);
+        } else {
+          setOrigin('Lokasi Saya');
+        }
       },
-      { timeout: 8000 }
+      { enableHighAccuracy: true, timeout: 8000 }
     );
   };
 

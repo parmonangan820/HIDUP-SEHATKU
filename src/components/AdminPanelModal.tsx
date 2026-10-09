@@ -56,8 +56,13 @@ import {
   Lock,
   Megaphone,
   QrCode,
+  Share2,
+  ExternalLink,
+  Smartphone,
+  Palette,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import QRCode from 'qrcode';
 
 export const AdminPanelModal: React.FC = () => {
   const {
@@ -73,7 +78,7 @@ export const AdminPanelModal: React.FC = () => {
     refreshBannersFromServer,
   } = useHealth();
 
-  const [activeTab, setActiveTab] = useState<'users' | 'analytics' | 'broadcast' | 'banners' | 'security' | 'instanpay'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'analytics' | 'broadcast' | 'banners' | 'security' | 'instanpay' | 'qrcode'>('users');
   const [instanpayConfig, setInstanpayConfig] = useState(() => {
     try {
       const saved = localStorage.getItem('hidupsehat_instanpay_admin_config');
@@ -533,6 +538,17 @@ export const AdminPanelModal: React.FC = () => {
           >
             <QrCode className="w-3.5 h-3.5" />
             <span>InstantPay Gateway</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('qrcode')}
+            className={`py-2 px-3 rounded-xl flex items-center gap-1.5 transition-all whitespace-nowrap ${
+              activeTab === 'qrcode'
+                ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Share2 className="w-3.5 h-3.5" />
+            <span>QR Code Aplikasi</span>
           </button>
         </div>
 
@@ -1392,6 +1408,89 @@ export const AdminPanelModal: React.FC = () => {
                   <Download className="w-4 h-4" />
                   <span>Unduh Data CSV Sekarang</span>
                 </button>
+              </div>
+            </div>
+          )}
+
+          {/* ======================================================== */}
+          {/* TAB QR CODE APLIKASI (DOWNLOAD & SHARE) */}
+          {/* ======================================================== */}
+          {activeTab === 'qrcode' && (
+            <div className="space-y-5 max-w-xl mx-auto animate-in fade-in">
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-teal-950/70 via-slate-900 to-emerald-950/70 border border-teal-500/40 text-xs text-teal-200 space-y-2">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h4 className="font-extrabold text-sm text-white flex items-center gap-1.5">
+                      <span>QR Code Resmi Aplikasi Hidup Sehatku</span>
+                      <span className="px-2 py-0.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-500/30 text-[10px] font-bold">
+                        Bagikan & Promosi
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-slate-300 mt-1">
+                      Admin dapat mengunduh QR Code aplikasi ini untuk dibagikan ke media sosial, poster kesehatan, atau kartu nama rekan sehat. Pengguna cukup memindai untuk langsung masuk ke aplikasi.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* QR Code Preview Card */}
+              <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-2xl flex flex-col items-center text-center space-y-4">
+                <div className="p-4 bg-white rounded-2xl shadow-inner border-4 border-teal-500/35 flex items-center justify-center">
+                  <img
+                    id="admin-app-qrcode-img"
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(
+                      window.location.origin || 'https://www.hidupsehatku.my.id'
+                    )}`}
+                    alt="QR Code Aplikasi Hidup Sehatku"
+                    className="w-52 h-52 object-contain rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <h3 className="text-sm font-black text-white">hidupsehatku.my.id</h3>
+                  <p className="text-[11px] text-slate-400 font-mono break-all max-w-sm">
+                    {window.location.origin || 'https://www.hidupsehatku.my.id'}
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const url = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(
+                        window.location.origin || 'https://www.hidupsehatku.my.id'
+                      )}`;
+                      const link = document.createElement('a');
+                      link.href = url;
+                      link.download = 'QRCode-HidupSehatKu.png';
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      setActionFeedback({ type: 'success', message: 'QR Code berhasil diunduh dalam resolusi tinggi!' });
+                      setTimeout(() => setActionFeedback(null), 3000);
+                    }}
+                    className="py-3 px-4 rounded-2xl bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-xl shadow-teal-500/20 active:scale-95 transition-all cursor-pointer"
+                  >
+                    <Download className="w-4 h-4 stroke-[2.5]" />
+                    <span>Unduh Gambar QR (PNG)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const appUrl = window.location.origin || 'https://www.hidupsehatku.my.id';
+                      if (navigator.clipboard) {
+                        navigator.clipboard.writeText(appUrl);
+                        setActionFeedback({ type: 'success', message: 'Tautan aplikasi berhasil disalin ke clipboard!' });
+                        setTimeout(() => setActionFeedback(null), 3000);
+                      }
+                    }}
+                    className="py-3 px-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center gap-2 border border-slate-700 transition-colors cursor-pointer"
+                  >
+                    <Copy className="w-4 h-4 text-teal-400" />
+                    <span>Salin Tautan Aplikasi</span>
+                  </button>
+                </div>
               </div>
             </div>
           )}

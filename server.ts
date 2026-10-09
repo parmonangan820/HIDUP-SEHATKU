@@ -2201,21 +2201,60 @@ app.get('/api/google-maps/key', (_req: Request, res: Response) => {
 // Clean duplicate spoken text caused by mobile speech recognition loops
 function cleanSpokenText(text: string): string {
   if (!text) return '';
-  let str = text.trim();
-  // Remove immediate accidental double words while preserving hyphenated words
-  str = str.replace(/\b(\w+)\s+\1\b/gi, '$1');
-  return str.trim();
+  return text.replace(/\s+/g, ' ').trim();
 }
 
-// Helper function to extract intent cleanly from Indonesian speech
+// Clean place names: strip filler words, conversational prefixes, and transport modes
+function cleanPlaceName(p: string): string {
+  if (!p) return '';
+  let s = p.trim();
+  let prev = '';
+  // Iteratively strip conversational command phrases & pronouns
+  while (s !== prev) {
+    prev = s;
+    s = s
+      .replace(
+        /^(?:saya|aku|kami|kita|tolong|mohon|coba|tolong\s+carikan|carikan|cari\s+rute\s+ke|cari\s+rute\s+dari|cari\s+rute|cari|pandu\s+saya|pandu|navigasi\s+ke|navigasi|antar\s+saya\s+ke|antarkan\s+saya\s+ke|antar\s+saya|antarkan\s+saya|antar\s+ke|antarkan\s+ke|antar|antarkan|menuju\s+ke|menuju|mau\s+ke|mau\s+pergi\s+ke|mau|ke|dari|posisi\s+di|posisi|lokasi\s+di|lokasi|lagi\s+di|sedang\s+di|berangkat\s+dari|mulai\s+dari|start\s+dari)\s+/i,
+        ''
+      )
+      .trim();
+  }
+  // Strip trailing mode and navigation qualifiers
+  s = s
+    .replace(
+      /\s+(?:naik\s+motor|naik\s+mobil|naik\s+sepeda|jalan\s+kaki|lewat\s+tol|tanpa\s+tol|bebas\s+macet|tercepat|sekarang)$/i,
+      ''
+    )
+    .trim();
+  // Strip leading and trailing punctuation
+  s = s.replace(/^[,\s.:;-]+|[,\s.:;-]+$/g, '').trim();
+
+  // If the result is just a pronoun, filler word, or current location reference, treat as empty
+  if (
+    /^(?:saya|aku|kami|kita|posisi|posisiku|lokasi|lokasiku|sekarang|saat\s+ini|sini|tempat\s+ini|lokasi\s+saya|mau|ingin|rute|arah|jalur|pergi|antar|antar\s+saya|antarkan)$/i.test(
+      s
+    )
+  ) {
+    return '';
+  }
+  return s;
+}
+
+// Helper function to extract origin & destination intent with high precision from Indonesian speech
 function extractAccurateVoiceIntent(rawText: string, currentOriginFallback: string = '') {
-  let text = (rawText || '').replace(/\s+/g, ' ').trim();
-  if (!text) return { origin: currentOriginFallback || '', destination: '', mode: 'DRIVE' };
+  let text = cleanSpokenText(rawText);
+  if (!text) {
+    return {
+      origin: currentOriginFallback || 'Lokasi Saya',
+      destination: '',
+      mode: 'DRIVE' as const,
+    };
+  }
 
   const textLower = text.toLowerCase();
 
-  // Detect mode
-  let mode = 'DRIVE';
+  // 1. Detect Travel Mode
+  let mode: 'DRIVE' | 'TWO_WHEELER' | 'BICYCLE' | 'WALK' = 'DRIVE';
   if (/\b(motor|naik motor|sepeda motor|roda dua|gojek|grab motor)\b/i.test(textLower)) {
     mode = 'TWO_WHEELER';
   } else if (/\b(sepeda|gowes|naik sepeda)\b/i.test(textLower)) {
@@ -2224,72 +2263,72 @@ function extractAccurateVoiceIntent(rawText: string, currentOriginFallback: stri
     mode = 'WALK';
   }
 
-  // Strip travel mode qualifiers from the end so they don't pollute place names
   let cleanText = text
-    .replace(/\s+(?:naik\s+mobil|naik\s+motor|naik\s+sepeda|jalan\s+kaki|dengan\s+mobil|dengan\s+motor|cepat|tercepat|bebas\s+macet)$/i, '')
+    .replace(
+      /\s+(?:naik\s+mobil|naik\s+motor|naik\s+sepeda|jalan\s+kaki|dengan\s+mobil|dengan\s+motor|cepat|tercepat|bebas\s+macet)$/i,
+      ''
+    )
     .trim();
 
   let extractedOrigin = '';
   let extractedDestination = '';
 
-  // Pattern A: "Mau ke [B] dari [A]" or "Menuju [B] dari [A]" or "Tolong antar ke [B] dari [A]"
-  const patternRev = /^(?:tolong\s+)?(?:saya\s+)?(?:mau\s+ke|menuju\s+ke|menuju|tujuan\s+ke|ke|sampai\s+ke|sampai)\s+(.+?)\s+(?:dari|start\s+dari|posisi\s+di|lokasi\s+di|mulai\s+dari)\s+(.+)$/i;
+  // Pattern 1: Reverse order: "Mau ke [B] dari [A]" or "Ke [B] dari [A]" or "Tolong antar ke [B] dari [A]"
+  const patternRev =
+    /^(?:tolong\s+)?(?:saya\s+)?(?:mau\s+ke|menuju\s+ke|menuju|tujuan\s+ke|tujuan|ke|sampai\s+ke|sampai|antar\s+ke|antarkan\s+ke)\s+(.+?)\s+(?:dari|start\s+dari|posisi\s+di|lokasi\s+di|mulai\s+dari|berangkat\s+dari)\s+(.+)$/i;
   const mRev = cleanText.match(patternRev);
   if (mRev) {
-    extractedDestination = mRev[1].trim();
-    extractedOrigin = mRev[2].trim();
+    extractedDestination = cleanPlaceName(mRev[1]);
+    extractedOrigin = cleanPlaceName(mRev[2]);
   }
 
-  // Pattern B: "Dari [A] mau ke / menuju / ke / sampai [B]" or "(Saya) dari [A] ke [B]"
+  // Pattern 2: Normal order: "Dari [A] mau ke / menuju / ke / sampai [B]" or "(Saya) dari [A] ke [B]"
   if (!extractedOrigin || !extractedDestination) {
-    const patternNormal = /^(?:tolong\s+)?(?:saya\s+)?(?:dari|posisi\s+di|lokasi\s+di|lagi\s+di|start\s+dari|mulai\s+dari)\s+(.+?)\s+(?:menuju\s+ke|menuju|mau\s+ke|tujuan\s+ke|tujuan|ke|sampai\s+ke|sampai)\s+(.+)$/i;
+    const patternNormal =
+      /^(?:tolong\s+)?(?:saya\s+)?(?:dari|posisi\s+di|lokasi\s+di|lagi\s+di|start\s+dari|mulai\s+dari|berangkat\s+dari)\s+(.+?)\s+(?:menuju\s+ke|menuju|mau\s+ke|mau|tujuan\s+ke|tujuan|ke|sampai\s+ke|sampai)\s+(.+)$/i;
     const mNormal = cleanText.match(patternNormal);
     if (mNormal) {
-      extractedOrigin = mNormal[1].trim();
-      extractedDestination = mNormal[2].trim();
+      extractedOrigin = cleanPlaceName(mNormal[1]);
+      extractedDestination = cleanPlaceName(mNormal[2]);
     }
   }
 
-  // Pattern C: "[A] ke / menuju / sampai [B]"
-  if (!extractedOrigin || !extractedDestination) {
-    const patternDirect = /^(.+?)\s+(?:menuju\s+ke|menuju|mau\s+ke|tujuan\s+ke|tujuan|ke|sampai\s+ke|sampai)\s+(.+)$/i;
+  // Pattern 3: Destination only with action starter:
+  // "Mau ke [B]" / "Saya mau ke [B]" / "Cari rute ke [B]" / "Ke [B]" / "Antar saya ke [B]" / "Menuju [B]"
+  if (!extractedOrigin && !extractedDestination) {
+    const patternDestOnly =
+      /^(?:tolong\s+)?(?:saya\s+)?(?:antar\s+saya\s+ke|antarkan\s+saya\s+ke|antar\s+ke|antarkan\s+ke|mau\s+pergi\s+ke|mau\s+ke|ingin\s+ke|pengen\s+ke|menuju\s+ke|menuju|tujuan\s+ke|tujuan|ke|sampai\s+ke|sampai|cari\s+rute\s+ke|navigasi\s+ke|arah\s+ke|jalur\s+ke)\s+(.+)$/i;
+    const mDest = cleanText.match(patternDestOnly);
+    if (mDest) {
+      extractedDestination = cleanPlaceName(mDest[1]);
+      extractedOrigin = '';
+    }
+  }
+
+  // Pattern 4: Direct pair "[A] ke / menuju / sampai [B]"
+  if (!extractedOrigin && !extractedDestination) {
+    const patternDirect =
+      /^(.+?)\s+(?:menuju\s+ke|menuju|mau\s+ke|tujuan\s+ke|tujuan|ke|sampai\s+ke|sampai)\s+(.+)$/i;
     const mDirect = cleanText.match(patternDirect);
     if (mDirect) {
-      const candA = mDirect[1].trim().replace(/^(?:saya|tolong|posisi|lokasi|lagi|start)\s+/i, '');
-      const candB = mDirect[2].trim();
-      if (!/^(?:mau|ingin|hendak|tujuan)$/i.test(candA)) {
+      const candA = cleanPlaceName(mDirect[1]);
+      const candB = cleanPlaceName(mDirect[2]);
+      if (candA) {
         extractedOrigin = candA;
+        extractedDestination = candB;
+      } else {
         extractedDestination = candB;
       }
     }
   }
 
-  // Pattern D: Only Destination mentioned: "Mau ke [B]" or "Ke [B]" or "Menuju [B]"
+  // Pattern 5: Fallback if destination still empty, take entire clean text as destination
   if (!extractedDestination) {
-    const patternDestOnly = /^(?:tolong\s+)?(?:saya\s+)?(?:mau\s+ke|menuju\s+ke|menuju|tujuan\s+ke|tujuan|ke|sampai\s+ke|sampai)\s+(.+)$/i;
-    const mDest = cleanText.match(patternDestOnly);
-    if (mDest) {
-      extractedDestination = mDest[1].trim();
-      extractedOrigin = currentOriginFallback || '';
-    }
+    extractedDestination = cleanPlaceName(cleanText);
   }
 
-  // Fallback: If no destination parsed, use entire text as destination
-  if (!extractedDestination && cleanText) {
-    extractedDestination = cleanText;
-    extractedOrigin = currentOriginFallback || '';
-  }
-
-  const cleanPlace = (p: string) => {
-    return (p || '')
-      .replace(/^(?:dari|ke|menuju|posisi\s+di|lokasi\s+di)\s+/i, '')
-      .replace(/\s+(?:naik\s+motor|naik\s+mobil|naik\s+sepeda|jalan\s+kaki)$/i, '')
-      .replace(/^[,\s.-]+|[,\s.-]+$/g, '')
-      .trim();
-  };
-
-  extractedOrigin = cleanPlace(extractedOrigin);
-  extractedDestination = cleanPlace(extractedDestination);
+  extractedOrigin = cleanPlaceName(extractedOrigin);
+  extractedDestination = cleanPlaceName(extractedDestination);
 
   const capitalizeWords = (str: string) => {
     return str.replace(/\b([a-z])/g, (c) => c.toUpperCase());
@@ -2299,7 +2338,7 @@ function extractAccurateVoiceIntent(rawText: string, currentOriginFallback: stri
   if (extractedDestination) extractedDestination = capitalizeWords(extractedDestination);
 
   return {
-    origin: extractedOrigin || currentOriginFallback || '',
+    origin: extractedOrigin || currentOriginFallback || 'Lokasi Saya',
     destination: extractedDestination,
     mode,
   };
@@ -2343,7 +2382,7 @@ Instruksi Kritis:
 - Contoh: Jika pengguna mengucapkan "Monas ke Bundaran HI", maka:
   origin: "Monas"
   destination: "Bundaran HI"
-- Jika titik asal tidak disebutkan dalam ucapan, gunakan origin saat ini: "${currentOrigin}".
+- Contoh: Jika pengguna hanya menyebutkan tujuan misalnya "Saya mau ke Pintu Air 4", maka origin jangan diisi "Saya", tetapi gunakan origin saat ini: "${currentOrigin || 'Lokasi Saya'}".
 - Jangan tambahkan teks selain JSON.
 
 Output JSON:
@@ -2362,21 +2401,23 @@ Output JSON:
           },
         });
         const timeoutPromise = new Promise<null>((_, reject) =>
-          setTimeout(() => reject(new Error('AI timeout')), 2000)
+          setTimeout(() => reject(new Error('AI timeout')), 3500)
         );
         const aiRes: any = await Promise.race([aiCall, timeoutPromise]);
 
         const rawJson = (aiRes?.text || '').replace(/```json/gi, '').replace(/```/g, '').trim();
         if (rawJson) {
           const parsed = JSON.parse(rawJson);
-          if (parsed.origin && typeof parsed.origin === 'string' && parsed.origin.trim()) {
-            parsedOrigin = parsed.origin.trim();
+          if (parsed.origin && typeof parsed.origin === 'string') {
+            const cleanedAiOrigin = cleanPlaceName(parsed.origin.trim());
+            if (cleanedAiOrigin) parsedOrigin = cleanedAiOrigin;
           }
-          if (parsed.destination && typeof parsed.destination === 'string' && parsed.destination.trim()) {
-            parsedDestination = parsed.destination.trim();
+          if (parsed.destination && typeof parsed.destination === 'string') {
+            const cleanedAiDest = cleanPlaceName(parsed.destination.trim());
+            if (cleanedAiDest) parsedDestination = cleanedAiDest;
           }
           if (parsed.travelMode && typeof parsed.travelMode === 'string') {
-            travelMode = parsed.travelMode;
+            travelMode = parsed.travelMode as any;
           }
         }
       } catch (geminiErr) {
@@ -2385,11 +2426,11 @@ Output JSON:
     }
 
     // Clean up trailing punctuation
-    parsedOrigin = (parsedOrigin || '').replace(/^[,\s.-]+|[,\s.-]+$/g, '').trim();
-    parsedDestination = (parsedDestination || '').replace(/^[,\s.-]+|[,\s.-]+$/g, '').trim();
+    parsedOrigin = cleanPlaceName(parsedOrigin || '');
+    parsedDestination = cleanPlaceName(parsedDestination || '');
 
     if (!parsedOrigin) parsedOrigin = currentOrigin || 'Lokasi Saya';
-    if (!parsedDestination) parsedDestination = rawSpeech;
+    if (!parsedDestination) parsedDestination = cleanPlaceName(rawSpeech) || rawSpeech;
 
     return res.json({
       success: true,
@@ -2424,8 +2465,10 @@ app.post('/api/smart-traffic/analyze', async (req: Request, res: Response) => {
     let googleRoutesSuccess = false;
 
     // Helper to format payload waypoint for Google Routes API v2
-    const buildWaypointPayload = (addrStr: string) => {
+    const buildWaypointPayload = (addrStr: string, contextStr: string = '') => {
       let clean = (addrStr || '').trim();
+
+      // Check if coordinate is in string like "Lokasi Saya (3.5908, 98.6743)" or "3.5908, 98.6743"
       const coordBracketMatch = clean.match(/\((-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\)/);
       if (coordBracketMatch) {
         return {
@@ -2450,6 +2493,22 @@ app.post('/api/smart-traffic/analyze', async (req: Request, res: Response) => {
         };
       }
 
+      // If user literally used "Lokasi Saya" or "Posisi Saya" without raw GPS coords, anchor to nearest context city
+      if (/^(?:lokasi\s+saya|posisi\s+saya|lokasi|posisi|saya)$/i.test(clean) || !clean) {
+        const ctx = (contextStr || '').toLowerCase();
+        if (ctx.includes('medan') || ctx.includes('podomoro') || ctx.includes('simalingkar') || ctx.includes('bunga ester') || ctx.includes('lalang')) {
+          return { location: { latLng: { latitude: 3.5908, longitude: 98.6743 } } };
+        } else if (ctx.includes('bandung')) {
+          return { location: { latLng: { latitude: -6.9175, longitude: 107.6191 } } };
+        } else if (ctx.includes('surabaya')) {
+          return { location: { latLng: { latitude: -7.2575, longitude: 112.7521 } } };
+        } else if (ctx.includes('bali') || ctx.includes('denpasar')) {
+          return { location: { latLng: { latitude: -8.6705, longitude: 115.2126 } } };
+        } else {
+          return { location: { latLng: { latitude: -6.2088, longitude: 106.8456 } } };
+        }
+      }
+
       // Remove non-coordinate parenthetical descriptions like "(Pudumoro)"
       clean = clean.replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
 
@@ -2462,8 +2521,8 @@ app.post('/api/smart-traffic/analyze', async (req: Request, res: Response) => {
     // 1. Call Google Routes API v2
     if (mapsKey) {
       try {
-        const originPayload = buildWaypointPayload(typeof origin === 'string' ? origin : origin.address || '');
-        const destPayload = buildWaypointPayload(typeof destination === 'string' ? destination : destination.address || '');
+        const originPayload = buildWaypointPayload(typeof origin === 'string' ? origin : origin.address || '', typeof destination === 'string' ? destination : '');
+        const destPayload = buildWaypointPayload(typeof destination === 'string' ? destination : destination.address || '', typeof origin === 'string' ? origin : '');
 
         const validTravelMode =
           travelMode === 'TWO_WHEELER'
