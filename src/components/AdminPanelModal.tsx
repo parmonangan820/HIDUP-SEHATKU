@@ -157,6 +157,7 @@ CREATE INDEX IF NOT EXISTS idx_profiles_name ON public.profiles(name);`;
       callbackUrl: 'https://www.hidupsehatku.my.id/api/instanpay/callback',
       autoActivatePro: true,
       qrisMode: 'both',
+      customStaticQrisString: '',
       customQrisImageUrl: '',
       customQrisNmid: 'ID1029384756810',
       customQrisMerchantName: 'HIDUP SEHATKU PRO',
@@ -164,6 +165,40 @@ CREATE INDEX IF NOT EXISTS idx_profiles_name ON public.profiles(name);`;
       whatsappConfirmationNumber: '085760525942',
     };
   });
+
+  const [testDynamicAmount, setTestDynamicAmount] = useState<number>(15000);
+  const [testDynamicResult, setTestDynamicResult] = useState<{
+    success: boolean;
+    amount?: number;
+    merchantName?: string;
+    qrisString?: string;
+    qrDataUrl?: string;
+    message?: string;
+    error?: string;
+  } | null>(null);
+  const [isGeneratingTestQris, setIsGeneratingTestQris] = useState(false);
+
+  const handleGenerateTestDynamicQris = async () => {
+    setIsGeneratingTestQris(true);
+    setTestDynamicResult(null);
+    try {
+      const res = await fetch('/api/instanpay/test-dynamic-qris', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount: testDynamicAmount,
+          staticQris: instanpayConfig.customStaticQrisString,
+          merchantName: instanpayConfig.customQrisMerchantName,
+        }),
+      });
+      const data = await res.json();
+      setTestDynamicResult(data);
+    } catch (err: any) {
+      setTestDynamicResult({ success: false, error: err?.message || 'Gagal generate QRIS Dinamis' });
+    } finally {
+      setIsGeneratingTestQris(false);
+    }
+  };
 
   useEffect(() => {
     fetch('/api/instanpay/config')
@@ -1074,6 +1109,112 @@ CREATE INDEX IF NOT EXISTS idx_profiles_name ON public.profiles(name);`;
                         </div>
                       )}
                     </div>
+                  </div>
+
+                  {/* String / Payload QRIS Statis Merchant untuk Otomatisasi QRIS Dinamis */}
+                  <div className="space-y-1.5 p-3 rounded-2xl bg-cyan-950/30 border border-cyan-500/30">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-cyan-300 block">
+                        Payload / String QRIS Statis Merchant (Konversi Otomatis ke Dinamis)
+                      </label>
+                      <span className="text-[9px] bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded font-mono">
+                        Standar ASPI 010212
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-slate-300 leading-relaxed">
+                      Tempelkan teks hasil scan barcode QRIS toko Anda (diawali <code className="text-cyan-300 font-mono">000201010211...</code>). Sistem akan <strong>mengonversinya menjadi QRIS Dinamis</strong> secara otomatis per pesanan dengan nominal terkunci (Rp 15.000 / Rp 100.000) dan uang langsung masuk ke rekening merchant Anda!
+                    </p>
+                    <textarea
+                      rows={2}
+                      value={instanpayConfig.customStaticQrisString || ''}
+                      onChange={(e) => setInstanpayConfig((prev: any) => ({ ...prev, customStaticQrisString: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-cyan-200 text-xs font-mono focus:outline-none focus:border-cyan-500"
+                      placeholder="00020101021126580014ID.CO.QRIS.WWW0118...6304XXXX"
+                    />
+                  </div>
+
+                  {/* Uji Coba Generator QRIS Dinamis */}
+                  <div className="p-3.5 rounded-2xl bg-slate-950 border border-slate-800 space-y-3">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div>
+                        <h6 className="text-xs font-bold text-white flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Uji Coba Generator QRIS Dinamis</span>
+                        </h6>
+                        <p className="text-[10px] text-slate-400">
+                          Uji pembuatan kode QRIS Dinamis dan scan langsung dengan handphone Anda.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setTestDynamicAmount(15000)}
+                          className={`px-2 py-1 rounded-lg text-[10px] font-bold cursor-pointer ${
+                            testDynamicAmount === 15000 ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-400'
+                          }`}
+                        >
+                          Rp 15.000 (Bulanan)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTestDynamicAmount(100000)}
+                          className={`px-2 py-1 rounded-lg text-[10px] font-bold cursor-pointer ${
+                            testDynamicAmount === 100000 ? 'bg-amber-500 text-slate-950' : 'bg-slate-800 text-slate-400'
+                          }`}
+                        >
+                          Rp 100.000 (Tahunan)
+                        </button>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleGenerateTestDynamicQris}
+                      disabled={isGeneratingTestQris}
+                      className="w-full py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-black text-xs hover:brightness-110 active:scale-95 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      {isGeneratingTestQris ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>Membuat QRIS Dinamis...</span>
+                        </>
+                      ) : (
+                        <>
+                          <QrCode className="w-3.5 h-3.5" />
+                          <span>⚡ Generate & Tampilkan Barcode QRIS Dinamis (Rp {testDynamicAmount.toLocaleString('id-ID')})</span>
+                        </>
+                      )}
+                    </button>
+
+                    {testDynamicResult && testDynamicResult.success && (
+                      <div className="p-3 rounded-2xl bg-slate-900 border border-slate-700 flex flex-col sm:flex-row items-center gap-4">
+                        {testDynamicResult.qrDataUrl && (
+                          <div className="p-2 bg-white rounded-xl shadow flex-shrink-0">
+                            <img
+                              src={testDynamicResult.qrDataUrl}
+                              alt="Test QRIS Dinamis"
+                              className="w-32 h-32 object-contain"
+                            />
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1 space-y-1 text-center sm:text-left">
+                          <div className="text-xs font-black text-emerald-400">
+                            ✓ QRIS Dinamis Berhasil Dibuat!
+                          </div>
+                          <div className="text-[11px] text-slate-300">
+                            Nominal: <strong>Rp {testDynamicResult.amount?.toLocaleString('id-ID')}</strong> ({testDynamicResult.merchantName})
+                          </div>
+                          <p className="text-[10px] text-slate-400">
+                            Arahkan kamera m-Banking atau E-Wallet Anda ke barcode di samping untuk menguji pembacaan nominal.
+                          </p>
+                          {testDynamicResult.qrisString && (
+                            <span className="text-[9px] text-cyan-400 font-mono block truncate bg-slate-950 p-1 rounded border border-slate-800">
+                              {testDynamicResult.qrisString}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
