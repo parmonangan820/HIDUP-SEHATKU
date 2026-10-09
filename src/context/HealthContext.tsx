@@ -1095,7 +1095,7 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Pro Auto Cloud Sync Effect to Supabase
   useEffect(() => {
-    if (isPro && supabaseStatus?.connected) {
+    if (profile.isRegistered && isPro && supabaseStatus?.connected) {
       const syncDebounce = setTimeout(() => {
         pushDataToSupabase({
           profile,
@@ -1322,12 +1322,12 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  // Check Supabase connection on mount
+  // Check Supabase connection on mount (Registered users only)
   useEffect(() => {
     checkSupabaseStatus()
       .then((status) => {
         setSupabaseStatus(status);
-        if (status.connected) {
+        if (status.connected && profile.isRegistered) {
           // Sync current profile's data from server
           pullFromSupabase();
         }
@@ -1336,6 +1336,7 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const syncWithSupabase = async (): Promise<boolean> => {
+    if (!profile.isRegistered) return false;
     setIsSyncingSupabase(true);
     try {
       const allWaterLogs = todayRecord?.waterLogs || [];
@@ -1368,14 +1369,14 @@ export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   };
 
-  // Real-time background auto-sync to Supabase PostgreSQL when data changes
+  // Real-time background auto-sync to Supabase PostgreSQL when data changes (Registered users only)
   useEffect(() => {
-    if (!supabaseStatus?.connected) return;
+    if (!profile.isRegistered || !supabaseStatus?.connected) return;
     const timer = setTimeout(() => {
       syncWithSupabase().catch(() => {});
     }, 1500);
     return () => clearTimeout(timer);
-  }, [history, profile, notes, alarms, aiAnalysis, supabaseStatus?.connected]);
+  }, [history, profile.isRegistered, profile, notes, alarms, aiAnalysis, supabaseStatus?.connected]);
 
   // Ensure selected date exists in history
   const todayRecord: DayRecord = history[selectedDate] || {
