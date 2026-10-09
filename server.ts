@@ -3028,11 +3028,13 @@ function generateNationalQRIS(options: {
 
 const instanpayOrders = new Map<string, any>();
 
-// InstanPay & iPaymu Payment Gateway Endpoints
+// InstanPay & InstanLive (pay.instanlive.id) Payment Gateway Endpoints
+const DEFAULT_INSTANPAY_API_KEY = 'sk_test_f477df17909b8f706efa39f1f6ac826c4fb7';
+
 app.post('/api/instanpay/create-qris', async (req: Request, res: Response) => {
   try {
-    const { plan, amount, customerName, customerEmail, adminConfig } = req.body || {};
-    const orderId = `INSTANPAY-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const { plan, amount, customerName, customerEmail, adminConfig, ref_id } = req.body || {};
+    const orderId = ref_id || `ORDER-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const finalAmount = amount || (plan === 'monthly' ? 15000 : 100000);
 
     const mode = adminConfig?.mode || 'sandbox';
@@ -3040,14 +3042,8 @@ app.post('/api/instanpay/create-qris', async (req: Request, res: Response) => {
       (mode === 'live' ? adminConfig?.liveApiKey : adminConfig?.sandboxApiKey) ||
       process.env.INSTANPAY_API_KEY ||
       process.env.IPAYMU_API_KEY ||
-      '';
-    const activeMerchantId =
-      adminConfig?.merchantId ||
-      process.env.INSTANPAY_MERCHANT_ID ||
-      process.env.IPAYMU_VA ||
-      '';
+      DEFAULT_INSTANPAY_API_KEY;
 
-    // Generate genuine QRIS Standar Nasional Indonesia (EMVCo with CRC16-CCITT)
     let qrisString = generateNationalQRIS({
       orderId,
       amount: finalAmount,
@@ -3058,6 +3054,10 @@ app.post('/api/instanpay/create-qris', async (req: Request, res: Response) => {
     });
     let checkoutUrl = `https://pay.instanlive.id/pay/${orderId}`;
     let paymentUrl = '';
+    let txnId: number | null = null;
+    let simulateUrl = '';
+    let uniqueAmount = finalAmount;
+    let fee = 0;
 
     if (activeApiKey) {
       try {
@@ -3076,13 +3076,28 @@ app.post('/api/instanpay/create-qris', async (req: Request, res: Response) => {
         if (instanliveRes.ok) {
           const resData = await instanliveRes.json();
           const liveData = resData?.data || resData;
+          if (liveData?.txn_id) {
+            txnId = liveData.txn_id;
+          }
           if (liveData?.payment_url) {
             paymentUrl = liveData.payment_url;
             checkoutUrl = liveData.payment_url;
           }
-          if (liveData?.qr_string || liveData?.qris_string) {
-            qrisString = liveData.qr_string || liveData.qris_string;
+          if (liveData?.qris_string || liveData?.qr_string) {
+            qrisString = liveData.qris_string || liveData.qr_string;
           }
+          if (liveData?.unique_amount) {
+            uniqueAmount = liveData.unique_amount;
+          }
+          if (liveData?.fee) {
+            fee = liveData.fee;
+          }
+          if (liveData?.simulate_url) {
+            simulateUrl = liveData.simulate_url;
+          }
+        } else {
+          const errText = await instanliveRes.text();
+          console.warn('InstanLive create response error:', instanliveRes.status, errText);
         }
       } catch (apiErr) {
         console.warn('InstanLive transaction create error:', apiErr);
@@ -3091,33 +3106,45 @@ app.post('/api/instanpay/create-qris', async (req: Request, res: Response) => {
 
     const orderRecord = {
       orderId,
+      txnId,
       amount: finalAmount,
+      uniqueAmount,
+      fee,
       plan: plan || 'annual',
       customerName: customerName || 'Sahabat Sehat',
       customerEmail: customerEmail || 'user@hidupsehatku.my.id',
       status: 'pending',
       createdAt: Date.now(),
-      expiresAt: Date.now() + 300000, // 5 minutes
+      expiresAt: Date.now() + 1800000, // 30 minutes
       qrisString,
       checkoutUrl,
       paymentUrl,
+      simulateUrl,
       mode,
+      apiKeyUsed: activeApiKey,
     };
 
     instanpayOrders.set(orderId, orderRecord);
+    if (txnId) {
+      instanpayOrders.set(String(txnId), orderRecord);
+    }
 
     const finalQrData = qrisString || paymentUrl || checkoutUrl;
 
     return res.json({
       success: true,
       orderId,
+      txnId,
       amount: finalAmount,
+      uniqueAmount,
+      fee,
       qrisString: finalQrData,
       checkoutUrl,
       paymentUrl,
+      simulateUrl,
       qrImageUrl: `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(finalQrData)}`,
       status: 'pending',
-      expiresInSeconds: 300,
+      expiresInSeconds: 1800,
     });
   } catch (error: any) {
     return res.status(500).json({ success: false, error: error?.message || 'Internal server error' });
@@ -3131,44 +3158,46 @@ app.post('/api/instanpay/check-status', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: 'Order ID is required' });
     }
 
-    const order = instanpayOrders.get(orderId);
+    const order = instanpayOrders.get(orderId) || instanpayOrders.get(String(orderId));
 
-    // Live gateway check if API key exists
     const mode = adminConfig?.mode || order?.mode || 'sandbox';
     const activeApiKey =
       (mode === 'live' ? adminConfig?.liveApiKey : adminConfig?.sandboxApiKey) ||
+      order?.apiKeyUsed ||
       process.env.INSTANPAY_API_KEY ||
-      process.env.IPAYMU_API_KEY ||
-      '';
-    const activeMerchantId =
-      adminConfig?.merchantId ||
-      process.env.INSTANPAY_MERCHANT_ID ||
-      process.env.IPAYMU_VA ||
-      '';
+      DEFAULT_INSTANPAY_API_KEY;
 
-    if (activeApiKey && activeMerchantId) {
+    // 1. Direct status check ke API resmi pay.instanlive.id jika ada txn_id
+    const targetTxnId = order?.txnId;
+    if (targetTxnId && activeApiKey) {
       try {
-        const liveCheckRes = await fetch(`https://api.instanpay.co.id/v1/orders/${encodeURIComponent(orderId)}/status`, {
+        const liveCheckRes = await fetch(`https://pay.instanlive.id/api/v1/transaction/status/${targetTxnId}`, {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${activeApiKey}`,
-            'X-Merchant-Id': activeMerchantId,
+            'X-Api-Key': activeApiKey,
           },
         });
         if (liveCheckRes.ok) {
           const liveData = await liveCheckRes.json();
-          if (liveData?.status === 'PAID' || liveData?.status === 'SUCCESS' || liveData?.status === 'SETTLED') {
-            if (order) order.status = 'paid';
+          const txnData = liveData?.data || liveData;
+          const liveStatus = (txnData?.status || '').toLowerCase();
+          if (liveStatus === 'paid' || liveStatus === 'success' || liveStatus === 'settled') {
+            if (order) {
+              order.status = 'paid';
+              order.paidAt = Date.now();
+            }
             return res.json({
               success: true,
               orderId,
+              txnId: targetTxnId,
               status: 'paid',
-              message: 'Pembayaran QRIS InstanPay berhasil dikonfirmasi.',
+              paidAt: Date.now(),
+              message: 'Pembayaran QRIS InstanLive berhasil dikonfirmasi secara real-time!',
             });
           }
         }
       } catch (err) {
-        console.warn('Live InstanPay check warning:', err);
+        console.warn('InstanLive status check error:', err);
       }
     }
 
@@ -3197,7 +3226,7 @@ app.post('/api/instanpay/check-status', async (req: Request, res: Response) => {
         orderId,
         status: 'paid',
         paidAt: order.paidAt || Date.now(),
-        message: 'Pembayaran QRIS InstanPay berhasil dikonfirmasi.',
+        message: 'Pembayaran QRIS InstanLive berhasil dikonfirmasi.',
       });
     }
 
@@ -3214,12 +3243,32 @@ app.post('/api/instanpay/check-status', async (req: Request, res: Response) => {
 
 app.post('/api/instanpay/simulate-payment', async (req: Request, res: Response) => {
   try {
-    const { orderId } = req.body || {};
+    const { orderId, adminConfig } = req.body || {};
     if (!orderId) {
       return res.status(400).json({ success: false, error: 'Order ID is required' });
     }
 
-    const order = instanpayOrders.get(orderId);
+    const order = instanpayOrders.get(orderId) || instanpayOrders.get(String(orderId));
+    const activeApiKey =
+      adminConfig?.sandboxApiKey ||
+      order?.apiKeyUsed ||
+      process.env.INSTANPAY_API_KEY ||
+      DEFAULT_INSTANPAY_API_KEY;
+
+    // Jika ada txnId dan ini sandbox, tembak endpoint simulasi resmi pay.instanlive.id
+    if (order?.txnId && activeApiKey) {
+      try {
+        await fetch(`https://pay.instanlive.id/api/v1/sandbox/pay/${order.txnId}`, {
+          method: 'POST',
+          headers: {
+            'X-Api-Key': activeApiKey,
+          },
+        });
+      } catch (err) {
+        console.warn('Error calling Instanlive sandbox pay endpoint:', err);
+      }
+    }
+
     if (order) {
       order.status = 'paid';
       order.paidAt = Date.now();
@@ -3235,7 +3284,7 @@ app.post('/api/instanpay/simulate-payment', async (req: Request, res: Response) 
       success: true,
       orderId,
       status: 'paid',
-      message: 'Simulasi scan dan pembayaran QRIS berhasil! Status telah menjadi PAID.',
+      message: 'Simulasi scan dan pembayaran QRIS InstanLive berhasil! Status telah menjadi PAID.',
     });
   } catch (error: any) {
     return res.status(500).json({ success: false, error: error?.message });
@@ -3262,44 +3311,50 @@ const universalWebhookHandler = async (req: Request, res: Response) => {
 
   try {
     const payload = req.body || {};
+    const d = payload.data || payload;
     const orderId =
+      d.ref_id ||
+      d.refId ||
+      d.reference_id ||
+      d.order_id ||
+      d.orderId ||
+      d.bill_no ||
+      d.trx_id ||
       payload.ref_id ||
-      payload.refId ||
-      payload.reference_id ||
-      payload.order_id ||
-      payload.orderId ||
-      payload.bill_no ||
-      payload.trx_id;
+      payload.order_id;
+    const txnId = d.txn_id || payload.txn_id;
 
     const status = (
+      d.status ||
       payload.status ||
+      d.transaction_status ||
       payload.transaction_status ||
+      d.payment_status ||
       payload.payment_status ||
-      payload.state ||
       'PAID'
     ).toString().toUpperCase();
 
-    if (orderId) {
-      const order = instanpayOrders.get(orderId);
-      if (order) {
-        order.status = 'paid';
-        order.paidAt = Date.now();
-        order.webhookPayload = payload;
-      } else {
-        instanpayOrders.set(orderId, {
-          orderId,
-          status: 'paid',
-          paidAt: Date.now(),
-          webhookPayload: payload,
-        });
-      }
+    const order = (orderId && instanpayOrders.get(orderId)) || (txnId && instanpayOrders.get(String(txnId)));
+
+    if (order) {
+      order.status = 'paid';
+      order.paidAt = Date.now();
+      order.webhookPayload = payload;
+    } else if (orderId) {
+      instanpayOrders.set(orderId, {
+        orderId,
+        txnId,
+        status: 'paid',
+        paidAt: Date.now(),
+        webhookPayload: payload,
+      });
     }
 
     return res.status(200).json({
       success: true,
       code: 200,
       message: 'Webhook processed successfully',
-      orderId: orderId || null,
+      orderId: orderId || txnId || null,
       received_at: new Date().toISOString(),
     });
   } catch (error: any) {

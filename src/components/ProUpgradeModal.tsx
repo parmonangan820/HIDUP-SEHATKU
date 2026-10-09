@@ -26,6 +26,10 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
   const [qrisData, setQrisData] = useState<{
     orderId: string;
     amount: number;
+    uniqueAmount?: number;
+    fee?: number;
+    txnId?: number;
+    paymentUrl?: string;
     qrisString: string;
     qrImageUrl: string;
     checkoutUrl: string;
@@ -297,8 +301,15 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
 
               <div className="w-full text-center border-t border-slate-200 pt-3">
                 <div className="text-xs text-slate-600 font-medium">{planLabel}</div>
-                <div className="text-2xl font-black text-slate-950 mt-0.5">{priceFormatted}</div>
-                <div className="text-[10px] text-slate-500 mt-0.5">Merchant: HIDUP SEHATKU PRO (iPaymu / InstantPay)</div>
+                <div className="text-2xl font-black text-slate-950 mt-0.5">
+                  {qrisData?.uniqueAmount ? `Rp ${qrisData.uniqueAmount.toLocaleString('id-ID')}` : priceFormatted}
+                </div>
+                {qrisData?.fee ? (
+                  <div className="text-[10px] text-slate-500 font-medium">
+                    (Nominal: Rp {qrisData.amount?.toLocaleString('id-ID')} + Biaya Transaksi: Rp {qrisData.fee?.toLocaleString('id-ID')})
+                  </div>
+                ) : null}
+                <div className="text-[10px] text-slate-500 mt-0.5">Merchant: HIDUP SEHATKU PRO (InstanLive QRIS)</div>
               </div>
             </div>
 
