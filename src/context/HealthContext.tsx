@@ -383,17 +383,17 @@ const DEFAULT_BANNER_SLIDES: BannerSlide[] = [
 ];
 
 const DEFAULT_PROFILE: UserProfile = {
-  name: 'Canggih Marbun',
-  phone: '085760525942',
-  email: 'canggihmarbun14@gmail.com',
-  age: 26,
+  name: 'Pengunjung',
+  phone: '',
+  email: '',
+  age: 25,
   gender: 'pria',
-  weight: 64,
-  height: 170,
-  targetWaterMl: 2500, // 64kg * 35ml ~ 2240 + activity ~ 2500ml
+  weight: 60,
+  height: 165,
+  targetWaterMl: 2100,
   dailyWorkoutMinutesTarget: 30,
-  isRegistered: true,
-  isLoggedIn: true,
+  isRegistered: false,
+  isLoggedIn: false,
 };
 
 export const HealthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {

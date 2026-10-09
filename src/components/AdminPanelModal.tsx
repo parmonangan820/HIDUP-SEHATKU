@@ -78,7 +78,51 @@ export const AdminPanelModal: React.FC = () => {
     refreshBannersFromServer,
   } = useHealth();
 
-  const [activeTab, setActiveTab] = useState<'users' | 'analytics' | 'broadcast' | 'banners' | 'security' | 'instanpay' | 'qrcode'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'analytics' | 'broadcast' | 'banners' | 'security' | 'instanpay' | 'qrcode' | 'sql'>('users');
+  const [copiedSql, setCopiedSql] = useState(false);
+
+  const handleCopySql = () => {
+    const sqlText = `-- ==============================================================================
+-- SQL HALAMAN PROFIL (SUPABASE)
+-- Salin dan tempel (paste) kode SQL ini ke Supabase SQL Editor Anda
+-- ==============================================================================
+
+CREATE TABLE IF NOT EXISTS public.profiles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    name VARCHAR(150) NOT NULL DEFAULT 'Pengguna Baru',
+    phone VARCHAR(30) DEFAULT '',
+    email VARCHAR(150) DEFAULT '',
+    age INTEGER DEFAULT 25,
+    gender VARCHAR(10) DEFAULT 'pria',
+    weight NUMERIC(5,2) DEFAULT 60.0,
+    height NUMERIC(5,2) DEFAULT 165.0,
+    target_water_ml INTEGER DEFAULT 2100,
+    daily_workout_minutes_target INTEGER DEFAULT 30,
+    is_registered BOOLEAN DEFAULT true,
+    role VARCHAR(20) DEFAULT 'user',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Pastikan kolom tabel profiles lengkap
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'user';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_registered BOOLEAN DEFAULT true;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS phone VARCHAR(30) DEFAULT '';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS name VARCHAR(150) DEFAULT 'Pengguna Baru';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS target_water_ml INTEGER DEFAULT 2100;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS daily_workout_minutes_target INTEGER DEFAULT 30;
+
+-- Indeks performa
+CREATE INDEX IF NOT EXISTS idx_profiles_phone ON public.profiles(phone);
+CREATE INDEX IF NOT EXISTS idx_profiles_name ON public.profiles(name);`;
+
+    try {
+      navigator.clipboard.writeText(sqlText);
+      setCopiedSql(true);
+      setTimeout(() => setCopiedSql(false), 2500);
+    } catch {}
+  };
   const [instanpayConfig, setInstanpayConfig] = useState(() => {
     try {
       const saved = localStorage.getItem('hidupsehat_instanpay_admin_config');
@@ -549,6 +593,17 @@ export const AdminPanelModal: React.FC = () => {
           >
             <Share2 className="w-3.5 h-3.5" />
             <span>QR Code Aplikasi</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('sql')}
+            className={`py-2 px-3 rounded-xl flex items-center gap-1.5 transition-all whitespace-nowrap ${
+              activeTab === 'sql'
+                ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/20'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Database className="w-3.5 h-3.5" />
+            <span>SQL Halaman Profil</span>
           </button>
         </div>
 
@@ -1494,7 +1549,6 @@ export const AdminPanelModal: React.FC = () => {
               </div>
             </div>
           )}
-        </div>
 
         {/* Modal Sub-view: Detail Pengguna Lengkap */}
         {selectedUserDetail && (
@@ -1662,6 +1716,77 @@ export const AdminPanelModal: React.FC = () => {
             </div>
           </div>
         )}
+
+          {/* ======================================================== */}
+          {/* TAB SQL HALAMAN PROFIL (SUPABASE) */}
+          {/* ======================================================== */}
+          {activeTab === 'sql' && (
+            <div className="space-y-4 max-w-xl mx-auto animate-in fade-in">
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-950/70 via-slate-900 to-indigo-950/70 border border-blue-500/40 text-xs text-blue-200 space-y-2">
+                <h4 className="font-extrabold text-sm text-white flex items-center gap-1.5">
+                  <Database className="w-4 h-4 text-cyan-400" />
+                  <span>SQL "Halaman Profil" untuk Supabase</span>
+                </h4>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  Salin skema SQL di bawah ini dan tempelkan ke dalam <strong>SQL Editor</strong> di dashboard Supabase Anda untuk membuat atau memperbarui tabel <code className="text-cyan-300">public.profiles</code>.
+                </p>
+              </div>
+
+              <div className="relative rounded-2xl bg-slate-950 border border-slate-800 p-4 font-mono text-[11px] text-slate-300 overflow-x-auto max-h-72">
+                <pre>{`-- ==============================================================================
+-- SQL HALAMAN PROFIL (SUPABASE)
+-- ==============================================================================
+
+CREATE TABLE IF NOT EXISTS public.profiles (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    name VARCHAR(150) NOT NULL DEFAULT 'Pengguna Baru',
+    phone VARCHAR(30) DEFAULT '',
+    email VARCHAR(150) DEFAULT '',
+    age INTEGER DEFAULT 25,
+    gender VARCHAR(10) DEFAULT 'pria',
+    weight NUMERIC(5,2) DEFAULT 60.0,
+    height NUMERIC(5,2) DEFAULT 165.0,
+    target_water_ml INTEGER DEFAULT 2100,
+    daily_workout_minutes_target INTEGER DEFAULT 30,
+    is_registered BOOLEAN DEFAULT true,
+    role VARCHAR(20) DEFAULT 'user',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Pastikan kolom tabel profiles lengkap
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS role VARCHAR(20) DEFAULT 'user';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_registered BOOLEAN DEFAULT true;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS phone VARCHAR(30) DEFAULT '';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS name VARCHAR(150) DEFAULT 'Pengguna Baru';
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS target_water_ml INTEGER DEFAULT 2100;
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS daily_workout_minutes_target INTEGER DEFAULT 30;
+
+-- Indeks performa
+CREATE INDEX IF NOT EXISTS idx_profiles_phone ON public.profiles(phone);
+CREATE INDEX IF NOT EXISTS idx_profiles_name ON public.profiles(name);`}</pre>
+              </div>
+
+              <button
+                onClick={handleCopySql}
+                className="w-full py-3 rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 font-black text-xs flex items-center justify-center gap-2 shadow-lg shadow-cyan-500/20 hover:opacity-95 transition-opacity"
+              >
+                {copiedSql ? (
+                  <>
+                    <CheckCircle2 className="w-4 h-4 text-slate-950" />
+                    <span>SQL Berhasil Disalin ke Clipboard!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4 text-slate-950" />
+                    <span>Salin SQL Halaman Profil Supabase</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
