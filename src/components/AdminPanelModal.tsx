@@ -131,26 +131,50 @@ CREATE INDEX IF NOT EXISTS idx_profiles_name ON public.profiles(name);`;
         return {
           mode: (parsed.mode || 'sandbox') as 'sandbox' | 'live',
           merchantId: parsed.merchantId || 'M-INSTANPAY-882910',
-          liveApiKey: parsed.liveApiKey || parsed.apiKey || 'sk_live_sec_991823746501928374',
+          liveApiKey: parsed.liveApiKey || parsed.apiKey || '',
           liveClientKey: parsed.liveClientKey || parsed.clientKey || '',
           sandboxApiKey: parsed.sandboxApiKey || 'sk_test_f477df17909b8f706efa39f1f6ac826c4fb7',
           sandboxClientKey: parsed.sandboxClientKey || '',
           callbackUrl: parsed.callbackUrl || 'https://www.hidupsehatku.my.id/api/instanpay/callback',
           autoActivatePro: parsed.autoActivatePro ?? true,
+          qrisMode: parsed.qrisMode || 'both',
+          customQrisImageUrl: parsed.customQrisImageUrl || '',
+          customQrisNmid: parsed.customQrisNmid || 'ID1029384756810',
+          customQrisMerchantName: parsed.customQrisMerchantName || 'HIDUP SEHATKU PRO',
+          bankAccountInfo: parsed.bankAccountInfo || 'BCA / Mandiri / GoPay / DANA: 085760525942 a.n Canggih Marbun',
+          whatsappConfirmationNumber: parsed.whatsappConfirmationNumber || '085760525942',
         };
       }
     } catch {}
     return {
       mode: 'sandbox' as 'sandbox' | 'live',
       merchantId: 'M-INSTANPAY-882910',
-      liveApiKey: 'sk_live_sec_991823746501928374',
+      liveApiKey: '',
       liveClientKey: '',
       sandboxApiKey: 'sk_test_f477df17909b8f706efa39f1f6ac826c4fb7',
       sandboxClientKey: '',
       callbackUrl: 'https://www.hidupsehatku.my.id/api/instanpay/callback',
       autoActivatePro: true,
+      qrisMode: 'both',
+      customQrisImageUrl: '',
+      customQrisNmid: 'ID1029384756810',
+      customQrisMerchantName: 'HIDUP SEHATKU PRO',
+      bankAccountInfo: 'BCA / Mandiri / GoPay / DANA: 085760525942 a.n Canggih Marbun',
+      whatsappConfirmationNumber: '085760525942',
     };
   });
+
+  useEffect(() => {
+    fetch('/api/instanpay/config')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data?.config) {
+          setInstanpayConfig((prev: any) => ({ ...prev, ...data.config }));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const [showLiveSecret, setShowLiveSecret] = useState(false);
   const [showSandboxSecret, setShowSandboxSecret] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -166,12 +190,17 @@ CREATE INDEX IF NOT EXISTS idx_profiles_name ON public.profiles(name);`;
     } catch {}
   };
 
-  const handleSaveInstanpayConfig = (e: React.FormEvent) => {
+  const handleSaveInstanpayConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSavingInstanpay(true);
     try {
       localStorage.setItem('hidupsehat_instanpay_admin_config', JSON.stringify(instanpayConfig));
-      setInstanpaySaveMessage('Konfigurasi InstanPay Gateway & Mode berhasil disimpan!');
+      await fetch('/api/instanpay/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(instanpayConfig),
+      }).catch(() => {});
+      setInstanpaySaveMessage('Konfigurasi InstanPay & QRIS berhasil disimpan ke Server & Browser!');
       setTimeout(() => setInstanpaySaveMessage(null), 4000);
     } catch (err) {
       setInstanpaySaveMessage('Gagal menyimpan konfigurasi.');
@@ -846,6 +875,72 @@ CREATE INDEX IF NOT EXISTS idx_profiles_name ON public.profiles(name);`;
                     onChange={(e) => setInstanpayConfig((prev: any) => ({ ...prev, autoActivatePro: e.target.checked }))}
                     className="w-4 h-4 accent-indigo-500 cursor-pointer"
                   />
+                </div>
+
+                {/* ======================================================== */}
+                {/* 3. QRIS TOKO RESMI & PEMBAYARAN MANUAL (SCAN M-BANKING NYATA) */}
+                {/* ======================================================== */}
+                <div className="p-4 rounded-2xl bg-slate-950/80 border border-cyan-500/30 space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-cyan-400"></span>
+                      <h5 className="text-xs font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <QrCode className="w-3.5 h-3.5" />
+                        <span>QRIS Toko Resmi & Pembayaran Transfer Langsung</span>
+                      </h5>
+                    </div>
+                    <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 text-[9px] font-black uppercase">
+                      Bisa Scan m-Banking Nyata
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                    Jika Anda belum memiliki Kunci Live dari InstanLive (karena masih verifikasi merchant), Anda dapat menampilkan QRIS Toko asli / Rekening Anda sendiri agar pembeli bisa langsung transfer dan konfirmasi ke WhatsApp Anda.
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div>
+                      <label className="text-xs font-bold text-slate-300 block mb-1">Nama Merchant Toko</label>
+                      <input
+                        type="text"
+                        value={instanpayConfig.customQrisMerchantName || ''}
+                        onChange={(e) => setInstanpayConfig((prev: any) => ({ ...prev, customQrisMerchantName: e.target.value }))}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs focus:outline-none focus:border-cyan-500"
+                        placeholder="Contoh: HIDUP SEHATKU PRO"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-slate-300 block mb-1">Nomor WhatsApp Konfirmasi</label>
+                      <input
+                        type="text"
+                        value={instanpayConfig.whatsappConfirmationNumber || ''}
+                        onChange={(e) => setInstanpayConfig((prev: any) => ({ ...prev, whatsappConfirmationNumber: e.target.value }))}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs focus:outline-none focus:border-cyan-500 font-mono"
+                        placeholder="Contoh: 085760525942"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">Nomor Rekening / E-Wallet Pembayaran</label>
+                    <input
+                      type="text"
+                      value={instanpayConfig.bankAccountInfo || ''}
+                      onChange={(e) => setInstanpayConfig((prev: any) => ({ ...prev, bankAccountInfo: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs focus:outline-none focus:border-cyan-500"
+                      placeholder="Contoh: BCA: 8040123456 a.n Canggih Marbun / DANA: 085760525942"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-bold text-slate-300 block mb-1">URL Gambar Barcode QRIS Toko Asli (Opsional)</label>
+                    <input
+                      type="text"
+                      value={instanpayConfig.customQrisImageUrl || ''}
+                      onChange={(e) => setInstanpayConfig((prev: any) => ({ ...prev, customQrisImageUrl: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-white text-xs focus:outline-none focus:border-cyan-500 font-mono"
+                      placeholder="https://.../qris-toko-anda.png (Kosongkan jika menggunakan QRIS dinamis)"
+                    />
+                  </div>
                 </div>
 
                 <button

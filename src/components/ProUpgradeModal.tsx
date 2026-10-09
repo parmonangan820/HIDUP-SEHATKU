@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useHealth } from '../context/HealthContext';
-import { Sparkles, FileText, Cloud, Crown, X, Star, QrCode, ArrowLeft, CheckCircle2, Salad, Navigation, Gift, Clock, Zap, Trophy, Droplet, Bluetooth } from 'lucide-react';
+import { Sparkles, FileText, Cloud, Crown, X, Star, QrCode, ArrowLeft, CheckCircle2, Salad, Navigation, Gift, Clock, Zap, Trophy, Droplet, Bluetooth, MessageSquare, AlertTriangle, Building } from 'lucide-react';
 import { createClientQrisPayload } from '../utils/qrisGenerator';
 
 interface ProUpgradeModalProps {
@@ -22,6 +22,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
   } = useHealth();
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>('annual');
   const [step, setStep] = useState<'plans' | 'instapay_qris' | 'success'>('plans');
+  const [paymentTab, setPaymentTab] = useState<'gateway' | 'manual'>('gateway');
   const [countdown, setCountdown] = useState(300); // 5 minutes payment window
   const [qrisData, setQrisData] = useState<{
     orderId: string;
@@ -33,6 +34,11 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
     qrisString: string;
     qrImageUrl: string;
     checkoutUrl: string;
+    isSandbox?: boolean;
+    bankAccountInfo?: string;
+    whatsappConfirmationNumber?: string;
+    customQrisImageUrl?: string;
+    customQrisMerchantName?: string;
   } | null>(null);
   const [isLoadingQris, setIsLoadingQris] = useState(false);
   const [checkingStatus, setCheckingStatus] = useState(false);
@@ -231,7 +237,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
               </p>
             </div>
           ) : step === 'instapay_qris' ? (
-          <div className="space-y-5">
+          <div className="space-y-4">
             {/* Header Instapay / iPaymu */}
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <button
@@ -243,121 +249,261 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
               </button>
               <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-xs font-bold">
                 <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse"></span>
-                <span>iPaymu & InstantPay Gateway</span>
+                <span>InstanLive QRIS Gateway</span>
               </div>
             </div>
 
-            <div className="text-center space-y-1">
-              <h3 className="text-lg font-black text-white">Scan QRIS untuk Pembayaran</h3>
-              <p className="text-xs text-slate-400">
-                Pindai kode QRIS di bawah dengan aplikasi m-Banking (BCA, Mandiri, BRI, BNI) atau E-Wallet (GoPay, OVO, Dana, ShopeePay, LinkAja)
-              </p>
-            </div>
-
-            {/* Live Polling Status Banner */}
-            <div className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-xs font-bold animate-pulse">
-              <span className="w-2.5 h-2.5 rounded-full bg-indigo-400"></span>
-              <span>Mendeteksi status pembayaran iPaymu / InstantPay secara real-time...</span>
-            </div>
-
-            {/* QR Code Container with Official QRIS National Header */}
-            <div className="flex flex-col items-center justify-center p-6 rounded-3xl bg-white text-slate-950 shadow-2xl relative">
-              {/* Official QRIS Header */}
-              <div className="w-full flex items-center justify-between border-b border-slate-100 pb-3 mb-2">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-black tracking-widest text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-                    QRIS
-                  </span>
-                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">
-                    Standar Pembayaran Nasional
-                  </span>
-                </div>
-                <div className="text-right">
-                  <span className="text-[9px] text-slate-400 font-bold block uppercase">Batas Waktu</span>
-                  <span className="text-xs font-mono font-black text-rose-600">
-                    {Math.floor(countdown / 60)}:{String(countdown % 60).padStart(2, '0')}
-                  </span>
-                </div>
-              </div>
-
-              {/* QR Image */}
-              <div className="my-3 p-3 bg-white border border-slate-200 rounded-2xl flex flex-col items-center justify-center shadow-inner">
-                {qrisData?.qrImageUrl ? (
-                  <img
-                    src={qrisData.qrImageUrl}
-                    alt="QRIS Standar Nasional"
-                    className="w-48 h-48 sm:w-52 sm:h-52 object-contain rounded-xl"
-                  />
-                ) : (
-                  <QrCode className="w-44 h-44 text-slate-900" />
-                )}
-                <span className="text-[10px] font-bold font-mono text-slate-600 mt-2">
-                  Order ID: {qrisData?.orderId || 'INSTANPAY-ORDER-001'}
-                </span>
-                <span className="text-[9px] font-mono text-slate-400">
-                  NMID: ID1029384756810
-                </span>
-              </div>
-
-              <div className="w-full text-center border-t border-slate-200 pt-3">
-                <div className="text-xs text-slate-600 font-medium">{planLabel}</div>
-                <div className="text-2xl font-black text-slate-950 mt-0.5">
-                  {qrisData?.uniqueAmount ? `Rp ${qrisData.uniqueAmount.toLocaleString('id-ID')}` : priceFormatted}
-                </div>
-                {qrisData?.fee ? (
-                  <div className="text-[10px] text-slate-500 font-medium">
-                    (Nominal: Rp {qrisData.amount?.toLocaleString('id-ID')} + Biaya Transaksi: Rp {qrisData.fee?.toLocaleString('id-ID')})
-                  </div>
-                ) : null}
-                <div className="text-[10px] text-slate-500 mt-0.5">Merchant: HIDUP SEHATKU PRO (InstanLive QRIS)</div>
-              </div>
-            </div>
-
-            {/* Status Feedback Toast/Alert */}
-            {statusFeedback && (
-              <div
-                className={`p-3 rounded-xl border text-xs font-bold transition-all ${
-                  statusFeedback.type === 'warning'
-                    ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
-                    : 'bg-rose-500/20 border-rose-500/40 text-rose-300'
+            {/* Payment Method Tabs */}
+            <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-950 rounded-2xl border border-slate-800 text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => setPaymentTab('gateway')}
+                className={`py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  paymentTab === 'gateway'
+                    ? 'bg-gradient-to-r from-indigo-500 to-blue-600 text-white shadow-md shadow-indigo-500/25'
+                    : 'text-slate-400 hover:text-white'
                 }`}
               >
-                {statusFeedback.message}
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="space-y-2.5">
-              {qrisData?.checkoutUrl && (
-                <a
-                  href={qrisData.checkoutUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-black text-xs sm:text-sm hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <span>Buka Halaman Pembayaran InstanLive</span>
-                  <span className="text-xs">↗</span>
-                </a>
-              )}
-
-              <button
-                onClick={handleCheckPaymentStatus}
-                disabled={checkingStatus}
-                className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-indigo-500 to-blue-600 text-white font-bold text-xs sm:text-sm hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 cursor-pointer"
-              >
-                {checkingStatus ? 'Memeriksa Status Pembayaran...' : '🔄 Cek Status Pembayaran (Auto-Detect)'}
+                <Zap className="w-3.5 h-3.5" />
+                <span>Gateway InstanLive</span>
               </button>
-
               <button
-                onClick={handleTriggerSimulatePaid}
-                disabled={checkingStatus}
-                className="w-full py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                title="Simulasi jika barcode scan QRIS telah dibayar (Sandbox Mode)"
+                type="button"
+                onClick={() => setPaymentTab('manual')}
+                className={`py-2 px-3 rounded-xl flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  paymentTab === 'manual'
+                    ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/25'
+                    : 'text-slate-400 hover:text-white'
+                }`}
               >
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span>⚡ Uji Coba Bayar QRIS Selesai (Sandbox Simulator)</span>
+                <Building className="w-3.5 h-3.5" />
+                <span>QRIS Toko & Transfer Bank</span>
               </button>
             </div>
+
+            {paymentTab === 'gateway' ? (
+              <div className="space-y-4">
+                {/* Sandbox Warning Notice */}
+                {qrisData?.isSandbox && (
+                  <div className="p-3.5 rounded-2xl bg-amber-500/15 border border-amber-500/35 text-amber-200 text-xs space-y-2">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="w-4 h-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <div className="font-black text-amber-300">Mode Sandbox Aktif (Kunci sk_test_...)</div>
+                        <p className="text-[11px] text-slate-300 mt-0.5 leading-relaxed">
+                          Barcode di bawah dihasilkan oleh lingkungan uji coba InstanLive (format <code className="text-amber-300 font-mono">SANDBOX|INSTANPAY|...</code>) sehingga <strong>tidak dapat discan langsung</strong> oleh aplikasi m-Banking nyata.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-[10px] bg-slate-950/70 p-2 rounded-xl text-slate-300 flex items-center justify-between gap-2 border border-slate-800">
+                      <span>💡 Ingin langsung mencoba aktivasi?</span>
+                      <button
+                        type="button"
+                        onClick={handleTriggerSimulatePaid}
+                        className="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-[10px] transition-all cursor-pointer"
+                      >
+                        ⚡ Simulasikan Berhasil
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="text-center space-y-1">
+                  <h3 className="text-lg font-black text-white">Scan QRIS Gateway InstanLive</h3>
+                  <p className="text-xs text-slate-400">
+                    Sistem mendeteksi transaksi secara otomatis setiap beberapa detik
+                  </p>
+                </div>
+
+                {/* Live Polling Status Banner */}
+                <div className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 text-xs font-bold animate-pulse">
+                  <span className="w-2.5 h-2.5 rounded-full bg-indigo-400"></span>
+                  <span>Mendeteksi status pembayaran InstanLive secara real-time...</span>
+                </div>
+
+                {/* QR Code Container with Official QRIS National Header */}
+                <div className="flex flex-col items-center justify-center p-6 rounded-3xl bg-white text-slate-950 shadow-2xl relative">
+                  <div className="w-full flex items-center justify-between border-b border-slate-100 pb-3 mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-black tracking-widest text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                        QRIS
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">
+                        {qrisData?.isSandbox ? 'SANDBOX SIMULATOR' : 'STANDAR NASIONAL'}
+                      </span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[9px] text-slate-400 font-bold block uppercase">Batas Waktu</span>
+                      <span className="text-xs font-mono font-black text-rose-600">
+                        {Math.floor(countdown / 60)}:{String(countdown % 60).padStart(2, '0')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* QR Image */}
+                  <div className="my-3 p-3 bg-white border border-slate-200 rounded-2xl flex flex-col items-center justify-center shadow-inner">
+                    {qrisData?.qrImageUrl ? (
+                      <img
+                        src={qrisData.qrImageUrl}
+                        alt="QRIS Standar Nasional"
+                        className="w-48 h-48 sm:w-52 sm:h-52 object-contain rounded-xl"
+                      />
+                    ) : (
+                      <QrCode className="w-44 h-44 text-slate-900" />
+                    )}
+                    <span className="text-[10px] font-bold font-mono text-slate-600 mt-2">
+                      Order ID: {qrisData?.orderId || 'ORDER-001'}
+                    </span>
+                    {qrisData?.txnId && (
+                      <span className="text-[9px] font-mono text-slate-400">
+                        Txn ID InstanLive: #{qrisData.txnId}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="w-full text-center border-t border-slate-200 pt-3">
+                    <div className="text-xs text-slate-600 font-medium">{planLabel}</div>
+                    <div className="text-2xl font-black text-slate-950 mt-0.5">
+                      {qrisData?.uniqueAmount ? `Rp ${qrisData.uniqueAmount.toLocaleString('id-ID')}` : priceFormatted}
+                    </div>
+                    {qrisData?.fee ? (
+                      <div className="text-[10px] text-slate-500 font-medium">
+                        (Nominal: Rp {qrisData.amount?.toLocaleString('id-ID')} + Biaya Transaksi: Rp {qrisData.fee?.toLocaleString('id-ID')})
+                      </div>
+                    ) : null}
+                    <div className="text-[10px] text-slate-500 mt-0.5">Merchant: HIDUP SEHATKU PRO (InstanLive QRIS)</div>
+                  </div>
+                </div>
+
+                {/* Status Feedback Toast/Alert */}
+                {statusFeedback && (
+                  <div
+                    className={`p-3 rounded-xl border text-xs font-bold transition-all ${
+                      statusFeedback.type === 'warning'
+                        ? 'bg-amber-500/20 border-amber-500/40 text-amber-300'
+                        : 'bg-rose-500/20 border-rose-500/40 text-rose-300'
+                    }`}
+                  >
+                    {statusFeedback.message}
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="space-y-2.5">
+                  {qrisData?.checkoutUrl && (
+                    <a
+                      href={qrisData.checkoutUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-black text-xs sm:text-sm hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2 cursor-pointer"
+                    >
+                      <span>Buka Halaman Pembayaran InstanLive</span>
+                      <span className="text-xs">↗</span>
+                    </a>
+                  )}
+
+                  <button
+                    onClick={handleCheckPaymentStatus}
+                    disabled={checkingStatus}
+                    className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-indigo-500 to-blue-600 text-white font-bold text-xs sm:text-sm hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-indigo-500/20 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {checkingStatus ? 'Memeriksa Status Pembayaran...' : '🔄 Cek Status Pembayaran (Auto-Detect)'}
+                  </button>
+
+                  {qrisData?.isSandbox && (
+                    <button
+                      onClick={handleTriggerSimulatePaid}
+                      disabled={checkingStatus}
+                      className="w-full py-2.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                      title="Simulasi jika barcode scan QRIS telah dibayar (Sandbox Mode)"
+                    >
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      <span>⚡ Uji Coba Bayar QRIS Selesai (Sandbox Simulator)</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* TAB 2: QRIS TOKO RESMI & TRANSFER MANUAL */}
+                <div className="text-center space-y-1">
+                  <h3 className="text-lg font-black text-white">QRIS Toko & Transfer Bank Langsung</h3>
+                  <p className="text-xs text-slate-400">
+                    Bisa dipindai langsung dengan aplikasi m-Banking (BCA, Mandiri, BRI, BNI) atau E-Wallet (GoPay, OVO, Dana, ShopeePay)
+                  </p>
+                </div>
+
+                {/* QR Code Container */}
+                <div className="flex flex-col items-center justify-center p-6 rounded-3xl bg-white text-slate-950 shadow-2xl relative">
+                  <div className="w-full flex items-center justify-between border-b border-slate-100 pb-3 mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-black tracking-widest text-slate-900 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                        QRIS
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-tight">
+                        PEMBAYARAN RESMI TOKO
+                      </span>
+                    </div>
+                    <span className="text-xs font-mono font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">
+                      SIAP SCAN
+                    </span>
+                  </div>
+
+                  <div className="my-3 p-3 bg-white border border-slate-200 rounded-2xl flex flex-col items-center justify-center shadow-inner">
+                    <img
+                      src={
+                        qrisData?.customQrisImageUrl ||
+                        `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(
+                          `00020101021226660014ID.CO.QRIS.WWW0115${qrisData?.orderId || 'HIDUPSEHAT'}5204809953033605408${(qrisData?.amount || 25000).toFixed(2)}5802ID5917HIDUP SEHATKU PRO6013JAKARTA PUSAT6105101106304`
+                        )}`
+                      }
+                      alt="QRIS Toko Resmi"
+                      className="w-48 h-48 sm:w-52 sm:h-52 object-contain rounded-xl"
+                    />
+                    <span className="text-[10px] font-bold font-mono text-slate-600 mt-2">
+                      Order ID: {qrisData?.orderId || 'ORDER-001'}
+                    </span>
+                    <span className="text-[9px] font-mono text-slate-400">
+                      Merchant: {qrisData?.customQrisMerchantName || 'HIDUP SEHATKU PRO'}
+                    </span>
+                  </div>
+
+                  <div className="w-full text-center border-t border-slate-200 pt-3">
+                    <div className="text-xs text-slate-600 font-medium">{planLabel}</div>
+                    <div className="text-2xl font-black text-slate-950 mt-0.5">{priceFormatted}</div>
+                    <div className="mt-2 p-2 rounded-xl bg-slate-50 border border-slate-200 text-left">
+                      <div className="text-[10px] font-bold text-slate-500 uppercase">Rekening / E-Wallet Pembayaran:</div>
+                      <div className="text-xs font-bold text-slate-900 font-mono mt-0.5">
+                        {qrisData?.bankAccountInfo || 'BCA / Mandiri / GoPay / DANA: 085760525942 a.n Canggih Marbun'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* WhatsApp Confirmation Button */}
+                <div className="space-y-2.5">
+                  <a
+                    href={`https://wa.me/62${(qrisData?.whatsappConfirmationNumber || '085760525942').replace(/^0/, '')}?text=${encodeURIComponent(
+                      `Halo Admin HidupSehatKu, saya telah melakukan transfer/pembayaran QRIS untuk aktivasi ${planLabel} (Order ID: ${qrisData?.orderId}) sebesar ${priceFormatted}. Mohon konfirmasi aktivasi akun saya.`
+                    )}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-600 text-white font-black text-xs sm:text-sm hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    <span>Kirim Bukti Pembayaran ke WhatsApp Admin</span>
+                  </a>
+
+                  <button
+                    onClick={handlePaymentSuccess}
+                    className="w-full py-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-cyan-400 hover:text-cyan-300 font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <span>Saya Sudah Membayar (Konfirmasi & Aktifkan PRO)</span>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="space-y-6">

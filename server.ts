@@ -3030,27 +3030,87 @@ const instanpayOrders = new Map<string, any>();
 
 // InstanPay & InstanLive (pay.instanlive.id) Payment Gateway Endpoints
 const DEFAULT_INSTANPAY_API_KEY = 'sk_test_f477df17909b8f706efa39f1f6ac826c4fb7';
+const INSTANPAY_CONFIG_FILE = path.join(__dirname, 'instanpay-config.json');
+
+function getInstanpayConfig() {
+  const defaults = {
+    mode: 'sandbox',
+    merchantId: 'M-INSTANPAY-882910',
+    liveApiKey: '',
+    sandboxApiKey: DEFAULT_INSTANPAY_API_KEY,
+    callbackUrl: 'https://www.hidupsehatku.my.id/api/instanpay/callback',
+    autoActivatePro: true,
+    qrisMode: 'both',
+    customQrisImageUrl: '',
+    customQrisNmid: 'ID1029384756810',
+    customQrisMerchantName: 'HIDUP SEHATKU PRO',
+    bankAccountInfo: 'BCA / Mandiri / GoPay / DANA: 085760525942 a.n Canggih Marbun',
+    whatsappConfirmationNumber: '085760525942',
+  };
+
+  try {
+    if (fs.existsSync(INSTANPAY_CONFIG_FILE)) {
+      const parsed = JSON.parse(fs.readFileSync(INSTANPAY_CONFIG_FILE, 'utf-8'));
+      return { ...defaults, ...parsed };
+    }
+  } catch (err) {
+    console.warn('Error reading instanpay-config.json:', err);
+  }
+  return defaults;
+}
+
+function saveInstanpayConfig(cfg: any) {
+  try {
+    fs.writeFileSync(INSTANPAY_CONFIG_FILE, JSON.stringify(cfg, null, 2), 'utf-8');
+    return true;
+  } catch (err) {
+    console.error('Error writing instanpay-config.json:', err);
+    return false;
+  }
+}
+
+app.get('/api/instanpay/config', async (_req: Request, res: Response) => {
+  const cfg = getInstanpayConfig();
+  return res.json({ success: true, config: cfg });
+});
+
+app.post('/api/instanpay/config', async (req: Request, res: Response) => {
+  const updated = req.body || {};
+  const current = getInstanpayConfig();
+  const merged = { ...current, ...updated };
+  saveInstanpayConfig(merged);
+  return res.json({
+    success: true,
+    config: merged,
+    message: 'Pengaturan QRIS & InstantPay berhasil disimpan ke server!',
+  });
+});
 
 app.post('/api/instanpay/create-qris', async (req: Request, res: Response) => {
   try {
     const { plan, amount, customerName, customerEmail, adminConfig, ref_id } = req.body || {};
+    const serverConfig = getInstanpayConfig();
+    const effectiveConfig = { ...serverConfig, ...(adminConfig || {}) };
+
     const orderId = ref_id || `ORDER-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     const finalAmount = amount || (plan === 'monthly' ? 15000 : 100000);
 
-    const mode = adminConfig?.mode || 'sandbox';
+    const mode = effectiveConfig.mode || 'sandbox';
     const activeApiKey =
-      (mode === 'live' ? adminConfig?.liveApiKey : adminConfig?.sandboxApiKey) ||
+      (mode === 'live' ? effectiveConfig.liveApiKey : effectiveConfig.sandboxApiKey) ||
       process.env.INSTANPAY_API_KEY ||
       process.env.IPAYMU_API_KEY ||
       DEFAULT_INSTANPAY_API_KEY;
 
+    const isSandbox = mode === 'sandbox' || (Boolean(activeApiKey) && activeApiKey.startsWith('sk_test_'));
+
     let qrisString = generateNationalQRIS({
       orderId,
       amount: finalAmount,
-      merchantName: 'HIDUP SEHATKU PRO',
+      merchantName: effectiveConfig.customQrisMerchantName || 'HIDUP SEHATKU PRO',
       merchantCity: 'JAKARTA PUSAT',
       postalCode: '10110',
-      nmid: 'ID1029384756810',
+      nmid: effectiveConfig.customQrisNmid || 'ID1029384756810',
     });
     let checkoutUrl = `https://pay.instanlive.id/pay/${orderId}`;
     let paymentUrl = '';
@@ -3142,9 +3202,18 @@ app.post('/api/instanpay/create-qris', async (req: Request, res: Response) => {
       checkoutUrl,
       paymentUrl,
       simulateUrl,
-      qrImageUrl: `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(finalQrData)}`,
+      qrImageUrl: effectiveConfig.customQrisImageUrl && effectiveConfig.qrisMode === 'custom_qris'
+        ? effectiveConfig.customQrisImageUrl
+        : `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(finalQrData)}`,
       status: 'pending',
       expiresInSeconds: 1800,
+      mode,
+      isSandbox,
+      qrisMode: effectiveConfig.qrisMode || 'both',
+      customQrisImageUrl: effectiveConfig.customQrisImageUrl || '',
+      customQrisMerchantName: effectiveConfig.customQrisMerchantName || 'HIDUP SEHATKU PRO',
+      bankAccountInfo: effectiveConfig.bankAccountInfo || 'BCA / Mandiri / GoPay / DANA: 085760525942 a.n Canggih Marbun',
+      whatsappConfirmationNumber: effectiveConfig.whatsappConfirmationNumber || '085760525942',
     });
   } catch (error: any) {
     return res.status(500).json({ success: false, error: error?.message || 'Internal server error' });
