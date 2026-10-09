@@ -2202,47 +2202,107 @@ app.get('/api/google-maps/key', (_req: Request, res: Response) => {
 function cleanSpokenText(text: string): string {
   if (!text) return '';
   let str = text.trim();
-
-  // 1. Remove duplicate adjacent words (e.g., "Saya Saya" -> "Saya")
-  str = str.replace(/\b(\w+)(?:\s+\1\b)+/gi, '$1');
-
-  // 2. Remove identical halves (e.g., "Saya mau Saya mau" -> "Saya mau")
-  const words = str.split(/\s+/);
-  if (words.length >= 2 && words.length % 2 === 0) {
-    const half = words.length / 2;
-    const firstHalf = words.slice(0, half).join(' ').toLowerCase();
-    const secondHalf = words.slice(half).join(' ').toLowerCase();
-    if (firstHalf === secondHalf) {
-      str = words.slice(0, half).join(' ');
-    }
-  }
-
-  // 3. Remove repeated N-word sub-phrases (e.g., "dari medan dari medan" -> "dari medan")
-  for (let n = 8; n >= 2; n--) {
-    const w = str.split(/\s+/);
-    if (w.length >= n * 2) {
-      let changed = false;
-      for (let i = 0; i <= w.length - n * 2; i++) {
-        const p1 = w.slice(i, i + n).join(' ').toLowerCase();
-        const p2 = w.slice(i + n, i + n * 2).join(' ').toLowerCase();
-        if (p1 === p2) {
-          w.splice(i + n, n);
-          str = w.join(' ');
-          changed = true;
-          break;
-        }
-      }
-      if (changed) {
-        str = cleanSpokenText(str);
-        break;
-      }
-    }
-  }
-
-  // 4. Case where word repeats with direct spacing
-  str = str.replace(/\b([a-zA-Z0-9]+)\s+\1\b/gi, '$1');
-
+  // Remove immediate accidental double words while preserving hyphenated words
+  str = str.replace(/\b(\w+)\s+\1\b/gi, '$1');
   return str.trim();
+}
+
+// Helper function to extract intent cleanly from Indonesian speech
+function extractAccurateVoiceIntent(rawText: string, currentOriginFallback: string = '') {
+  let text = (rawText || '').replace(/\s+/g, ' ').trim();
+  if (!text) return { origin: currentOriginFallback || '', destination: '', mode: 'DRIVE' };
+
+  const textLower = text.toLowerCase();
+
+  // Detect mode
+  let mode = 'DRIVE';
+  if (/\b(motor|naik motor|sepeda motor|roda dua|gojek|grab motor)\b/i.test(textLower)) {
+    mode = 'TWO_WHEELER';
+  } else if (/\b(sepeda|gowes|naik sepeda)\b/i.test(textLower)) {
+    mode = 'BICYCLE';
+  } else if (/\b(jalan kaki|jalan santai|berjalan)\b/i.test(textLower)) {
+    mode = 'WALK';
+  }
+
+  // Strip travel mode qualifiers from the end so they don't pollute place names
+  let cleanText = text
+    .replace(/\s+(?:naik\s+mobil|naik\s+motor|naik\s+sepeda|jalan\s+kaki|dengan\s+mobil|dengan\s+motor|cepat|tercepat|bebas\s+macet)$/i, '')
+    .trim();
+
+  let extractedOrigin = '';
+  let extractedDestination = '';
+
+  // Pattern A: "Mau ke [B] dari [A]" or "Menuju [B] dari [A]" or "Tolong antar ke [B] dari [A]"
+  const patternRev = /^(?:tolong\s+)?(?:saya\s+)?(?:mau\s+ke|menuju\s+ke|menuju|tujuan\s+ke|ke|sampai\s+ke|sampai)\s+(.+?)\s+(?:dari|start\s+dari|posisi\s+di|lokasi\s+di|mulai\s+dari)\s+(.+)$/i;
+  const mRev = cleanText.match(patternRev);
+  if (mRev) {
+    extractedDestination = mRev[1].trim();
+    extractedOrigin = mRev[2].trim();
+  }
+
+  // Pattern B: "Dari [A] mau ke / menuju / ke / sampai [B]" or "(Saya) dari [A] ke [B]"
+  if (!extractedOrigin || !extractedDestination) {
+    const patternNormal = /^(?:tolong\s+)?(?:saya\s+)?(?:dari|posisi\s+di|lokasi\s+di|lagi\s+di|start\s+dari|mulai\s+dari)\s+(.+?)\s+(?:menuju\s+ke|menuju|mau\s+ke|tujuan\s+ke|tujuan|ke|sampai\s+ke|sampai)\s+(.+)$/i;
+    const mNormal = cleanText.match(patternNormal);
+    if (mNormal) {
+      extractedOrigin = mNormal[1].trim();
+      extractedDestination = mNormal[2].trim();
+    }
+  }
+
+  // Pattern C: "[A] ke / menuju / sampai [B]"
+  if (!extractedOrigin || !extractedDestination) {
+    const patternDirect = /^(.+?)\s+(?:menuju\s+ke|menuju|mau\s+ke|tujuan\s+ke|tujuan|ke|sampai\s+ke|sampai)\s+(.+)$/i;
+    const mDirect = cleanText.match(patternDirect);
+    if (mDirect) {
+      const candA = mDirect[1].trim().replace(/^(?:saya|tolong|posisi|lokasi|lagi|start)\s+/i, '');
+      const candB = mDirect[2].trim();
+      if (!/^(?:mau|ingin|hendak|tujuan)$/i.test(candA)) {
+        extractedOrigin = candA;
+        extractedDestination = candB;
+      }
+    }
+  }
+
+  // Pattern D: Only Destination mentioned: "Mau ke [B]" or "Ke [B]" or "Menuju [B]"
+  if (!extractedDestination) {
+    const patternDestOnly = /^(?:tolong\s+)?(?:saya\s+)?(?:mau\s+ke|menuju\s+ke|menuju|tujuan\s+ke|tujuan|ke|sampai\s+ke|sampai)\s+(.+)$/i;
+    const mDest = cleanText.match(patternDestOnly);
+    if (mDest) {
+      extractedDestination = mDest[1].trim();
+      extractedOrigin = currentOriginFallback || '';
+    }
+  }
+
+  // Fallback: If no destination parsed, use entire text as destination
+  if (!extractedDestination && cleanText) {
+    extractedDestination = cleanText;
+    extractedOrigin = currentOriginFallback || '';
+  }
+
+  const cleanPlace = (p: string) => {
+    return (p || '')
+      .replace(/^(?:dari|ke|menuju|posisi\s+di|lokasi\s+di)\s+/i, '')
+      .replace(/\s+(?:naik\s+motor|naik\s+mobil|naik\s+sepeda|jalan\s+kaki)$/i, '')
+      .replace(/^[,\s.-]+|[,\s.-]+$/g, '')
+      .trim();
+  };
+
+  extractedOrigin = cleanPlace(extractedOrigin);
+  extractedDestination = cleanPlace(extractedDestination);
+
+  const capitalizeWords = (str: string) => {
+    return str.replace(/\b([a-z])/g, (c) => c.toUpperCase());
+  };
+
+  if (extractedOrigin) extractedOrigin = capitalizeWords(extractedOrigin);
+  if (extractedDestination) extractedDestination = capitalizeWords(extractedDestination);
+
+  return {
+    origin: extractedOrigin || currentOriginFallback || '',
+    destination: extractedDestination,
+    mode,
+  };
 }
 
 // ==========================================
@@ -2256,118 +2316,80 @@ app.post('/api/smart-traffic/parse-voice-intent', async (req: Request, res: Resp
       return res.status(400).json({ success: false, error: 'Teks ucapan tidak boleh kosong' });
     }
 
-    const text = cleanSpokenText(speechText);
-    const textLower = text.toLowerCase();
+    const rawSpeech = speechText.trim();
 
-    let parsedOrigin = '';
-    let parsedDestination = '';
-    let travelMode = 'DRIVE';
+    // 1. Run deterministic accurate pattern extraction first
+    const instant = extractAccurateVoiceIntent(rawSpeech, currentOrigin);
+    let parsedOrigin = instant.origin;
+    let parsedDestination = instant.destination;
+    let travelMode = instant.mode;
 
-    if (textLower.includes('motor') || textLower.includes('naik motor') || textLower.includes('sepeda motor')) {
-      travelMode = 'TWO_WHEELER';
-    } else if (textLower.includes('sepeda') || textLower.includes('gowes')) {
-      travelMode = 'BICYCLE';
-    } else if (textLower.includes('jalan kaki') || textLower.includes('jalan')) {
-      travelMode = 'WALK';
-    }
-
-    // 1. Landmark Keywords for Origin
-    if (textLower.includes('carrefour') || textLower.includes('karefur') || textLower.includes('carefur')) {
-      parsedOrigin = 'Carrefour Plaza Medan Fair, Medan';
-    } else if (textLower.includes('podomoro') || textLower.includes('pudumoro') || textLower.includes('deli park')) {
-      parsedOrigin = 'Podomoro City Deli Medan (Pudumoro)';
-    } else if (textLower.includes('bahasa kopi')) {
-      parsedOrigin = 'Bahasa Kopi, Medan';
-    } else if (textLower.includes('sun plaza')) {
-      parsedOrigin = 'Sun Plaza, Medan';
-    } else if (textLower.includes('stasiun medan') || textLower.includes('stasiun kereta')) {
-      parsedOrigin = 'Stasiun Kereta Api Medan';
-    } else if (textLower.includes('bandara kualanamu') || textLower.includes('kualanamu')) {
-      parsedOrigin = 'Bandara Internasional Kualanamu (KNO)';
-    }
-
-    // 2. Landmark Keywords for Destination
-    if (textLower.includes('medan mall')) {
-      parsedDestination = 'Medan Mall, Medan';
-    } else if (textLower.includes('pintu air') || textLower.includes('simalingkar')) {
-      parsedDestination = 'Pintu Air 4 Simalingkar B, Medan';
-    } else if (textLower.includes('plaza medan fair') || textLower.includes('medan fair')) {
-      parsedDestination = 'Plaza Medan Fair, Medan';
-    } else if (textLower.includes('centre point') || textLower.includes('center point')) {
-      parsedDestination = 'Centre Point Mall, Medan';
-    } else if (textLower.includes('cambridge')) {
-      parsedDestination = 'Cambridge City Square, Medan';
-    } else if (textLower.includes('bandara soetta') || textLower.includes('soekarno hatta')) {
-      parsedDestination = 'Bandara Internasional Soekarno-Hatta (CGK)';
-    } else if (textLower.includes('monas')) {
-      parsedDestination = 'Monas, Gambir, Jakarta Pusat';
-    }
-
-    // 3. Pattern Matching if origin or destination not yet matched
-    if (!parsedOrigin || !parsedDestination) {
-      const pattern1 = /(?:saya\s+)?(?:dari|posisi\s+di|lokasi\s+di|lagi\s+di)\s+(.+?)\s+(?:menuju|ke|tujuan\s+ke|tujuan|mau\s+ke)\s+(.+)/i;
-      const match1 = text.match(pattern1);
-      if (match1) {
-        if (!parsedOrigin && match1[1]) parsedOrigin = match1[1].trim();
-        if (!parsedDestination && match1[2]) parsedDestination = match1[2].trim();
-      }
-    }
-
-    if (!parsedOrigin || !parsedDestination) {
-      const pattern2 = /^(.+?)\s+(?:ke|menuju|tujuan\s+ke|tujuan)\s+(.+)$/i;
-      const match2 = text.match(pattern2);
-      if (match2) {
-        if (!parsedOrigin && match2[1]) parsedOrigin = match2[1].trim().replace(/^(saya|posisi|lokasi)\s+/i, '');
-        if (!parsedDestination && match2[2]) parsedDestination = match2[2].trim();
-      }
-    }
-
-    // 4. Try Gemini AI for intelligent refinement
+    // 2. Intelligent AI Parsing with Gemini 3.8 Flash for natural speech nuances
     const ai = getAIClient();
     if (ai) {
       try {
-        const prompt = `Anda adalah parser AI intent navigasi geografis Indonesia.
-Tugas Anda: Ekstrak "origin" (lokasi awal) dan "destination" (lokasi tujuan) secara SANGAT AKURAT dari kalimat ucapan pengguna berikut:
-"${speechText}"
+        const prompt = `Anda adalah parser AI intent navigasi geografis Indonesia real-time.
+Tugas Anda: Ekstrak "origin" (titik asal) dan "destination" (titik tujuan) dan "travelMode" ("DRIVE" | "TWO_WHEELER" | "BICYCLE" | "WALK") secara SANGAT AKURAT dari kalimat ucapan pengguna:
+"${rawSpeech}"
 
-Kalimat Ucapan: "${speechText}"
+Instruksi Kritis:
+- Ekstrak NAMA TEMPAT / ALAMAT PERSIS yang diucapkan oleh pengguna tanpa mengubah ke kota lain atau menambah-nambahi!
+- Contoh: Jika pengguna mengucapkan "Saya dari Podomoro City Deli Medan mau ke Pintu Air 4 Simalingkar B", maka:
+  origin: "Podomoro City Deli Medan"
+  destination: "Pintu Air 4 Simalingkar B"
+- Contoh: Jika pengguna mengucapkan "Saya dari Jl. Bunga Ester menuju Kampung Lalang", maka:
+  origin: "Jl. Bunga Ester"
+  destination: "Kampung Lalang"
+- Contoh: Jika pengguna mengucapkan "Monas ke Bundaran HI", maka:
+  origin: "Monas"
+  destination: "Bundaran HI"
+- Jika titik asal tidak disebutkan dalam ucapan, gunakan origin saat ini: "${currentOrigin}".
+- Jangan tambahkan teks selain JSON.
 
-PENTING:
-- Jika pengguna mengucapkan "Carrefour" atau "Carrefour Medan", isi origin = "Carrefour Plaza Medan Fair, Medan".
-- Jika pengguna mengucapkan "Medan Mall", isi destination = "Medan Mall, Medan".
-- Jangan gunakan default lain jika lokasi disebutkan pengguna!
-
-Return HANYA JSON valid:
+Output JSON:
 {
   "origin": "string",
   "destination": "string",
   "travelMode": "DRIVE | TWO_WHEELER | BICYCLE | WALK"
 }`;
 
-        const aiRes = await ai.models.generateContent({
+        const aiCall = ai.models.generateContent({
           model: 'gemini-3.8-flash',
           contents: prompt,
           config: {
-            temperature: 0.1,
+            temperature: 0.0,
             responseMimeType: 'application/json',
           },
         });
+        const timeoutPromise = new Promise<null>((_, reject) =>
+          setTimeout(() => reject(new Error('AI timeout')), 2000)
+        );
+        const aiRes: any = await Promise.race([aiCall, timeoutPromise]);
 
-        const raw = aiRes.text || '';
-        const cleaned = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
-        const jsonParsed = JSON.parse(cleaned);
-
-        if (jsonParsed.origin && jsonParsed.origin.trim()) parsedOrigin = jsonParsed.origin.trim();
-        if (jsonParsed.destination && jsonParsed.destination.trim()) parsedDestination = jsonParsed.destination.trim();
-        if (jsonParsed.travelMode) travelMode = jsonParsed.travelMode;
+        const rawJson = (aiRes?.text || '').replace(/```json/gi, '').replace(/```/g, '').trim();
+        if (rawJson) {
+          const parsed = JSON.parse(rawJson);
+          if (parsed.origin && typeof parsed.origin === 'string' && parsed.origin.trim()) {
+            parsedOrigin = parsed.origin.trim();
+          }
+          if (parsed.destination && typeof parsed.destination === 'string' && parsed.destination.trim()) {
+            parsedDestination = parsed.destination.trim();
+          }
+          if (parsed.travelMode && typeof parsed.travelMode === 'string') {
+            travelMode = parsed.travelMode;
+          }
+        }
       } catch (geminiErr) {
-        console.warn('Gemini intent parse fallback:', geminiErr);
+        console.warn('Gemini intent parse fallback to instant extraction:', geminiErr);
       }
     }
 
-    // Fallbacks if still blank
-    if (!parsedOrigin) parsedOrigin = currentOrigin || 'Carrefour Plaza Medan Fair, Medan';
-    if (!parsedDestination) parsedDestination = 'Medan Mall, Medan';
+    // Clean up trailing punctuation
+    parsedOrigin = (parsedOrigin || '').replace(/^[,\s.-]+|[,\s.-]+$/g, '').trim();
+    parsedDestination = (parsedDestination || '').replace(/^[,\s.-]+|[,\s.-]+$/g, '').trim();
+
+    if (!parsedOrigin) parsedOrigin = currentOrigin || 'Lokasi Saya';
+    if (!parsedDestination) parsedDestination = rawSpeech;
 
     return res.json({
       success: true,
@@ -2385,8 +2407,8 @@ Return HANYA JSON valid:
 app.post('/api/smart-traffic/analyze', async (req: Request, res: Response) => {
   try {
     const {
-      origin = 'Monas, Gambir, Jakarta Pusat',
-      destination = 'Bandara Soekarno-Hatta, Tangerang',
+      origin = 'Podomoro City Deli Medan',
+      destination = 'Pintu Air 4 Simalingkar B',
       travelMode = 'DRIVE',
       avoidTolls = false,
       avoidHighways = false,
@@ -2401,79 +2423,128 @@ app.post('/api/smart-traffic/analyze', async (req: Request, res: Response) => {
     let routesData: any[] = [];
     let googleRoutesSuccess = false;
 
-    // Helper to format routing addresses for Google Routes API v2
-    const formatRoutingAddress = (addr: string) => {
-      let clean = (addr || '').trim();
-      if (!clean) return 'Medan, Indonesia';
-      if (/carrefour/i.test(clean)) return 'Plaza Medan Fair, Medan, Indonesia';
-      if (/podomoro/i.test(clean)) return 'Podomoro City Deli Medan, Medan, Indonesia';
-      if (/medan mall/i.test(clean)) return 'Medan Mall, Medan, Indonesia';
-      if (/sun plaza/i.test(clean)) return 'Sun Plaza, Medan, Indonesia';
-      if (/simalingkar/i.test(clean)) return 'Jl. Pintu Air 4 Simalingkar, Medan, Indonesia';
-      if (!/indonesia|jakarta|medan|bandung|surabaya|bali/i.test(clean)) {
-        clean += ', Medan, Indonesia';
+    // Helper to format payload waypoint for Google Routes API v2
+    const buildWaypointPayload = (addrStr: string) => {
+      let clean = (addrStr || '').trim();
+      const coordBracketMatch = clean.match(/\((-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)\)/);
+      if (coordBracketMatch) {
+        return {
+          location: {
+            latLng: {
+              latitude: parseFloat(coordBracketMatch[1]),
+              longitude: parseFloat(coordBracketMatch[2]),
+            },
+          },
+        };
       }
-      return clean;
+
+      const coordMatch = clean.match(/^(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)$/);
+      if (coordMatch) {
+        return {
+          location: {
+            latLng: {
+              latitude: parseFloat(coordMatch[1]),
+              longitude: parseFloat(coordMatch[2]),
+            },
+          },
+        };
+      }
+
+      // Remove non-coordinate parenthetical descriptions like "(Pudumoro)"
+      clean = clean.replace(/\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
+
+      if (!/indonesia/i.test(clean)) {
+        clean += ', Indonesia';
+      }
+      return { address: clean };
     };
 
     // 1. Call Google Routes API v2
     if (mapsKey) {
       try {
-        const formattedOrigin = formatRoutingAddress(typeof origin === 'string' ? origin : origin.address || '');
-        const formattedDest = formatRoutingAddress(typeof destination === 'string' ? destination : destination.address || '');
+        const originPayload = buildWaypointPayload(typeof origin === 'string' ? origin : origin.address || '');
+        const destPayload = buildWaypointPayload(typeof destination === 'string' ? destination : destination.address || '');
+
+        const validTravelMode =
+          travelMode === 'TWO_WHEELER'
+            ? 'TWO_WHEELER'
+            : travelMode === 'BICYCLE'
+            ? 'BICYCLE'
+            : travelMode === 'WALK'
+            ? 'WALK'
+            : 'DRIVE';
+
+        const requestBody: any = {
+          origin: originPayload,
+          destination: destPayload,
+          travelMode: validTravelMode,
+          computeAlternativeRoutes: true,
+          routeModifiers: {
+            avoidTolls: !!avoidTolls,
+            avoidHighways: !!avoidHighways,
+            avoidFerries: true,
+          },
+          languageCode: 'id-ID',
+          units: 'METRIC',
+        };
+
+        if (validTravelMode === 'DRIVE' || validTravelMode === 'TWO_WHEELER') {
+          requestBody.routingPreference = 'TRAFFIC_AWARE_OPTIMAL';
+        }
 
         const routesResponse = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'X-Goog-Api-Key': mapsKey,
-            'X-Goog-FieldMask': 'routes.duration,routes.staticDuration,routes.distanceMeters,routes.description,routes.polyline.encodedPolyline,routes.legs,routes.travelAdvisory,routes.routeLabels',
+            'X-Goog-FieldMask':
+              'routes.duration,routes.staticDuration,routes.distanceMeters,routes.description,routes.polyline.encodedPolyline,routes.legs,routes.travelAdvisory,routes.routeLabels',
             'X-Goog-Maps-Solution-ID': 'gmp_git_agentskills_v1',
           },
-          body: JSON.stringify({
-            origin: { address: formattedOrigin },
-            destination: { address: formattedDest },
-            travelMode: travelMode === 'TWO_WHEELER' ? 'TWO_WHEELER' : travelMode === 'BICYCLE' ? 'BICYCLE' : travelMode === 'WALK' ? 'WALK' : 'DRIVE',
-            routingPreference: 'TRAFFIC_AWARE_OPTIMAL',
-            computeAlternativeRoutes: true,
-            routeModifiers: {
-              avoidTolls: !!avoidTolls,
-              avoidHighways: !!avoidHighways,
-              avoidFerries: true,
-            },
-            languageCode: 'id-ID',
-            units: 'METRIC',
-          }),
+          body: JSON.stringify(requestBody),
         });
 
         if (routesResponse.ok) {
           const json = await routesResponse.json();
           if (json.routes && json.routes.length > 0) {
+            const primaryDurationSec = parseInt((json.routes[0]?.duration || '0s').replace('s', ''), 10) || 1800;
+            const primaryDurationMin = Math.max(1, Math.round(primaryDurationSec / 60));
+
             routesData = json.routes.map((r: any, idx: number) => {
               const distanceKm = Math.round(((r.distanceMeters || 0) / 1000) * 10) / 10;
               const durationSec = parseInt((r.duration || '0s').replace('s', ''), 10) || 1800;
               const staticDurationSec = parseInt((r.staticDuration || r.duration || '0s').replace('s', ''), 10) || durationSec;
-              const durationMinutes = Math.round(durationSec / 60);
-              const staticDurationMinutes = Math.round(staticDurationSec / 60);
+              const durationMinutes = Math.max(1, Math.round(durationSec / 60));
+              const staticDurationMinutes = Math.max(1, Math.round(staticDurationSec / 60));
               const delayMinutes = Math.max(0, durationMinutes - staticDurationMinutes);
-              const avgSpeedKmh = distanceKm > 0 && durationMinutes > 0 ? Math.round((distanceKm / (durationMinutes / 60))) : 40;
+              const avgSpeedKmh = distanceKm > 0 && durationMinutes > 0 ? Math.round(distanceKm / (durationMinutes / 60)) : 35;
+              const timeSavedMinutes = idx > 0 ? Math.max(0, primaryDurationMin - durationMinutes) : 0;
+
+              // Extract Real Coordinates from Google Routes legs
+              const leg = r.legs?.[0];
+              const startLocation = leg?.startLocation?.latLng
+                ? { latitude: leg.startLocation.latLng.latitude, longitude: leg.startLocation.latLng.longitude }
+                : undefined;
+              const endLocation = leg?.endLocation?.latLng
+                ? { latitude: leg.endLocation.latLng.latitude, longitude: leg.endLocation.latLng.longitude }
+                : undefined;
 
               // Determine Traffic Severity & Stress Index
               let trafficLevel: 'lancar' | 'ramai' | 'padat' | 'macet_parah' = 'lancar';
-              let stressIndex = 15; // 0 - 100 scale
+              let stressIndex = 15;
 
-              if (delayMinutes >= 20 || avgSpeedKmh < 20) {
+              if (delayMinutes >= 15 || avgSpeedKmh < 18) {
                 trafficLevel = 'macet_parah';
                 stressIndex = Math.min(95, 70 + delayMinutes);
-              } else if (delayMinutes >= 8 || avgSpeedKmh < 35) {
+              } else if (delayMinutes >= 6 || avgSpeedKmh < 30) {
                 trafficLevel = 'padat';
                 stressIndex = Math.min(70, 45 + delayMinutes * 2);
-              } else if (delayMinutes >= 3 || avgSpeedKmh < 50) {
+              } else if (delayMinutes >= 2 || avgSpeedKmh < 45) {
                 trafficLevel = 'ramai';
                 stressIndex = 30 + delayMinutes * 2;
               } else {
                 trafficLevel = 'lancar';
-                stressIndex = Math.min(25, 10 + Math.round(distanceKm * 0.5));
+                stressIndex = Math.min(25, 10 + Math.round(distanceKm * 0.4));
               }
 
               const routeTitle = r.description
@@ -2485,7 +2556,9 @@ app.post('/api/smart-traffic/analyze', async (req: Request, res: Response) => {
               return {
                 id: `route-${idx + 1}`,
                 title: routeTitle,
-                summary: r.description ? `Melalui ${r.description} dari ${origin} menuju ${destination}` : `Jalur ${idx === 0 ? 'Utama Bebas Hambatan' : 'Alternatif'}`,
+                summary: r.description
+                  ? `Melalui ${r.description} dari ${origin} menuju ${destination}`
+                  : `Jalur ${idx === 0 ? 'Utama' : `Alternatif ${idx}`}`,
                 distanceKm,
                 durationMinutes,
                 staticDurationMinutes,
@@ -2493,8 +2566,11 @@ app.post('/api/smart-traffic/analyze', async (req: Request, res: Response) => {
                 avgSpeedKmh,
                 trafficLevel,
                 stressIndex,
+                timeSavedMinutes,
                 encodedPolyline: r.polyline?.encodedPolyline || '',
                 isToll: (r.description || '').toLowerCase().includes('tol') || !avoidTolls,
+                startLocation,
+                endLocation,
               };
             });
             googleRoutesSuccess = true;

@@ -70,6 +70,8 @@ interface TrafficRoute {
   timeSavedMinutes?: number;
   encodedPolyline?: string;
   isToll: boolean;
+  startLocation?: { latitude: number; longitude: number };
+  endLocation?: { latitude: number; longitude: number };
 }
 
 interface AIEvaluation {
@@ -294,9 +296,19 @@ function generateRouteWaypoints(
 
 // Dynamic Coordinate Resolver for Leaflet & Navigation
 function resolvePlaceCoordinates(placeName: string, isOrigin: boolean): [number, number] {
-  const clean = (placeName || '').toLowerCase();
+  const clean = (placeName || '').toLowerCase().trim();
 
-  // 1. Medan Specific Landmarks
+  // 0. Direct GPS Coordinates Extraction if present, e.g. "(3.5908, 98.6743)" or "3.5908, 98.6743"
+  const coordMatch = clean.match(/(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/);
+  if (coordMatch) {
+    const lat = parseFloat(coordMatch[1]);
+    const lng = parseFloat(coordMatch[2]);
+    if (!isNaN(lat) && !isNaN(lng)) {
+      return [lat, lng];
+    }
+  }
+
+  // 1. Medan & North Sumatra Specific Landmarks
   if (clean.includes('bunga ester')) return [3.5280, 98.6380];
   if (clean.includes('kampung lalang') || clean.includes('lalang')) return [3.5930, 98.6180];
   if (clean.includes('carrefour') || clean.includes('fair')) return [3.5975, 98.6631];
@@ -305,7 +317,7 @@ function resolvePlaceCoordinates(placeName: string, isOrigin: boolean): [number,
   if (clean.includes('simalingkar') || clean.includes('pintu air')) return [3.5185, 98.6480];
   if (clean.includes('sun plaza')) return [3.5855, 98.6715];
   if (clean.includes('centre point') || clean.includes('center point')) return [3.5925, 98.6815];
-  if (clean.includes('stasiun') || clean.includes('kereta')) return [3.5902, 98.6788];
+  if (clean.includes('stasiun medan') || (clean.includes('stasiun') && clean.includes('medan'))) return [3.5902, 98.6788];
   if (clean.includes('kualanamu')) return [3.6422, 98.8852];
   if (clean.includes('amplas')) return [3.5350, 98.7180];
   if (clean.includes('pinang baris')) return [3.5850, 98.6150];
@@ -325,26 +337,93 @@ function resolvePlaceCoordinates(placeName: string, isOrigin: boolean): [number,
   if (clean.includes('sunggal')) return [3.5850, 98.6050];
   if (clean.includes('pancur batu')) return [3.5050, 98.5750];
   if (clean.includes('deli tua')) return [3.4850, 98.6850];
+  if (clean.includes('binjai')) return [3.6001, 98.4855];
 
-  // 2. Jakarta Specific Landmarks
+  // 2. Jakarta & Greater Jakarta (Jabodetabek)
   if (clean.includes('monas') || clean.includes('gambir')) return [-6.1754, 106.8272];
+  if (clean.includes('bundaran hi') || clean.includes('m.h. thamrin') || clean.includes('thamrin')) return [-6.1950, 106.8230];
   if (clean.includes('soekarno hatta') || clean.includes('soetta') || clean.includes('cgk')) return [-6.1275, 106.6537];
-  if (clean.includes('grand indonesia') || clean.includes('thamrin')) return [-6.1950, 106.8210];
+  if (clean.includes('halim')) return [-6.2655, 106.8906];
+  if (clean.includes('grand indonesia')) return [-6.1950, 106.8210];
   if (clean.includes('scbd') || clean.includes('senayan')) return [-6.2250, 106.8080];
+  if (clean.includes('sudirman')) return [-6.2088, 106.8225];
+  if (clean.includes('kuningan') || clean.includes('rasuna said')) return [-6.2245, 106.8315];
+  if (clean.includes('tebet')) return [-6.2285, 106.8580];
+  if (clean.includes('blok m')) return [-6.2445, 106.7975];
+  if (clean.includes('kemang')) return [-6.2625, 106.8155];
+  if (clean.includes('kelapa gading')) return [-6.1585, 106.9055];
+  if (clean.includes('ancol') || clean.includes('dufan')) return [-6.1255, 106.8335];
+  if (clean.includes('tangerang') || clean.includes('bsd') || clean.includes('serpong')) return [-6.1783, 106.6319];
+  if (clean.includes('bekasi')) return [-6.2383, 106.9756];
+  if (clean.includes('depok')) return [-6.4025, 106.7942];
+  if (clean.includes('bogor')) return [-6.5971, 106.8060];
 
-  // 3. Fallback: Generate distinct, realistic offset in Medan area based on string characters
+  // 3. Bandung & West Java
+  if (clean.includes('gedung sate')) return [-6.9025, 107.6186];
+  if (clean.includes('itb')) return [-6.8915, 107.6107];
+  if (clean.includes('dago')) return [-6.8785, 107.6155];
+  if (clean.includes('lembang')) return [-6.8155, 107.6175];
+  if (clean.includes('pasteur')) return [-6.8945, 107.5925];
+  if (clean.includes('alun-alun bandung') || (clean.includes('alun') && clean.includes('bandung'))) return [-6.9218, 107.6069];
+  if (clean.includes('stasiun bandung')) return [-6.9145, 107.6025];
+  if (clean.includes('bandung')) return [-6.9175, 107.6191];
+
+  // 4. Surabaya & East Java
+  if (clean.includes('tunjungan plaza') || clean.includes('tunjungan')) return [-7.2625, 112.7385];
+  if (clean.includes('gubeng')) return [-7.2655, 112.7525];
+  if (clean.includes('pasar turi')) return [-7.2485, 112.7315];
+  if (clean.includes('juanda')) return [-7.3798, 112.7875];
+  if (clean.includes('surabaya')) return [-7.2575, 112.7521];
+
+  // 5. Yogyakarta & Central Java
+  if (clean.includes('malioboro')) return [-7.7925, 110.3658];
+  if (clean.includes('prambanan')) return [-7.7520, 110.4914];
+  if (clean.includes('tugu jogja')) return [-7.7828, 110.3671];
+  if (clean.includes('ugm')) return [-7.7712, 110.3775];
+  if (clean.includes('jogja') || clean.includes('yogyakarta')) return [-7.7956, 110.3695];
+  if (clean.includes('solo') || clean.includes('surakarta')) return [-7.5666, 110.8290];
+  if (clean.includes('semarang') || clean.includes('simpang lima')) return [-6.9904, 110.4229];
+
+  // 6. Bali
+  if (clean.includes('kuta')) return [-8.7230, 115.1725];
+  if (clean.includes('seminyak')) return [-8.6915, 115.1685];
+  if (clean.includes('ubud')) return [-8.5069, 115.2625];
+  if (clean.includes('sanur')) return [-8.6785, 115.2635];
+  if (clean.includes('ngurah rai') || clean.includes('dps')) return [-8.7482, 115.1672];
+  if (clean.includes('bali') || clean.includes('denpasar')) return [-8.6705, 115.2126];
+
+  // 7. Other Major Indonesian Cities
+  if (clean.includes('makassar') || clean.includes('losari')) return [-5.1477, 119.4327];
+  if (clean.includes('palembang') || clean.includes('ampera')) return [-2.9761, 104.7754];
+  if (clean.includes('pekanbaru')) return [0.5071, 101.4478];
+  if (clean.includes('batam')) return [1.1301, 104.0529];
+  if (clean.includes('padang')) return [-0.9471, 100.4172];
+  if (clean.includes('balikpapan')) return [-1.2379, 116.8289];
+  if (clean.includes('samarinda')) return [-0.5022, 117.1536];
+  if (clean.includes('manado')) return [1.4748, 124.8421];
+
+  // Detect City anchors if general address
+  let baseLat = 3.5908;
+  let baseLng = 98.6743;
+  if (clean.includes('jakarta')) { baseLat = -6.2088; baseLng = 106.8456; }
+  else if (clean.includes('bandung')) { baseLat = -6.9175; baseLng = 107.6191; }
+  else if (clean.includes('surabaya')) { baseLat = -7.2575; baseLng = 112.7521; }
+  else if (clean.includes('semarang')) { baseLat = -6.9667; baseLng = 110.4167; }
+  else if (clean.includes('jogja') || clean.includes('yogyakarta')) { baseLat = -7.7956; baseLng = 110.3695; }
+  else if (clean.includes('bali')) { baseLat = -8.6705; baseLng = 115.2126; }
+
   let hash = 0;
   for (let i = 0; i < placeName.length; i++) {
     hash = (hash << 5) - hash + placeName.charCodeAt(i);
     hash |= 0;
   }
-  const deltaLat = ((Math.abs(hash) % 50) - 25) / 1000;
-  const deltaLng = (((Math.abs(hash * 3)) % 50) - 25) / 1000;
+  const deltaLat = ((Math.abs(hash) % 40) - 20) / 1000;
+  const deltaLng = (((Math.abs(hash * 3)) % 40) - 20) / 1000;
 
   if (isOrigin) {
-    return [3.5908 + deltaLat, 98.6743 + deltaLng];
+    return [baseLat + deltaLat, baseLng + deltaLng];
   } else {
-    return [3.5485 + deltaLat, 98.6480 + deltaLng];
+    return [baseLat - 0.035 + deltaLat, baseLng + 0.02 + deltaLng];
   }
 }
 
@@ -493,51 +572,108 @@ function computeDynamicRoutes(
   return { routes: [route1, route2, route3], alert, timeSaved, aiEval };
 }
 
-// Clean duplicate spoken text caused by mobile speech recognition loops
+// Clean spoken text: normalize whitespace without deleting valid words or speech phrases
 export function cleanSpokenText(text: string): string {
   if (!text) return '';
-  let str = text.trim();
+  return text.replace(/\s+/g, ' ').trim();
+}
 
-  // 1. Remove duplicate adjacent words (e.g., "Saya Saya" -> "Saya", "mau mau" -> "mau")
-  str = str.replace(/\b(\w+)(?:\s+\1\b)+/gi, '$1');
+// Highly accurate Indonesian Speech Intent Extractor
+export function extractAccurateVoiceIntent(rawText: string, currentOriginFallback: string = '') {
+  let text = cleanSpokenText(rawText);
+  if (!text) return { origin: currentOriginFallback || '', destination: '', mode: 'DRIVE' as const };
 
-  // 2. Remove identical halves (e.g., "Saya mau Saya mau" -> "Saya mau")
-  const words = str.split(/\s+/);
-  if (words.length >= 2 && words.length % 2 === 0) {
-    const half = words.length / 2;
-    const firstHalf = words.slice(0, half).join(' ').toLowerCase();
-    const secondHalf = words.slice(half).join(' ').toLowerCase();
-    if (firstHalf === secondHalf) {
-      str = words.slice(0, half).join(' ');
+  const textLower = text.toLowerCase();
+
+  // Detect mode
+  let mode: 'DRIVE' | 'TWO_WHEELER' | 'BICYCLE' | 'WALK' = 'DRIVE';
+  if (/\b(motor|naik motor|sepeda motor|roda dua|gojek|grab motor)\b/i.test(textLower)) {
+    mode = 'TWO_WHEELER';
+  } else if (/\b(sepeda|gowes|naik sepeda)\b/i.test(textLower)) {
+    mode = 'BICYCLE';
+  } else if (/\b(jalan kaki|jalan santai|berjalan)\b/i.test(textLower)) {
+    mode = 'WALK';
+  }
+
+  // Strip travel mode qualifiers from the end so they don't pollute place names
+  let cleanText = text
+    .replace(/\s+(?:naik\s+mobil|naik\s+motor|naik\s+sepeda|jalan\s+kaki|dengan\s+mobil|dengan\s+motor|cepat|tercepat|bebas\s+macet)$/i, '')
+    .trim();
+
+  let extractedOrigin = '';
+  let extractedDestination = '';
+
+  // Pattern A: "Mau ke [B] dari [A]" or "Menuju [B] dari [A]" or "Tolong antar ke [B] dari [A]"
+  const patternRev = /^(?:tolong\s+)?(?:saya\s+)?(?:mau\s+ke|menuju\s+ke|menuju|tujuan\s+ke|ke|sampai\s+ke|sampai)\s+(.+?)\s+(?:dari|start\s+dari|posisi\s+di|lokasi\s+di|mulai\s+dari)\s+(.+)$/i;
+  const mRev = cleanText.match(patternRev);
+  if (mRev) {
+    extractedDestination = mRev[1].trim();
+    extractedOrigin = mRev[2].trim();
+  }
+
+  // Pattern B: "Dari [A] mau ke / menuju / ke / sampai [B]" or "(Saya) dari [A] ke [B]"
+  if (!extractedOrigin || !extractedDestination) {
+    const patternNormal = /^(?:tolong\s+)?(?:saya\s+)?(?:dari|posisi\s+di|lokasi\s+di|lagi\s+di|start\s+dari|mulai\s+dari)\s+(.+?)\s+(?:menuju\s+ke|menuju|mau\s+ke|tujuan\s+ke|tujuan|ke|sampai\s+ke|sampai)\s+(.+)$/i;
+    const mNormal = cleanText.match(patternNormal);
+    if (mNormal) {
+      extractedOrigin = mNormal[1].trim();
+      extractedDestination = mNormal[2].trim();
     }
   }
 
-  // 3. Remove repeated N-word sub-phrases (e.g., "dari medan dari medan" -> "dari medan")
-  for (let n = 8; n >= 2; n--) {
-    const w = str.split(/\s+/);
-    if (w.length >= n * 2) {
-      let changed = false;
-      for (let i = 0; i <= w.length - n * 2; i++) {
-        const p1 = w.slice(i, i + n).join(' ').toLowerCase();
-        const p2 = w.slice(i + n, i + n * 2).join(' ').toLowerCase();
-        if (p1 === p2) {
-          w.splice(i + n, n);
-          str = w.join(' ');
-          changed = true;
-          break;
-        }
-      }
-      if (changed) {
-        str = cleanSpokenText(str);
-        break;
+  // Pattern C: "[A] ke / menuju / sampai [B]"
+  if (!extractedOrigin || !extractedDestination) {
+    const patternDirect = /^(.+?)\s+(?:menuju\s+ke|menuju|mau\s+ke|tujuan\s+ke|tujuan|ke|sampai\s+ke|sampai)\s+(.+)$/i;
+    const mDirect = cleanText.match(patternDirect);
+    if (mDirect) {
+      const candA = mDirect[1].trim().replace(/^(?:saya|tolong|posisi|lokasi|lagi|start)\s+/i, '');
+      const candB = mDirect[2].trim();
+      if (!/^(?:mau|ingin|hendak|tujuan)$/i.test(candA)) {
+        extractedOrigin = candA;
+        extractedDestination = candB;
       }
     }
   }
 
-  // 4. Case where word repeats with direct spacing
-  str = str.replace(/\b([a-zA-Z0-9]+)\s+\1\b/gi, '$1');
+  // Pattern D: Only Destination mentioned: "Mau ke [B]" or "Ke [B]" or "Menuju [B]"
+  if (!extractedDestination) {
+    const patternDestOnly = /^(?:tolong\s+)?(?:saya\s+)?(?:mau\s+ke|menuju\s+ke|menuju|tujuan\s+ke|tujuan|ke|sampai\s+ke|sampai)\s+(.+)$/i;
+    const mDest = cleanText.match(patternDestOnly);
+    if (mDest) {
+      extractedDestination = mDest[1].trim();
+      extractedOrigin = currentOriginFallback || '';
+    }
+  }
 
-  return str.trim();
+  // Fallback: If no destination parsed, use entire text as destination
+  if (!extractedDestination && cleanText) {
+    extractedDestination = cleanText;
+    extractedOrigin = currentOriginFallback || '';
+  }
+
+  const cleanPlace = (p: string) => {
+    return (p || '')
+      .replace(/^(?:dari|ke|menuju|posisi\s+di|lokasi\s+di)\s+/i, '')
+      .replace(/\s+(?:naik\s+motor|naik\s+mobil|naik\s+sepeda|jalan\s+kaki)$/i, '')
+      .replace(/^[,\s.-]+|[,\s.-]+$/g, '')
+      .trim();
+  };
+
+  extractedOrigin = cleanPlace(extractedOrigin);
+  extractedDestination = cleanPlace(extractedDestination);
+
+  const capitalizeWords = (str: string) => {
+    return str.replace(/\b([a-z])/g, (c) => c.toUpperCase());
+  };
+
+  if (extractedOrigin) extractedOrigin = capitalizeWords(extractedOrigin);
+  if (extractedDestination) extractedDestination = capitalizeWords(extractedDestination);
+
+  return {
+    origin: extractedOrigin || currentOriginFallback || '',
+    destination: extractedDestination,
+    mode,
+  };
 }
 
 export const SmartTrafficRouteTab: React.FC = () => {
@@ -739,9 +875,29 @@ export const SmartTrafficRouteTab: React.FC = () => {
 
     layers.clearLayers();
 
-    // Dynamic Coordinates calculation using resolvePlaceCoordinates
-    const startCoords = resolvePlaceCoordinates(origin, true);
-    const endCoords = resolvePlaceCoordinates(destination, false);
+    // Real Coordinates from Google Routes API or decoded Polyline (highest precision), falling back to resolver
+    let startCoords: [number, number] = resolvePlaceCoordinates(origin, true);
+    let endCoords: [number, number] = resolvePlaceCoordinates(destination, false);
+
+    if (routes && routes.length > 0) {
+      if (routes[0].startLocation?.latitude && routes[0].startLocation?.longitude) {
+        startCoords = [routes[0].startLocation.latitude, routes[0].startLocation.longitude];
+      } else if (routes[0].encodedPolyline) {
+        const decodedPts = decodeGooglePolyline(routes[0].encodedPolyline);
+        if (decodedPts && decodedPts.length > 0) {
+          startCoords = decodedPts[0];
+        }
+      }
+
+      if (routes[0].endLocation?.latitude && routes[0].endLocation?.longitude) {
+        endCoords = [routes[0].endLocation.latitude, routes[0].endLocation.longitude];
+      } else if (routes[0].encodedPolyline) {
+        const decodedPts = decodeGooglePolyline(routes[0].encodedPolyline);
+        if (decodedPts && decodedPts.length > 0) {
+          endCoords = decodedPts[decodedPts.length - 1];
+        }
+      }
+    }
 
     // Leaflet DivIcons for A and B
     const iconA = L.divIcon({
@@ -1001,22 +1157,21 @@ export const SmartTrafficRouteTab: React.FC = () => {
             if (res.isFinal) {
               finalParts += (finalParts ? ' ' : '') + phrase;
             } else {
-              interimPart = phrase; // Do not concatenate all interims!
+              interimPart += (interimPart ? ' ' : '') + phrase;
             }
           }
 
-          let text = (finalParts ? finalParts + (interimPart ? ' ' + interimPart : '') : interimPart) || '';
+          let text = (finalParts ? finalParts + (interimPart ? ' ' + interimPart : '') : interimPart).trim();
 
-          // If empty, fallback to the latest result index
+          // Fallback if empty
           if (!text && event.results.length > 0) {
-            text = event.results[event.results.length - 1][0]?.transcript || '';
+            text = (event.results[event.results.length - 1][0]?.transcript || '').trim();
           }
 
-          const cleaned = cleanSpokenText(text);
-
-          if (cleaned) {
-            setSpeechTranscript(cleaned);
-            setManualVoiceInput(cleaned);
+          if (text) {
+            setSpeechTranscript(text);
+            setManualVoiceInput(text);
+            setVoiceStatusText(`Mendengarkan: "${text}"`);
           }
         };
 
@@ -1197,101 +1352,7 @@ export const SmartTrafficRouteTab: React.FC = () => {
     setIsSpeakingResult(false);
   };
 
-  // Instant Client-side Indonesian NLP Intent Extractor
-  const extractIntentFromText = (text: string, defaultOrigin: string) => {
-    const textTrimmed = cleanSpokenText(text);
-    const textLower = textTrimmed.toLowerCase();
-
-    let extractedOrigin = '';
-    let extractedDestination = '';
-    let mode: 'DRIVE' | 'TWO_WHEELER' | 'BICYCLE' | 'WALK' = travelMode;
-
-    if (textLower.includes('motor') || textLower.includes('naik motor') || textLower.includes('sepeda motor')) {
-      mode = 'TWO_WHEELER';
-    } else if (textLower.includes('sepeda') || textLower.includes('gowes')) {
-      mode = 'BICYCLE';
-    } else if (textLower.includes('jalan kaki') || textLower.includes('jalan')) {
-      mode = 'WALK';
-    }
-
-    // 1. Landmark Keywords Matching for Origin
-    if (textLower.includes('carrefour') || textLower.includes('karefur') || textLower.includes('carefur')) {
-      extractedOrigin = 'Carrefour Plaza Medan Fair, Medan';
-    } else if (textLower.includes('medan fair') || textLower.includes('plaza medan fair')) {
-      extractedOrigin = 'Plaza Medan Fair, Medan';
-    } else if (textLower.includes('podomoro') || textLower.includes('pudumoro') || textLower.includes('deli park')) {
-      extractedOrigin = 'Podomoro City Deli Medan (Pudumoro)';
-    } else if (textLower.includes('bahasa kopi')) {
-      extractedOrigin = 'Bahasa Kopi, Medan';
-    } else if (textLower.includes('sun plaza')) {
-      extractedOrigin = 'Sun Plaza, Medan';
-    } else if (textLower.includes('stasiun medan') || textLower.includes('stasiun kereta')) {
-      extractedOrigin = 'Stasiun Kereta Api Medan';
-    } else if (textLower.includes('bandara kualanamu') || textLower.includes('kualanamu')) {
-      extractedOrigin = 'Bandara Internasional Kualanamu (KNO)';
-    } else if (textLower.includes('monas')) {
-      extractedOrigin = 'Monas, Gambir, Jakarta Pusat';
-    } else if (textLower.includes('scbd')) {
-      extractedOrigin = 'SCBD, Senayan, Jakarta Selatan';
-    }
-
-    // Landmark Keywords Matching for Destination
-    if (textLower.includes('medan mall')) {
-      extractedDestination = 'Medan Mall, Medan';
-    } else if (textLower.includes('pintu air') || textLower.includes('simalingkar')) {
-      extractedDestination = 'Pintu Air 4 Simalingkar B, Medan';
-    } else if (textLower.includes('centre point') || textLower.includes('center point')) {
-      extractedDestination = 'Centre Point Mall, Medan';
-    } else if (textLower.includes('cambridge')) {
-      extractedDestination = 'Cambridge City Square, Medan';
-    } else if (textLower.includes('bandara soetta') || textLower.includes('soekarno hatta')) {
-      extractedDestination = 'Bandara Internasional Soekarno-Hatta (CGK)';
-    } else if (textLower.includes('kampung lalang')) {
-      extractedDestination = 'Kampung Lalang, Medan';
-    }
-
-    // 2. Pattern Matching for arbitrary street addresses & places: "dari [A] ke/menuju [B]" or "[A] ke/menuju [B]"
-    if (!extractedOrigin || !extractedDestination) {
-      const pattern1 = /(?:saya\s+)?(?:dari|posisi\s+di|lokasi\s+di|lagi\s+di)\s+(.+?)\s+(?:menuju|ke|tujuan\s+ke|tujuan|mau\s+ke)\s+(.+)/i;
-      const m1 = textTrimmed.match(pattern1);
-      if (m1) {
-        if (!extractedOrigin && m1[1]) extractedOrigin = m1[1].trim();
-        if (!extractedDestination && m1[2]) extractedDestination = m1[2].trim();
-      }
-    }
-
-    if (!extractedOrigin || !extractedDestination) {
-      const pattern2 = /^(.+?)\s+(?:ke|menuju|tujuan\s+ke|tujuan)\s+(.+)$/i;
-      const m2 = textTrimmed.match(pattern2);
-      if (m2) {
-        if (!extractedOrigin && m2[1]) extractedOrigin = m2[1].trim().replace(/^(saya|posisi|lokasi)\s+/i, '');
-        if (!extractedDestination && m2[2]) extractedDestination = m2[2].trim();
-      }
-    }
-
-    // Format location strings nicely
-    const formatLocation = (loc: string) => {
-      let cleaned = loc.replace(/\s+(naik\s+mobil|naik\s+motor|naik\s+sepeda|jalan\s+kaki|dengan\s+mobil|cepat)$/i, '').trim();
-      cleaned = cleaned.replace(/\b\w/g, (char) => char.toUpperCase());
-      if (/^jl\.?/i.test(cleaned)) {
-        cleaned = cleaned.replace(/^jl\.?/i, 'Jl.');
-      }
-      if (!cleaned.toLowerCase().includes('medan') && !cleaned.toLowerCase().includes('jakarta') && !cleaned.toLowerCase().includes('tangerang')) {
-        cleaned += ', Medan';
-      }
-      return cleaned;
-    };
-
-    if (extractedOrigin) extractedOrigin = formatLocation(extractedOrigin);
-    if (extractedDestination) extractedDestination = formatLocation(extractedDestination);
-
-    if (!extractedOrigin) extractedOrigin = defaultOrigin || 'Plaza Medan Fair, Medan';
-    if (!extractedDestination) extractedDestination = 'Medan Mall, Medan';
-
-    return { origin: extractedOrigin, destination: extractedDestination, mode };
-  };
-
-  // Step-by-Step Voice Pipeline: Voice -> Intent -> Auto Input -> Route Search -> Map & Speech Readout
+  // Step-by-Step Voice Pipeline: Voice -> Accurate Intent -> Instant UI Update -> Scroll to Results -> Google Maps Analysis
   const handleProcessVoiceInput = async (spokenText: string) => {
     if (!isPro) {
       handleStopListening();
@@ -1303,58 +1364,66 @@ export const SmartTrafficRouteTab: React.FC = () => {
     if (!text) return;
 
     handleStopListening();
-    setVoiceStatusText(`Memahami perintah suara: "${text}"...`);
-    setIsLoading(true);
+    setIsVoiceModalOpen(false);
+    setManualVoiceInput('');
 
-    // Instant local extraction
-    const localParsed = extractIntentFromText(text, origin);
-    let targetOrigin = localParsed.origin;
-    let targetDestination = localParsed.destination;
+    // Instant accurate local extraction
+    const localParsed = extractAccurateVoiceIntent(text, origin);
+    let targetOrigin = localParsed.origin || origin || 'Lokasi Saya';
+    let targetDestination = localParsed.destination || destination;
     let targetMode = localParsed.mode;
 
+    // Immediately update input fields so user sees them on screen
+    setOrigin(targetOrigin);
+    if (targetDestination) {
+      setDestination(targetDestination);
+    }
+    setTravelMode(targetMode);
+    setVoiceDetectedToast({ origin: targetOrigin, destination: targetDestination });
+
+    // Smoothly scroll directly to map & results section right away
+    if (searchResultsRef.current) {
+      searchResultsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
     try {
-      // API enrichment from server
+      // AI enrichment from server with Gemini 3.8 Flash
       const parseRes = await fetch('/api/smart-traffic/parse-voice-intent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ speechText: text, currentOrigin: origin }),
+        body: JSON.stringify({ speechText: text, currentOrigin: targetOrigin }),
       });
 
       if (parseRes.ok) {
         const parseData = await parseRes.json();
         if (parseData.success) {
-          if (parseData.origin && parseData.origin.trim()) targetOrigin = parseData.origin.trim();
-          if (parseData.destination && parseData.destination.trim()) targetDestination = parseData.destination.trim();
-          if (parseData.travelMode) targetMode = parseData.travelMode;
+          if (parseData.origin && parseData.origin.trim()) {
+            targetOrigin = parseData.origin.trim();
+            setOrigin(targetOrigin);
+          }
+          if (parseData.destination && parseData.destination.trim()) {
+            targetDestination = parseData.destination.trim();
+            setDestination(targetDestination);
+          }
+          if (parseData.travelMode) {
+            targetMode = parseData.travelMode;
+            setTravelMode(targetMode);
+          }
+          setVoiceDetectedToast({ origin: targetOrigin, destination: targetDestination });
         }
       }
     } catch (e) {
-      console.warn('Voice intent parse API error, using instant local extraction:', e);
+      console.warn('Voice intent parse API error, using instant accurate extraction:', e);
     }
 
-    // Auto-fill Input Fields on screen
-    setOrigin(targetOrigin);
-    setDestination(targetDestination);
-    setTravelMode(targetMode);
-    setVoiceDetectedToast({ origin: targetOrigin, destination: targetDestination });
-
-    // Always close Voice Modal and clear manual input draft
-    setIsVoiceModalOpen(false);
-    setManualVoiceInput('');
-
-    // Execute Smart Route Analysis with newly extracted origin & destination
-    await handleAnalyzeRoutes(targetOrigin, targetDestination);
-
-    // Smoothly Scroll to Map & Results Section
-    setTimeout(() => {
-      if (searchResultsRef.current) {
-        searchResultsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }
-    }, 200);
+    // Execute Smart Route Analysis with accurate origin & destination
+    if (targetOrigin && targetDestination) {
+      await handleAnalyzeRoutes(targetOrigin, targetDestination);
+    }
   };
 
   // Unified Voice & Manual Input Submit Handler:
-  // Tombol "Selesai Bicara & Cari Rute Cerdas AI" dan tombol "Kirim" menjalankan fungsi yang persis sama
+  // Tombol "Selesai Bicara & Cari Rute Cerdas AI" dan tombol "Kirim" langsung menutup modal dan mengarahkan ke hasil
   const handleVoiceOrManualSubmit = () => {
     if (!isPro) {
       handleStopListening();
@@ -1363,11 +1432,26 @@ export const SmartTrafficRouteTab: React.FC = () => {
       return;
     }
     handleStopListening();
+
     const textToUse =
       manualVoiceInput.trim() ||
       speechTranscript.trim() ||
-      (origin && destination ? `${origin} ke ${destination}` : 'Plaza Medan Fair ke Medan Mall');
-    handleProcessVoiceInput(textToUse);
+      (origin && destination ? `${origin} ke ${destination}` : '');
+
+    // Tutup modal suara dan bersihkan input draft seketika
+    setIsVoiceModalOpen(false);
+    setManualVoiceInput('');
+
+    // Langsung arahkan (smooth scroll) ke bagian peta & hasil rute
+    if (searchResultsRef.current) {
+      searchResultsRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    if (textToUse) {
+      handleProcessVoiceInput(textToUse);
+    } else if (origin && destination) {
+      handleAnalyzeRoutes(origin, destination);
+    }
   };
 
   const handleZoomIn = () => {
