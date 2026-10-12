@@ -17,6 +17,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { deduplicateRepeatedPhrases, mergeSpeechPhrases } from '../utils/speechUtils';
 
 interface VoiceDrinkModalProps {
   isOpen: boolean;
@@ -61,8 +62,14 @@ export const VoiceDrinkModal: React.FC<VoiceDrinkModalProps> = ({ isOpen, onClos
         };
 
         recognition.onresult = (event: any) => {
-          const current = event.resultIndex;
-          const text = event.results[current][0].transcript;
+          let accumulated = '';
+          for (let i = 0; i < event.results.length; i++) {
+            const phrase = (event.results[i][0]?.transcript || '').trim();
+            if (phrase) {
+              accumulated = mergeSpeechPhrases(accumulated, phrase);
+            }
+          }
+          const text = deduplicateRepeatedPhrases(accumulated || (event.results[event.results.length - 1][0]?.transcript || ''));
           setTranscript(text);
         };
 

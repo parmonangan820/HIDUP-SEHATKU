@@ -42,6 +42,7 @@ import {
   Lock,
 } from 'lucide-react';
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
+import { mergeSpeechPhrases, deduplicateRepeatedPhrases, cleanSpokenText } from '../utils/speechUtils';
 
 interface RouteHistoryItem {
   id: string;
@@ -572,11 +573,7 @@ function computeDynamicRoutes(
   return { routes: [route1, route2, route3], alert, timeSaved, aiEval };
 }
 
-// Clean spoken text: normalize whitespace without deleting valid words or speech phrases
-export function cleanSpokenText(text: string): string {
-  if (!text) return '';
-  return text.replace(/\s+/g, ' ').trim();
-}
+export { mergeSpeechPhrases, deduplicateRepeatedPhrases, cleanSpokenText };
 
 // Clean place names: strip conversational filler words, prefixes, and transport modes
 export function cleanPlaceName(p: string): string {
@@ -836,6 +833,7 @@ export const SmartTrafficRouteTab: React.FC = () => {
   });
   const recognitionRef = useRef<any>(null);
   const isListeningRef = useRef<boolean>(false);
+  const confirmedTranscriptRef = useRef<string>('');
   const userCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
 
   // Silently request and store GPS coordinates on component mount for real-time accurate origin
@@ -1214,27 +1212,40 @@ export const SmartTrafficRouteTab: React.FC = () => {
         };
 
         recognition.onresult = (event: any) => {
-          let finalParts = '';
+          let accumulatedFinal = '';
           let interimPart = '';
 
           for (let i = 0; i < event.results.length; i++) {
             const res = event.results[i];
-            const phrase = res[0]?.transcript || '';
+            const phrase = (res[0]?.transcript || '').trim();
+            if (!phrase) continue;
+
             if (res.isFinal) {
-              finalParts += (finalParts ? ' ' : '') + phrase;
+              accumulatedFinal = mergeSpeechPhrases(accumulatedFinal, phrase);
             } else {
-              interimPart += (interimPart ? ' ' : '') + phrase;
+              interimPart = mergeSpeechPhrases(interimPart, phrase);
             }
           }
 
-          let text = (finalParts ? finalParts + (interimPart ? ' ' + interimPart : '') : interimPart).trim();
+          let combined = mergeSpeechPhrases(accumulatedFinal, interimPart);
 
-          // Fallback if empty
-          if (!text && event.results.length > 0) {
-            text = (event.results[event.results.length - 1][0]?.transcript || '').trim();
+          // If previous session had confirmed text and session was restarted, merge cleanly
+          if (confirmedTranscriptRef.current) {
+            combined = mergeSpeechPhrases(confirmedTranscriptRef.current, combined);
           }
 
+          // Fallback if empty
+          if (!combined && event.results.length > 0) {
+            combined = (event.results[event.results.length - 1][0]?.transcript || '').trim();
+          }
+
+          // Deduplicate repeated phrases (fixes Android Chrome Google Speech duplication)
+          const text = deduplicateRepeatedPhrases(combined);
+
           if (text) {
+            if (accumulatedFinal) {
+              confirmedTranscriptRef.current = deduplicateRepeatedPhrases(accumulatedFinal);
+            }
             setSpeechTranscript(text);
             setManualVoiceInput(text);
             setVoiceStatusText(`Mendengarkan: "${text}"`);
@@ -1367,6 +1378,7 @@ export const SmartTrafficRouteTab: React.FC = () => {
     setIsVoiceModalOpen(true);
     setSpeechTranscript('');
     setManualVoiceInput('');
+    confirmedTranscriptRef.current = '';
     isListeningRef.current = true;
     setVoiceStatusText('Mendengarkan ucapan Anda (Durasi Bebas/Unlimited)... Tekan "Selesai" jika sudah.');
 
@@ -1508,10 +1520,12 @@ export const SmartTrafficRouteTab: React.FC = () => {
     }
     handleStopListening();
 
-    const textToUse =
+    const rawInput =
       manualVoiceInput.trim() ||
       speechTranscript.trim() ||
+      confirmedTranscriptRef.current.trim() ||
       (origin && destination ? `${origin} ke ${destination}` : '');
+    const textToUse = cleanSpokenText(rawInput);
 
     // Tutup modal suara dan bersihkan input draft seketika
     setIsVoiceModalOpen(false);
