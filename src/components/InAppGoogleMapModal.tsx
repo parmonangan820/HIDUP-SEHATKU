@@ -167,7 +167,7 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
   const [vehicleProgress, setVehicleProgress] = useState(0); // 0 to 1 along polyline
   const [currentSpeedKmh, setCurrentSpeedKmh] = useState(38);
   const [isVoiceMuted, setIsVoiceMuted] = useState(false);
-  const [mapTheme, setMapTheme] = useState<'google_dark' | 'google_sat' | 'google_standard'>('google_dark');
+  const [mapTheme, setMapTheme] = useState<'google_standard' | 'google_sat'>('google_standard');
   const [showTrafficOverlay, setShowTrafficOverlay] = useState(true);
   const [showCongestionDrawer, setShowCongestionDrawer] = useState(true);
   const [showTurnSteps, setShowTurnSteps] = useState(false);
@@ -427,10 +427,9 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
       }
     });
 
-    let tileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-    if (mapTheme === 'google_dark') {
-      tileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-    } else if (mapTheme === 'google_sat') {
+    // Tile selection: Standard OpenStreetMap (Dark and Voyager dihapus) or Satellite
+    let tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+    if (mapTheme === 'google_sat') {
       tileUrl = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
     }
 
@@ -908,16 +907,14 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
             <span className="text-sm">🚦</span>
           </button>
 
-          {/* Map Theme Switcher Button */}
+          {/* Map Theme Switcher Button (Standar / Satelit) */}
           <button
             type="button"
             onClick={() => {
-              if (mapTheme === 'google_dark') setMapTheme('google_sat');
-              else if (mapTheme === 'google_sat') setMapTheme('google_standard');
-              else setMapTheme('google_dark');
+              setMapTheme(mapTheme === 'google_standard' ? 'google_sat' : 'google_standard');
             }}
             className="p-2.5 rounded-2xl bg-slate-900/90 border border-slate-700 text-slate-300 hover:text-white shadow-xl backdrop-blur-md flex items-center justify-center cursor-pointer active:scale-95"
-            title="Ubah Tema Peta (Gelap / Satelit / Standar)"
+            title={`Ubah Tampilan Peta (${mapTheme === 'google_standard' ? 'Pindah ke Satelit' : 'Pindah ke Standar'})`}
           >
             <Layers className="w-4.5 h-4.5 text-cyan-400" />
           </button>

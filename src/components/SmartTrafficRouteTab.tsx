@@ -867,7 +867,7 @@ export const SmartTrafficRouteTab: React.FC = () => {
   const leafletMapRef = useRef<L.Map | null>(null);
   const leafletLayersRef = useRef<L.LayerGroup | null>(null);
   const lastBoundsRef = useRef<L.LatLngBounds | null>(null);
-  const [mapStyleTheme, setMapStyleTheme] = useState<'dark' | 'voyager' | 'osm'>('dark');
+  const [mapStyleTheme, setMapStyleTheme] = useState<'osm'>('osm');
   const [mapRotation, setMapRotation] = useState<number>(0);
   const [isMapFullscreen, setIsMapFullscreen] = useState<boolean>(false);
   const [isMapExpanded, setIsMapExpanded] = useState<boolean>(false);
@@ -925,15 +925,9 @@ export const SmartTrafficRouteTab: React.FC = () => {
     const layers = leafletLayersRef.current;
     if (!map || !layers) return;
 
-    // Tile style selection
-    let tileUrl = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-    let attribution = '&copy; OpenStreetMap &copy; CARTO';
-
-    if (mapStyleTheme === 'voyager') {
-      tileUrl = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-    } else if (mapStyleTheme === 'osm') {
-      tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
-    }
+    // Tile style: Standard OpenStreetMap (Versi Dark dan Voyager telah dihapus)
+    const tileUrl = 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+    const attribution = '&copy; OpenStreetMap contributors';
 
     map.eachLayer((layer) => {
       if (layer instanceof L.TileLayer) {
@@ -2615,36 +2609,6 @@ export const SmartTrafficRouteTab: React.FC = () => {
               <span>{showTrafficLayer ? 'Macet Google Maps: Aktif' : 'Macet: Mati'}</span>
             </button>
 
-            {/* Tile Themes */}
-            <div className="flex items-center gap-1 bg-slate-900/90 p-0.5 rounded-xl border border-slate-800">
-              <button
-                type="button"
-                onClick={() => setMapStyleTheme('dark')}
-                className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                  mapStyleTheme === 'dark' ? 'bg-teal-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                🌙 Dark
-              </button>
-              <button
-                type="button"
-                onClick={() => setMapStyleTheme('voyager')}
-                className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                  mapStyleTheme === 'voyager' ? 'bg-teal-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                🗺️ Voyager
-              </button>
-              <button
-                type="button"
-                onClick={() => setMapStyleTheme('osm')}
-                className={`px-2 py-1 rounded-lg text-[10px] font-bold transition-all cursor-pointer ${
-                  mapStyleTheme === 'osm' ? 'bg-teal-500 text-slate-950 shadow' : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                🌐 OSM
-              </button>
-            </div>
 
             {/* Height Expander (When not in fullscreen) */}
             {!isMapFullscreen && (
