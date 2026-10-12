@@ -183,10 +183,20 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
   const animationFrameRef = useRef<number | null>(null);
   const currentStepIndexRef = useRef<number>(0);
   const mapRotationRef = useRef<number>(0);
+  const vehicleProgressRef = useRef<number>(0);
+  const hasFittedBoundsRef = useRef<boolean>(false);
+  const isTouchingRef = useRef<boolean>(false);
+  const [isRotatingGesture, setIsRotatingGesture] = useState<boolean>(false);
 
   useEffect(() => {
     mapRotationRef.current = mapRotation;
   }, [mapRotation]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      hasFittedBoundsRef.current = false;
+    }
+  }, [isOpen]);
 
   // Sync prop vehicle mode
   useEffect(() => {
@@ -223,16 +233,30 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
     ? Math.min(48, Math.round(activeRoute.avgSpeedKmh * 1.35))
     : activeRoute.avgSpeedKmh;
 
-  // Resolve start and end coordinates
-  const startPoint: [number, number] = userCoords
-    ? [userCoords.lat, userCoords.lng]
-    : activeRoute.startLocation
-    ? [activeRoute.startLocation.latitude, activeRoute.startLocation.longitude]
-    : resolvePlaceCoords(origin, true);
+  // Resolve start and end coordinates with stable memoization
+  const rawStartCoords = React.useMemo(() => {
+    return userCoords
+      ? [userCoords.lat, userCoords.lng]
+      : activeRoute.startLocation
+      ? [activeRoute.startLocation.latitude, activeRoute.startLocation.longitude]
+      : resolvePlaceCoords(origin, true);
+  }, [userCoords?.lat, userCoords?.lng, activeRoute.startLocation?.latitude, activeRoute.startLocation?.longitude, origin]);
 
-  const endPoint: [number, number] = activeRoute.endLocation
-    ? [activeRoute.endLocation.latitude, activeRoute.endLocation.longitude]
-    : resolvePlaceCoords(destination, false);
+  const rawEndCoords = React.useMemo(() => {
+    return activeRoute.endLocation
+      ? [activeRoute.endLocation.latitude, activeRoute.endLocation.longitude]
+      : resolvePlaceCoords(destination, false);
+  }, [activeRoute.endLocation?.latitude, activeRoute.endLocation?.longitude, destination]);
+
+  const startPoint: [number, number] = React.useMemo(
+    () => [rawStartCoords[0], rawStartCoords[1]],
+    [rawStartCoords[0], rawStartCoords[1]]
+  );
+
+  const endPoint: [number, number] = React.useMemo(
+    () => [rawEndCoords[0], rawEndCoords[1]],
+    [rawEndCoords[0], rawEndCoords[1]]
+  );
 
   // Generate or decode polyline points
   const routeWaypoints: [number, number][] = React.useMemo(() => {
@@ -241,8 +265,10 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
       if (decoded && decoded.length >= 2) return decoded;
     }
     // High-resolution curved route waypoints generator
-    const [lat1, lng1] = startPoint;
-    const [lat2, lng2] = endPoint;
+    const lat1 = startPoint[0];
+    const lng1 = startPoint[1];
+    const lat2 = endPoint[0];
+    const lng2 = endPoint[1];
     const midLat = (lat1 + lat2) / 2;
     const midLng = (lng1 + lng2) / 2;
     const offsetLat = -(lng2 - lng1) * 0.14;
@@ -252,11 +278,11 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
       [lat1, lng1],
       [lat1 * 0.75 + (midLat + offsetLat) * 0.25, lng1 * 0.75 + (midLng + offsetLng) * 0.25],
       [midLat + offsetLat, midLng + offsetLng],
-      [endPoint[0] * 0.4 + (midLat + offsetLat) * 0.6, endPoint[1] * 0.4 + (midLng + offsetLng) * 0.6],
+      [lat2 * 0.4 + (midLat + offsetLat) * 0.6, lng2 * 0.4 + (midLng + offsetLng) * 0.6],
       [lat2, lng2],
     ];
     return pts;
-  }, [activeRoute, startPoint, endPoint]);
+  }, [activeRoute.id, activeRoute.encodedPolyline, startPoint[0], startPoint[1], endPoint[0], endPoint[1]]);
 
   // Comprehensive Congested Roads along this route
   const congestedRoadsList: CongestedRoadDetail[] = React.useMemo(() => {
@@ -592,27 +618,22 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
         iconAnchor: [24, 24],
       });
 
-      const initialPos = routeWaypoints[0] || startPoint;
+      const initialPos =
+        vehicleProgressRef.current > 0 && vehicleMarkerRef.current
+          ? vehicleMarkerRef.current.getLatLng()
+          : routeWaypoints[0] || startPoint;
       const vMarker = L.marker(initialPos, { icon: vehicleIcon, zIndexOffset: 2000 });
       routeLayersRef.current.addLayer(vMarker);
       vehicleMarkerRef.current = vMarker;
 
-      // Fit bounds to whole route smoothly
-      const bounds = L.latLngBounds(routeWaypoints);
-      map.fitBounds(bounds.pad(0.18));
+      // Fit bounds to whole route smoothly ONLY once upon modal open, NEVER during driving
+      if (!hasFittedBoundsRef.current && !isDriving) {
+        hasFittedBoundsRef.current = true;
+        const bounds = L.latLngBounds(routeWaypoints);
+        map.fitBounds(bounds.pad(0.18));
+      }
     }
   }, [isOpen, mapTheme, showTrafficOverlay, routeWaypoints, isMotor, congestedRoadsList]);
-
-  // Handle dynamic map rotation on Leaflet map pane
-  useEffect(() => {
-    if (!mapContainerRef.current) return;
-    const mapPane = mapContainerRef.current.querySelector('.leaflet-map-pane') as HTMLElement | null;
-    if (mapPane) {
-      mapPane.style.transform = `rotate(${mapRotation}deg)`;
-      mapPane.style.transformOrigin = 'center center';
-      mapPane.style.transition = 'transform 0.15s ease-out';
-    }
-  }, [mapRotation]);
 
   // Two-Finger Touch Rotation Gesture Support on Mobile
   useEffect(() => {
@@ -632,6 +653,8 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
     const handleTouchStart = (e: TouchEvent) => {
       if (e.touches.length === 2) {
         isTwoFingerGesture = true;
+        isTouchingRef.current = true;
+        setIsRotatingGesture(true);
         initialAngle = getTouchAngle(e.touches[0], e.touches[1]);
         initialRotation = mapRotationRef.current;
       }
@@ -650,6 +673,8 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
     const handleTouchEnd = (e: TouchEvent) => {
       if (e.touches.length < 2) {
         isTwoFingerGesture = false;
+        isTouchingRef.current = false;
+        setIsRotatingGesture(false);
       }
     };
 
@@ -669,6 +694,10 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
   // Handle "Mulai Jalan" Simulation or Live Tracking
   useEffect(() => {
     if (!isDriving || routeWaypoints.length < 2) {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
       return;
     }
 
@@ -678,11 +707,11 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
     }
 
     const totalSteps = routeWaypoints.length - 1;
-    // Speed: complete simulated route in realistic active demo time (~45-60 seconds for whole trip)
-    const speedMultiplier = isMotor ? 0.0028 : 0.0022;
+    // Speed: smooth simulated route progression
+    const speedMultiplier = isMotor ? 0.0032 : 0.0024;
     let lastTime = performance.now();
-    let currentProg = vehicleProgress;
-    let animId: number;
+    let lastStateUpdate = performance.now();
+    let currentProg = vehicleProgressRef.current;
 
     const tick = (now: number) => {
       const dt = Math.min(100, now - lastTime) / 1000;
@@ -693,6 +722,7 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
 
       if (currentProg >= 1) {
         currentProg = 1;
+        vehicleProgressRef.current = 1;
         setVehicleProgress(1);
         setIsDriving(false);
         const lastStep = navigationSteps[navigationSteps.length - 1];
@@ -702,7 +732,7 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
         return;
       }
 
-      setVehicleProgress(currentProg);
+      vehicleProgressRef.current = currentProg;
 
       // Determine fractional point along waypoints
       const exactIndex = currentProg * totalSteps;
@@ -726,7 +756,7 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
         Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLng);
       const bearingDeg = ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
 
-      // Update vehicle marker location and rotation on map
+      // Update vehicle marker location and rotation directly on Leaflet
       if (vehicleMarkerRef.current) {
         vehicleMarkerRef.current.setLatLng(currentLatLng);
         const iconElem = vehicleMarkerRef.current.getElement();
@@ -738,68 +768,57 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
         }
       }
 
-      // Smoothly pan map to follow vehicle
+      // Smoothly follow vehicle without shaking
       if (mapRef.current) {
         mapRef.current.panTo(currentLatLng, { animate: false });
       }
 
-      // Update active turn-by-turn step index
-      const stepIdx = Math.min(
-        navigationSteps.length - 1,
-        Math.floor(currentProg * navigationSteps.length)
-      );
-      if (stepIdx !== currentStepIndexRef.current) {
-        currentStepIndexRef.current = stepIdx;
-        setCurrentStepIndex(stepIdx);
-        if (navigationSteps[stepIdx]?.instruction) {
-          speakStepInstruction(navigationSteps[stepIdx].instruction);
+      // Throttle React state updates to ~4 times per second (250ms) to ensure buttery smoothness
+      if (now - lastStateUpdate > 250) {
+        lastStateUpdate = now;
+        setVehicleProgress(currentProg);
+
+        // Turn-by-turn instruction update
+        const stepIdx = Math.min(
+          navigationSteps.length - 1,
+          Math.floor(currentProg * navigationSteps.length)
+        );
+        if (stepIdx !== currentStepIndexRef.current) {
+          currentStepIndexRef.current = stepIdx;
+          setCurrentStepIndex(stepIdx);
+          if (navigationSteps[stepIdx]?.instruction) {
+            speakStepInstruction(navigationSteps[stepIdx].instruction);
+          }
         }
+
+        // Fluctuating speed for realism
+        const isMacetZone = currentProg > 0.35 && currentProg < 0.72;
+        const baseKmh = isMacetZone ? (isMotor ? 22 : 12) : (isMotor ? 48 : 42);
+        setCurrentSpeedKmh(Math.round(baseKmh + Math.sin(now / 400) * 4));
       }
 
-      // Fluctuating speed for realism based on traffic segment
-      const isMacetZone = currentProg > 0.35 && currentProg < 0.72;
-      const baseKmh = isMacetZone
-        ? (isMotor ? 22 : 12)
-        : (isMotor ? 48 : 42);
-      setCurrentSpeedKmh(Math.round(baseKmh + Math.sin(now / 400) * 4));
-
-      animId = requestAnimationFrame(tick);
+      animationFrameRef.current = requestAnimationFrame(tick);
     };
 
-    animId = requestAnimationFrame(tick);
+    animationFrameRef.current = requestAnimationFrame(tick);
 
     return () => {
-      cancelAnimationFrame(animId);
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
     };
   }, [isDriving, routeWaypoints, isMotor, navigationSteps]);
 
   // "Pusatkan Sekarang" (Recenter Map Button)
   const handleRecenterNow = () => {
     if (!mapRef.current) return;
-
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          const latLng: [number, number] = [pos.coords.latitude, pos.coords.longitude];
-          mapRef.current?.flyTo(latLng, 16, { animate: true, duration: 1.2 });
-          setRecenterToast('GPS Terkunci: Peta dipusatkan ke posisi Anda');
-          setTimeout(() => setRecenterToast(null), 3000);
-        },
-        () => {
-          // Fallback to vehicle marker position or start point
-          const target = vehicleMarkerRef.current?.getLatLng() || L.latLng(startPoint[0], startPoint[1]);
-          mapRef.current?.flyTo(target, 16, { animate: true, duration: 1.2 });
-          setRecenterToast('Peta dipusatkan ke kendaraan');
-          setTimeout(() => setRecenterToast(null), 3000);
-        },
-        { enableHighAccuracy: true, timeout: 5000 }
-      );
-    } else {
-      const target = vehicleMarkerRef.current?.getLatLng() || L.latLng(startPoint[0], startPoint[1]);
-      mapRef.current?.flyTo(target, 16, { animate: true, duration: 1.2 });
-      setRecenterToast('Peta dipusatkan ke rute');
-      setTimeout(() => setRecenterToast(null), 3000);
-    }
+    const target =
+      vehicleMarkerRef.current?.getLatLng() ||
+      (routeWaypoints[0] ? L.latLng(routeWaypoints[0][0], routeWaypoints[0][1]) : L.latLng(startPoint[0], startPoint[1]));
+    mapRef.current.setView(target, 16);
+    setRecenterToast('Peta dipusatkan ke posisi kendaraan');
+    setTimeout(() => setRecenterToast(null), 2500);
   };
 
   // Switch Vehicle Mode (Mobil vs Sepeda Motor)
@@ -954,8 +973,16 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
       </div>
 
       {/* 2. MAP CANVAS WRAPPER (Full Viewport: absolute on mobile, flex-1 on desktop) */}
-      <div className="absolute inset-0 sm:relative sm:inset-auto sm:flex-1 w-full h-full min-h-0 bg-slate-950 z-10 sm:z-10">
-        <div ref={mapContainerRef} className="w-full h-full z-0" />
+      <div className="absolute inset-0 sm:relative sm:inset-auto sm:flex-1 w-full h-full min-h-0 bg-slate-950 z-10 sm:z-10 overflow-hidden flex items-center justify-center pointer-events-auto">
+        <div
+          className="w-[145%] h-[145%] shrink-0 origin-center"
+          style={{
+            transform: `rotate(${mapRotation}deg)`,
+            transition: isRotatingGesture ? 'none' : 'transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1)',
+          }}
+        >
+          <div ref={mapContainerRef} className="w-full h-full z-0" />
+        </div>
 
         {/* Floating Toast Notification */}
         {recenterToast && (
@@ -1302,15 +1329,24 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
             <button
               type="button"
               onClick={() => {
-                if (vehicleProgress >= 1) {
+                if (vehicleProgress >= 1 || vehicleProgressRef.current >= 1) {
                   setVehicleProgress(0);
+                  vehicleProgressRef.current = 0;
                   setCurrentStepIndex(0);
                   currentStepIndexRef.current = 0;
+                  if (vehicleMarkerRef.current && routeWaypoints[0]) {
+                    vehicleMarkerRef.current.setLatLng(routeWaypoints[0]);
+                  }
                 }
                 setIsDriving(true);
-                handleRecenterNow();
+                if (mapRef.current) {
+                  const target =
+                    vehicleMarkerRef.current?.getLatLng() ||
+                    (routeWaypoints[0] ? L.latLng(routeWaypoints[0][0], routeWaypoints[0][1]) : L.latLng(startPoint[0], startPoint[1]));
+                  mapRef.current.setView(target, 16);
+                }
                 setRecenterToast('Navigasi Dimulai: Kendaraan bergerak mengikuti rute');
-                setTimeout(() => setRecenterToast(null), 3000);
+                setTimeout(() => setRecenterToast(null), 2500);
               }}
               className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-black text-sm sm:text-base flex items-center justify-center gap-2 sm:gap-3 shadow-2xl shadow-emerald-500/40 active:scale-95 transition-all cursor-pointer ring-2 sm:ring-4 ring-emerald-500/30"
             >
@@ -1333,7 +1369,15 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
                 onClick={() => {
                   setIsDriving(false);
                   setVehicleProgress(0);
+                  vehicleProgressRef.current = 0;
                   setCurrentStepIndex(0);
+                  currentStepIndexRef.current = 0;
+                  if (vehicleMarkerRef.current && routeWaypoints[0]) {
+                    vehicleMarkerRef.current.setLatLng(routeWaypoints[0]);
+                  }
+                  if (mapRef.current && routeWaypoints[0]) {
+                    mapRef.current.setView(routeWaypoints[0], 16);
+                  }
                 }}
                 className="px-3 sm:px-4 py-3 sm:py-4 rounded-xl sm:rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                 title="Mulai Ulang dari Awal"
