@@ -43,6 +43,7 @@ import {
 } from 'lucide-react';
 import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 import { mergeSpeechPhrases, deduplicateRepeatedPhrases, cleanSpokenText } from '../utils/speechUtils';
+import { InAppGoogleMapModal } from './InAppGoogleMapModal';
 
 interface RouteHistoryItem {
   id: string;
@@ -835,6 +836,10 @@ export const SmartTrafficRouteTab: React.FC = () => {
   const isListeningRef = useRef<boolean>(false);
   const confirmedTranscriptRef = useRef<string>('');
   const userCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
+
+  // In-App Google Maps Navigation States
+  const [isInAppNavOpen, setIsInAppNavOpen] = useState(false);
+  const [inAppNavRoute, setInAppNavRoute] = useState<TrafficRoute | null>(null);
 
   // Silently request and store GPS coordinates on component mount for real-time accurate origin
   useEffect(() => {
@@ -2054,25 +2059,9 @@ export const SmartTrafficRouteTab: React.FC = () => {
       setIsProModalOpen(true);
       return;
     }
-    try {
-      const originParam = encodeURIComponent(origin);
-      const destParam = encodeURIComponent(destination);
-      const modeParam =
-        travelMode === 'TWO_WHEELER'
-          ? 'two_wheeler'
-          : travelMode === 'BICYCLE'
-          ? 'bicycling'
-          : travelMode === 'WALK'
-          ? 'walking'
-          : 'driving';
-      window.open(
-        `https://www.google.com/maps/dir/?api=1&origin=${originParam}&destination=${destParam}&travelmode=${modeParam}`,
-        '_blank',
-        'noopener,noreferrer'
-      );
-    } catch (e) {
-      console.warn('Navigation popup blocked:', e);
-    }
+    const r = routeToUse || selectedRoute || routes[0];
+    setInAppNavRoute(r);
+    setIsInAppNavOpen(true);
   };
 
   return (
@@ -3144,6 +3133,19 @@ export const SmartTrafficRouteTab: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* 8. IN-APP GOOGLE MAP NAVIGATION MODAL */}
+      <InAppGoogleMapModal
+        isOpen={isInAppNavOpen}
+        onClose={() => setIsInAppNavOpen(false)}
+        origin={origin}
+        destination={destination}
+        selectedRoute={inAppNavRoute || selectedRoute}
+        routes={routes}
+        currentTravelMode={travelMode}
+        onTravelModeChange={(mode) => setTravelMode(mode)}
+        userCoords={userCoordsRef.current}
+      />
     </div>
   );
 };

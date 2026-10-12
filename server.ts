@@ -2191,7 +2191,40 @@ app.get('/api/google-maps/key', (_req: Request, res: Response) => {
 // Clean duplicate spoken text caused by mobile speech recognition loops
 function cleanSpokenText(text: string): string {
   if (!text) return '';
-  return text.replace(/\s+/g, ' ').trim();
+  let s = text.replace(/\s+/g, ' ').trim();
+  if (!s) return '';
+
+  const norm = (t: string) => (t || '').toLowerCase().replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '');
+  const areEq = (seq1: string[], seq2: string[]) => {
+    if (seq1.length !== seq2.length) return false;
+    for (let i = 0; i < seq1.length; i++) {
+      if (norm(seq1[i]) !== norm(seq2[i])) return false;
+    }
+    return true;
+  };
+
+  let modified = true;
+  let iterations = 0;
+  while (modified && iterations < 20) {
+    modified = false;
+    iterations++;
+    const words = s.split(' ').filter(Boolean);
+    const n = words.length;
+    if (n <= 1) break;
+
+    for (let k = Math.floor(n / 2); k >= 1; k--) {
+      for (let i = 0; i <= n - 2 * k; i++) {
+        if (areEq(words.slice(i, i + k), words.slice(i + k, i + 2 * k))) {
+          words.splice(i + k, k);
+          s = words.join(' ');
+          modified = true;
+          break;
+        }
+      }
+      if (modified) break;
+    }
+  }
+  return s.replace(/\s*[,;]+\s*$/, '').trim();
 }
 
 // Clean place names: strip filler words, conversational prefixes, and transport modes
