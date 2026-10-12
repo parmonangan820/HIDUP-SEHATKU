@@ -1981,15 +1981,27 @@ Output Anda HARUS dalam JSON murni persis dengan struktur berikut tanpa karakter
   }
 });
 
-// Endpoint: Tips Diet Sukses ala Dokter AI (Eksklusif PRO)
-app.post('/api/diet-tips', async (req: Request, res: Response) => {
+// ==========================================
+// Endpoint: Program Diet Sukses Dokter AI (Eksklusif PRO)
+// ==========================================
+const handleDietProgramGeneration = async (req: Request, res: Response) => {
   try {
-    const { profile, dietGoal = 'weight_loss', preferences = '' } = req.body || {};
+    const {
+      profile,
+      dietGoal = 'weight_loss',
+      targetWeight,
+      durationDays = 14,
+      activityLevel = 'moderate',
+      preferences = '',
+      medicalCondition = 'umum',
+    } = req.body || {};
+
     const name = profile?.name || 'Sahabat Sehat';
     const weight = Number(profile?.weight) || 65;
     const height = Number(profile?.height) || 170;
     const age = Number(profile?.age) || 26;
     const gender = profile?.gender || 'pria';
+    const targetW = Number(targetWeight) || (dietGoal === 'weight_loss' ? Math.max(45, weight - 4) : weight);
 
     // BMR Mifflin-St Jeor:
     // Pria: 10*W + 6.25*H - 5*Age + 5
@@ -1997,80 +2009,226 @@ app.post('/api/diet-tips', async (req: Request, res: Response) => {
     const bmr = gender === 'wanita'
       ? 10 * weight + 6.25 * height - 5 * age - 161
       : 10 * weight + 6.25 * height - 5 * age + 5;
-    
-    // TDEE estimated with moderate activity factor ~ 1.375
-    const tdee = Math.round(bmr * 1.375);
-    
+
+    // Activity multiplier
+    const activityMultipliers: Record<string, number> = {
+      sedentary: 1.2,
+      light: 1.375,
+      moderate: 1.55,
+      active: 1.725,
+    };
+    const actFactor = activityMultipliers[activityLevel] || 1.375;
+    const tdee = Math.round(bmr * actFactor);
+
     let targetCalories = tdee;
-    if (dietGoal === 'weight_loss') targetCalories = Math.max(1200, Math.round(tdee - 450));
-    if (dietGoal === 'muscle_gain') targetCalories = Math.round(tdee + 300);
-    if (dietGoal === 'intermittent_fasting') targetCalories = Math.max(1300, Math.round(tdee - 350));
-    if (dietGoal === 'low_carb_sugar') targetCalories = Math.max(1300, Math.round(tdee - 250));
+    let projectedLossWeeklyKg = 0.5;
 
-    const targetWater = Math.max(2000, Math.round(weight * 35));
+    if (dietGoal === 'weight_loss') {
+      const deficit = 450;
+      const minSafeCal = gender === 'wanita' ? 1200 : 1400;
+      targetCalories = Math.max(minSafeCal, Math.round(tdee - deficit));
+      projectedLossWeeklyKg = Math.round(((deficit * 7) / 7700) * 10) / 10;
+    } else if (dietGoal === 'muscle_gain') {
+      targetCalories = Math.round(tdee + 300);
+      projectedLossWeeklyKg = -0.25; // muscle gain
+    } else if (dietGoal === 'intermittent_fasting') {
+      targetCalories = Math.max(1250, Math.round(tdee - 380));
+      projectedLossWeeklyKg = 0.45;
+    } else if (dietGoal === 'low_carb_sugar') {
+      targetCalories = Math.max(1300, Math.round(tdee - 300));
+      projectedLossWeeklyKg = 0.4;
+    }
 
-    const systemPrompt = `Anda adalah "Dokter AI Spesialis Gizi Klinis & Dietologi Olahraga" di aplikasi Hidup Sehatku.
-Tugas Anda adalah merancang panduan "TIPS DIET SUKSES ALA DOKTER AI" yang ilmiah, aman, realistis, dan lezat menggunakan bahan makanan lokal Indonesia (nasi merah, ayam, tahu, tempe, telur, sayur hijau, buah pepaya/pisang/apel).
+    const weightDifference = Math.abs(weight - targetW);
+    const projectedCompletionWeeks = Math.max(1, Math.round(weightDifference / (projectedLossWeeklyKg > 0 ? projectedLossWeeklyKg : 0.5)));
+    const targetWater = Math.max(2200, Math.round(weight * 35));
 
-Data Pasien:
+    const systemPrompt = `Anda adalah "Dokter AI Spesialis Gizi Klinis & Konsultan Dietologi Olahraga" di aplikasi Hidup Sehatku.
+Tugas Anda adalah merancang dan menyusun sebuah "PROGRAM DIET SUKSES DOKTER AI" yang ilmiah, medis, terukur, bertahap, dan menyenangkan bagi pengguna di Indonesia.
+Gunakan bahan makanan lokal Nusantara yang bergizi tinggi, terjangkau, dan mudah didapat (tempe, tahu, telur, ikan nila/kembung/patin, dada ayam, sayur bayam, brokoli, labu siam, tumis kangkung minyak zaitun/sedikit minyak, pepaya, pisang, beras merah/ubi/kentang rebus).
+
+Data Profil Pasien:
 - Nama: ${name}
-- Berat: ${weight} kg, Tinggi: ${height} cm, Usia: ${age} tahun, Gender: ${gender}
-- BMR: ${Math.round(bmr)} kcal, Estimasi TDEE: ${tdee} kcal
-- Target Kalori Harian Diet: ${targetCalories} kcal
-- Rekomendasi Air Minum: ${targetWater} ml
-- Fokus Diet: ${dietGoal}
-- Preferensi Tambahan: ${preferences || 'Umum / Masakan Nusantara Sehat'}
+- Berat Saat Ini: ${weight} kg | Target Berat: ${targetW} kg
+- Tinggi: ${height} cm | Usia: ${age} tahun | Gender: ${gender}
+- Tingkat Aktivitas: ${activityLevel} (Faktor TDEE: ${actFactor})
+- BMR: ${Math.round(bmr)} kcal | Estimasi TDEE: ${tdee} kcal
+- Target Kalori Program Diet: ${targetCalories} kcal/hari
+- Rekomendasi Hidrasi Medis: ${targetWater} ml/hari
+- Fokus Program: ${dietGoal}
+- Durasi Program Dipilih: ${durationDays} Hari
+- Riwayat / Catatan Khusus: ${medicalCondition || 'Umum'}
+- Preferensi Tambahan Pasien: ${preferences || 'Masakan Nusantara Sehat, rendah santan & minyak'}
 
-Berikan respons HANYA berupa JSON valid (tanpa markdown blok pembuka/penutup) dengan struktur:
+Berikan respons HANYA berupa JSON valid (tanpa blok markdown atau teks pembuka/penutup) dengan struktur:
 {
-  "dietTitle": "string (Judul program diet yang menarik & memotivasi)",
-  "dailyCalorieTarget": number,
-  "dailyWaterTargetMl": number,
+  "programTitle": "string (Judul Program Diet Sukses Dokter AI yang personal dan memotivasi)",
+  "programSubtitle": "string (Deskripsi singkat fokus program dan manfaat spesifik)",
+  "durationDays": ${durationDays},
+  "dailyCalorieTarget": ${targetCalories},
+  "dailyWaterTargetMl": ${targetWater},
+  "projectedLossWeeklyKg": ${projectedLossWeeklyKg},
+  "projectedCompletionWeeks": ${projectedCompletionWeeks},
   "macroSplit": {
-    "protein": "string (misal: 30% / 125g)",
-    "carbs": "string (misal: 45% / 190g)",
-    "fat": "string (misal: 25% / 45g)"
+    "protein": "string (misal: 110g (30%))",
+    "carbs": "string (misal: 175g (45%))",
+    "fat": "string (misal: 43g (25%))"
   },
-  "doctorPrinciples": ["string (Aturan Emas 1)", "string (Aturan Emas 2)", "string (Aturan Emas 3)", "string (Aturan Emas 4)", "string (Aturan Emas 5)"],
-  "mealPlan": [
+  "programPhases": [
     {
-      "time": "06:30 - 07:00",
-      "mealType": "Bangun Pagi & Hidrasi Awal",
-      "menu": "string",
-      "calories": number,
-      "tips": "string"
+      "phaseNumber": 1,
+      "title": "Fase 1: Detoksifikasi & Adaptasi Metabolisme (Hari 1-3)",
+      "duration": "Hari 1 - 3",
+      "focus": "string (Fokus fase)",
+      "doctorGuidance": "string (Instruksi penting dari dokter)"
+    },
+    {
+      "phaseNumber": 2,
+      "title": "Fase 2: Akselerasi Pembakaran Lemak (Hari 4-10)",
+      "duration": "Hari 4 - 10",
+      "focus": "string",
+      "doctorGuidance": "string"
+    },
+    {
+      "phaseNumber": 3,
+      "title": "Fase 3: Stabilisasi & Ketahanan Metabolisme (Hari 11-${durationDays})",
+      "duration": "Hari 11 - ${durationDays}",
+      "focus": "string",
+      "doctorGuidance": "string"
+    }
+  ],
+  "doctorPrinciples": [
+    "string (Aturan Emas 1)",
+    "string (Aturan Emas 2)",
+    "string (Aturan Emas 3)",
+    "string (Aturan Emas 4)",
+    "string (Aturan Emas 5)"
+  ],
+  "dailyRoutineTimeline": [
+    {
+      "time": "06:00 - 06:45",
+      "activity": "Bangun Tidur & Hidrasi Lambung",
+      "guideline": "string",
+      "calories": 10
     },
     {
       "time": "07:30 - 08:30",
-      "mealType": "Sarapan Bergizi",
-      "menu": "string",
-      "calories": number,
-      "tips": "string"
+      "activity": "Sarapan Bergizi Tinggi Protein",
+      "guideline": "string",
+      "calories": ${Math.round(targetCalories * 0.25)}
+    },
+    {
+      "time": "10:00 - 10:30",
+      "activity": "Hidrasi Kerja Sela Pagi",
+      "guideline": "string",
+      "calories": 0
     },
     {
       "time": "12:00 - 13:00",
-      "mealType": "Makan Siang Berenergi",
-      "menu": "string",
-      "calories": number,
-      "tips": "string"
+      "activity": "Makan Siang Komposisi Piring T",
+      "guideline": "string",
+      "calories": ${Math.round(targetCalories * 0.38)}
     },
     {
-      "time": "16:00 - 16:30",
-      "mealType": "Camilan Sore Sehat",
-      "menu": "string",
-      "calories": number,
-      "tips": "string"
+      "time": "15:30 - 16:00",
+      "activity": "Camilan Sore Sehat Anti Lemas",
+      "guideline": "string",
+      "calories": ${Math.round(targetCalories * 0.12)}
     },
     {
       "time": "18:30 - 19:30",
-      "mealType": "Makan Malam Ringan",
-      "menu": "string",
-      "calories": number,
-      "tips": "string"
+      "activity": "Makan Malam Ringan (Cut-off Time)",
+      "guideline": "string",
+      "calories": ${Math.round(targetCalories * 0.25)}
+    },
+    {
+      "time": "21:30 - 22:00",
+      "activity": "Hidrasi Relaksasi Malam & Istirahat",
+      "guideline": "string",
+      "calories": 0
     }
   ],
-  "hydrationProtocol": "string (Penjelasan detail kapan dan berapa ml air minum sebelum/sesudah makan untuk menekan nafsu makan dan membakar lemak)",
-  "commonMistakesToAvoid": ["string (Kesalahan 1)", "string (Kesalahan 2)", "string (Kesalahan 3)"],
+  "weeklyMenuPlan": [
+    {
+      "day": 1,
+      "dayName": "Hari 1 - Adaptasi Metabolisme",
+      "breakfast": { "menu": "string", "calories": 280, "protein": "18g" },
+      "lunch": { "menu": "string", "calories": 490, "protein": "34g" },
+      "snack": { "menu": "string", "calories": 90, "protein": "2g" },
+      "dinner": { "menu": "string", "calories": 270, "protein": "18g" },
+      "dayTips": "string"
+    },
+    {
+      "day": 2,
+      "dayName": "Hari 2 - Akselerasi Hidrasi",
+      "breakfast": { "menu": "string", "calories": 290, "protein": "19g" },
+      "lunch": { "menu": "string", "calories": 500, "protein": "35g" },
+      "snack": { "menu": "string", "calories": 100, "protein": "4g" },
+      "dinner": { "menu": "string", "calories": 260, "protein": "17g" },
+      "dayTips": "string"
+    },
+    {
+      "day": 3,
+      "dayName": "Hari 3 - Optimasi Serat Usus",
+      "breakfast": { "menu": "string", "calories": 275, "protein": "18g" },
+      "lunch": { "menu": "string", "calories": 485, "protein": "33g" },
+      "snack": { "menu": "string", "calories": 95, "protein": "3g" },
+      "dinner": { "menu": "string", "calories": 265, "protein": "18g" },
+      "dayTips": "string"
+    },
+    {
+      "day": 4,
+      "dayName": "Hari 4 - Pembakaran Lemak Aktif",
+      "breakfast": { "menu": "string", "calories": 280, "protein": "20g" },
+      "lunch": { "menu": "string", "calories": 495, "protein": "36g" },
+      "snack": { "menu": "string", "calories": 110, "protein": "5g" },
+      "dinner": { "menu": "string", "calories": 255, "protein": "19g" },
+      "dayTips": "string"
+    },
+    {
+      "day": 5,
+      "dayName": "Hari 5 - Kekuatan Otot & Stamina",
+      "breakfast": { "menu": "string", "calories": 290, "protein": "21g" },
+      "lunch": { "menu": "string", "calories": 505, "protein": "35g" },
+      "snack": { "menu": "string", "calories": 90, "protein": "3g" },
+      "dinner": { "menu": "string", "calories": 270, "protein": "18g" },
+      "dayTips": "string"
+    },
+    {
+      "day": 6,
+      "dayName": "Hari 6 - Pembersihan & Detoks Ringan",
+      "breakfast": { "menu": "string", "calories": 270, "protein": "17g" },
+      "lunch": { "menu": "string", "calories": 480, "protein": "32g" },
+      "snack": { "menu": "string", "calories": 95, "protein": "3g" },
+      "dinner": { "menu": "string", "calories": 260, "protein": "16g" },
+      "dayTips": "string"
+    },
+    {
+      "day": 7,
+      "dayName": "Hari 7 - Evaluasi & Reward Sehat",
+      "breakfast": { "menu": "string", "calories": 300, "protein": "20g" },
+      "lunch": { "menu": "string", "calories": 510, "protein": "36g" },
+      "snack": { "menu": "string", "calories": 105, "protein": "4g" },
+      "dinner": { "menu": "string", "calories": 280, "protein": "18g" },
+      "dayTips": "string"
+    }
+  ],
+  "hydrationProtocol": "string (Protokol hidrasi medis jam per jam untuk menekan nafsu makan semu dan mempercepat lipolisis)",
+  "dailyChecklist": [
+    "Minum 400 ml air hangat saat bangun pagi",
+    "Sarapan tinggi protein sebelum pukul 08:30",
+    "Minum 400 ml air 15 menit sebelum makan siang",
+    "Makan siang porsi piring T (1/2 sayur, 1/4 protein, 1/4 karbo)",
+    "Penuhi target camilan sore sehat tanpa gorengan",
+    "Selesaikan makan malam sebelum pukul 19:30",
+    "Total target air minum harian ${targetWater} ml tercapai",
+    "Jalan kaki atau aktivitas fisik minimal 20-30 menit"
+  ],
+  "commonMistakesToAvoid": [
+    "string (Kesalahan fatal 1)",
+    "string (Kesalahan fatal 2)",
+    "string (Kesalahan fatal 3)"
+  ],
   "motivationalQuote": "string"
 }`;
 
@@ -2092,90 +2250,221 @@ Berikan respons HANYA berupa JSON valid (tanpa markdown blok pembuka/penutup) de
           parsedResult = JSON.parse(text);
         }
       } catch (geminiErr: any) {
-        console.warn('Gemini generate diet tips warning, using doctor template fallback:', geminiErr?.message);
+        console.warn('Gemini generate diet program warning, using clinical fallback:', geminiErr?.message);
       }
     }
 
     if (!parsedResult) {
-      // Medically accurate fallback
-      parsedResult = {
-        dietTitle: dietGoal === 'weight_loss'
-          ? `Protokol Diet Sukses Defisit Kalori Sehat ${name}`
+      // Medically structured fallback
+      const programTitle =
+        dietGoal === 'weight_loss'
+          ? `Program Diet Sukses Dokter AI: Defisit Kalori & Fat Loss (${name})`
           : dietGoal === 'intermittent_fasting'
-          ? `Protokol Intermittent Fasting 16:8 + Hidrasi Optimal ${name}`
+          ? `Program Diet Sukses Dokter AI: Intermittent Fasting 16:8 (${name})`
           : dietGoal === 'low_carb_sugar'
-          ? `Protokol Diet Rendah Gula & Ramah Lambung ${name}`
-          : `Rencana Nutrisi & Diet Seimbang Dokter AI ${name}`,
+          ? `Program Diet Sukses Dokter AI: Rendah Gula & Ramah Lambung (${name})`
+          : `Program Diet Sukses Dokter AI: Body Recomposition & Otot (${name})`;
+
+      parsedResult = {
+        programTitle,
+        programSubtitle: `Program terstruktur ${durationDays} hari berbasis sains gizi klinis untuk mencapai target berat ideal ${targetW} kg secara bertahap dan aman.`,
+        dietTitle: programTitle,
+        durationDays,
         dailyCalorieTarget: targetCalories,
         dailyWaterTargetMl: targetWater,
+        projectedLossWeeklyKg,
+        projectedCompletionWeeks,
         macroSplit: {
           protein: `${Math.round(weight * 1.6)}g (25-30%)`,
           carbs: `${Math.round((targetCalories * 0.45) / 4)}g (45%)`,
-          fat: `${Math.round((targetCalories * 0.25) / 9)}g (25%)`
+          fat: `${Math.round((targetCalories * 0.25) / 9)}g (25%)`,
         },
-        doctorPrinciples: [
-          'Konsumsi 400-500 ml air hangat 15 menit sebelum makan untuk memicu rasa kenyang alami dan mengurangi asupan kalori hingga 13%.',
-          'Prioritaskan protein di setiap sesi makan (telur, tahu, tempe, dada ayam, ikan) guna menjaga massa otot selama penurunan berat badan.',
-          'Ganti karbohidrat olahan (tepung, kue manis, minuman boba) dengan karbohidrat kompleks (nasi merah, kentang rebus, ubi cilembu).',
-          'Kunyah makanan secara perlahan (20-30 kali kunyah) agar hormon leptin memiliki waktu 15 menit memberi sinyal kenyang ke otak.',
-          'Hentikan makan berat 3 jam sebelum tidur agar sistem pencernaan dapat beristirahat dan memaksimalkan regenerasi sel saat tidur.'
-        ],
-        mealPlan: [
+        programPhases: [
           {
-            time: '06:30 - 07:00',
-            mealType: 'Bangun Pagi & Hidrasi Awal',
-            menu: '400 ml air putih hangat + perasan jeruk nipis/lemon segar',
+            phaseNumber: 1,
+            title: 'Fase 1: Detoksifikasi & Adaptasi Glukosa (Hari 1-3)',
+            duration: 'Hari 1 - 3',
+            focus: 'Mereduksi retensi air tubuh, menstabilkan lonjakan insulin, dan membiasakan hidrasi pre-meal 400ml.',
+            doctorGuidance: 'Jangan kaget jika buang air kecil lebih sering; ini adalah proses detoksifikasi pelepasan natrium dan glikogen berlebih.',
+          },
+          {
+            phaseNumber: 2,
+            title: 'Fase 2: Akselerasi Pembakaran Lemak (Hari 4-10)',
+            duration: 'Hari 4 - 10',
+            focus: 'Mengoptimalkan defisit kalori bersih, meningkatkan pembakaran lemak cadangan tubuh tanpa rasa lemas.',
+            doctorGuidance: 'Pertahankan asupan protein minimal 1.5-1.6g per kg berat badan agar otot terjaga dan laju metabolisme basal tetap tinggi.',
+          },
+          {
+            phaseNumber: 3,
+            title: `Fase 3: Stabilisasi & Ketahanan Metabolisme (Hari 11-${durationDays})`,
+            duration: `Hari 11 - ${durationDays}`,
+            focus: 'Mencegah adaptasi metabolik melambat, mengunci kebiasaan pola makan sadar (mindful eating), dan mencegah efek yoyo.',
+            doctorGuidance: 'Fokus pada konsistensi jam makan dan hidrasi yang teratur, bukan pada pembatasan ekstrem.',
+          },
+        ],
+        doctorPrinciples: [
+          'Konsumsi 400-500 ml air hangat 15 menit sebelum setiap kali makan untuk mengaktifkan peregangan lambung dan menurunkan asupan kalori makan hingga 13%.',
+          'Terapkan Prinsip Piring T: 1/2 piring sayuran tinggi serat, 1/4 protein tanpa lemak, 1/4 karbohidrat kompleks (nasi merah/ubi/kentang rebus).',
+          'Prioritaskan sumber protein lokal berkualitas (telur rebus, tempe bacem panggang, tahu kukus, dada ayam, ikan kembung kaya Omega-3).',
+          'Kunyah makanan secara perlahan (25-30 kali kunyah) agar hormon leptin memiliki waktu 15 menit mengirimkan sinyal kenyang penuh ke otak.',
+          'Kunci jam makan malam: selesaikan makan berat maksimal 3 jam sebelum tidur malam (pukul 19:30) agar liver leluasa membakar lemak saat tidur nyenyak.',
+        ],
+        dailyRoutineTimeline: [
+          {
+            time: '06:00 - 06:45',
+            activity: 'Bangun Tidur & Hidrasi Awal',
+            guideline: 'Minum 400 ml air putih hangat dengan perasan jeruk nipis/lemon segar untuk merangsang peristaltik usus.',
             calories: 10,
-            tips: 'Membangunkan organ pencernaan dan melancarkan detoksifikasi ginjal setelah 7-8 jam puasa tidur.'
           },
           {
             time: '07:30 - 08:30',
-            mealType: 'Sarapan Bergizi Tinggi',
-            menu: '2 butir telur rebus + 1 lembar roti gandum utuh + 1 buah pisang/apel',
+            activity: 'Sarapan Padat Nutrisi & Protein',
+            guideline: '2 butir telur rebus + 1 lembar roti gandum utuh + irisan timun dan tomat segar.',
             calories: Math.round(targetCalories * 0.25),
-            tips: 'Protein tinggi di pagi hari menstabilkan gula darah sehingga Anda tidak lapar berlebihan di siang hari.'
+          },
+          {
+            time: '10:00 - 10:30',
+            activity: 'Hidrasi Kerja Sela Pagi',
+            guideline: 'Minum 1-2 gelas (300-400 ml) air putih untuk menjaga sirkulasi darah dan mencegah sinyal lapar palsu.',
+            calories: 0,
           },
           {
             time: '12:00 - 13:00',
-            mealType: 'Makan Siang Berimbang',
-            menu: 'Nasi merah 1 kepal tangan (100g) + Dada ayam panggang/Ikan nila bumbu kuning + Tumis bayam tempe kukus',
+            activity: 'Makan Siang Berimbang Piring T',
+            guideline: 'Nasi merah 1 kepal (100g) + Dada ayam bakar bumbu kunyit + Sayur bening bayam jagung + Tahu kukus.',
             calories: Math.round(targetCalories * 0.38),
-            tips: 'Gunakan piring model T: 1/2 sayuran, 1/4 protein tanpa lemak, 1/4 karbohidrat kompleks.'
           },
           {
-            time: '15:30 - 16:30',
-            mealType: 'Camilan Sore Sehat',
-            menu: '1 mangkok kecil pepaya potong atau segenggam edamame rebus + 300 ml air putih',
+            time: '15:30 - 16:00',
+            activity: 'Camilan Sore Sehat & Hidrasi',
+            guideline: '1 mangkok kecil pepaya potong atau segenggam edamame rebus + 300 ml air putih dingin segar.',
             calories: Math.round(targetCalories * 0.12),
-            tips: 'Camilan rendah kalori kaya serat mencegah keinginan ngemil gorengan manis.'
           },
           {
             time: '18:30 - 19:30',
-            mealType: 'Makan Malam Ringan',
-            menu: 'Sup bening dada ayam/tahu sutra dengan wortel, buncis, brokoli (tanpa santan & tanpa minyak jenuh)',
+            activity: 'Makan Malam Ringan (Cut-off Time)',
+            guideline: 'Sup bening ikan nila/tahu sutra dengan wortel, buncis, brokoli (tanpa santan & tanpa minyak jenuh).',
             calories: Math.round(targetCalories * 0.25),
-            tips: 'Konsumsi makanan berkuah bening di malam hari memberi kenyamanan pada lambung dan tidur lebih pulas.'
-          }
+          },
+          {
+            time: '21:30 - 22:00',
+            activity: 'Hidrasi Relaksasi Malam & Istirahat',
+            guideline: 'Segelas air putih hangat 1 jam sebelum tidur; istirahat tidur malam 7-8 jam untuk optimasi pembakaran lemak.',
+            calories: 0,
+          },
         ],
-        hydrationProtocol: `Sebagai bagian terpenting dari diet sukses ala Dokter AI, minumlah minimal ${targetWater} ml air putih per hari. Jadwalkan 1 gelas saat bangun tidur, 1 gelas 20 menit sebelum sarapan, 1 gelas pukul 10:00, 1 gelas 20 menit sebelum makan siang, 1 gelas pukul 15:00, 1 gelas sebelum makan malam, dan 1 gelas 1 jam sebelum tidur.`,
+        weeklyMenuPlan: [
+          {
+            day: 1,
+            dayName: 'Hari 1 - Adaptasi Metabolisme',
+            breakfast: { menu: '2 butir telur rebus + 1 lembar roti gandum + irisan tomat', calories: 280, protein: '18g' },
+            lunch: { menu: 'Nasi merah 100g + Dada ayam bakar kunyit + Sayur bening bayam jagung', calories: 480, protein: '35g' },
+            snack: { menu: '1 mangkok kecil pepaya potong + 300 ml air putih', calories: 90, protein: '2g' },
+            dinner: { menu: 'Sup tahu sutra brokoli wortel kuah kaldu jamur bening', calories: 260, protein: '16g' },
+            dayTips: 'Patuhi jadwal minum air 400ml sebelum makan siang untuk menekan porsi berlebih.',
+          },
+          {
+            day: 2,
+            dayName: 'Hari 2 - Akselerasi Hidrasi',
+            breakfast: { menu: 'Oatmeal seduh susu kedelai tanpa gula + 1 buah pisang ambon + 1 telur rebus', calories: 290, protein: '16g' },
+            lunch: { menu: 'Kentang rebus 150g + Ikan kembung bumbu kuning kukus + Tumis buncis tempe', calories: 495, protein: '34g' },
+            snack: { menu: 'Segenggam kacang edamame rebus + 300 ml air putih', calories: 110, protein: '7g' },
+            dinner: { menu: 'Tumis tauge tahu dada ayam cincang tanpa minyak berlebih + kuah sayur', calories: 270, protein: '22g' },
+            dayTips: 'Ikan kembung kaya asam lemak Omega-3 yang membantu membakar lemak perut.',
+          },
+          {
+            day: 3,
+            dayName: 'Hari 3 - Optimasi Serat Usus',
+            breakfast: { menu: 'Omelet 2 telur isi bayam jamur + 1 potong ubi cilembu rebus kecil', calories: 285, protein: '19g' },
+            lunch: { menu: 'Nasi merah 100g + Pepes ikan nila daun kemangi + Sayur asem bening labu siam', calories: 475, protein: '33g' },
+            snack: { menu: '1 buah apel malang segar potong + 300 ml air putih hangat', calories: 85, protein: '1g' },
+            dinner: { menu: 'Sup ayam kampung tanpa kulit dengan wortel & kembang kol', calories: 260, protein: '24g' },
+            dayTips: 'Serat dari labu siam dan apel menjaga rasa kenyang lebih lama tanpa kembung.',
+          },
+          {
+            day: 4,
+            dayName: 'Hari 4 - Pembakaran Lemak Aktif',
+            breakfast: { menu: '2 butir telur orak-arik (sedikit minyak kelapa) + 1 buah pisang + 350ml air', calories: 280, protein: '18g' },
+            lunch: { menu: 'Nasi merah 100g + Ayam ungkep panggang tanpa kulit + Sayur lodeh bening tempe', calories: 500, protein: '36g' },
+            snack: { menu: 'Puding chia seed / agar-agar tawar dengan perasan jeruk murni', calories: 80, protein: '3g' },
+            dinner: { menu: 'Capcay kuah bening aneka sayur (brokoli, sawi, wortel) dengan bakso ikan', calories: 265, protein: '18g' },
+            dayTips: 'Jangan lewatkan jalan kaki ringan 20 menit di pagi atau sore hari.',
+          },
+          {
+            day: 5,
+            dayName: 'Hari 5 - Kekuatan Otot & Stamina',
+            breakfast: { menu: 'Sandwich gandum isi telur rebus dan daun selada + 1 gelas air lemon', calories: 295, protein: '17g' },
+            lunch: { menu: 'Kentang panggang 150g + Steak tempe bumbu lada hitam + Tumis pokcoy', calories: 485, protein: '28g' },
+            snack: { menu: 'Potongan melon manis segar + 300 ml air putih', calories: 90, protein: '2g' },
+            dinner: { menu: 'Sup bening tahu sutra & fillet ikan dori rebus dengan perasan jeruk nipis', calories: 250, protein: '23g' },
+            dayTips: 'Steak tempe adalah sumber protein nabati terbaik bebas kolesterol.',
+          },
+          {
+            day: 6,
+            dayName: 'Hari 6 - Pembersihan & Detoks Ringan',
+            breakfast: { menu: 'Bubur oatmeal gurih kaldu ayam + suwiran dada ayam + daun bawang', calories: 275, protein: '20g' },
+            lunch: { menu: 'Nasi merah 100g + Ikan tongkol balado kukus (cabai segar) + Sayur katuk/bayam', calories: 490, protein: '35g' },
+            snack: { menu: '1 mangkok pepaya potong + perasan jeruk nipis + 300 ml air', calories: 85, protein: '2g' },
+            dinner: { menu: 'Sup bening jamur tiram, jagung manis muda, dan tahu putih', calories: 240, protein: '15g' },
+            dayTips: 'Pepaya dan jeruk nipis kaya enzim pencernaan untuk melancarkan BAB esok pagi.',
+          },
+          {
+            day: 7,
+            dayName: 'Hari 7 - Evaluasi & Reward Sehat',
+            breakfast: { menu: '2 butir telur rebus + 1 roti gandum + alpukat 1/4 buah tabur garam lada', calories: 310, protein: '18g' },
+            lunch: { menu: 'Nasi merah 100g + Sate ayam fillet dada (tanpa kulit & sedikit bumbu kacang) + lalapan timun', calories: 510, protein: '38g' },
+            snack: { menu: 'Segenggam edamame rebus hangat + 300 ml air putih', calories: 100, protein: '6g' },
+            dinner: { menu: 'Sup rolade tahu ayam sayuran kuah bening kaldu jamur', calories: 270, protein: '21g' },
+            dayTips: 'Selamat telah menyelesaikan 7 hari pertama! Timbang berat badan di pagi hari saat perut kosong.',
+          },
+        ],
+        hydrationProtocol: `Sebagai rahasia sukses utama Program Diet Dokter AI, penuhi minimal ${targetWater} ml air putih per hari. Jadwalkan: 1 gelas (400 ml) saat bangun tidur, 1 gelas 20 menit sebelum makan pagi/siang/malam, 1 gelas pukul 10:00 dan 15:00 di sela aktivitas kerja, dan 1 gelas 1 jam sebelum tidur. Hidrasi optimal mencegah tubuh keliru mendeteksi rasa haus sebagai rasa lapar.`,
+        dailyChecklist: [
+          'Minum 400 ml air hangat saat bangun pagi',
+          'Sarapan tinggi protein sebelum pukul 08:30',
+          'Minum 400 ml air 15 menit sebelum makan siang',
+          'Makan siang porsi piring T (1/2 sayur, 1/4 protein, 1/4 karbo)',
+          'Penuhi camilan sore sehat bebas gorengan',
+          'Selesaikan makan malam sebelum pukul 19:30',
+          `Total target air minum harian ${targetWater} ml tercapai`,
+          'Jalan kaki atau aktivitas fisik aktif minimal 20-30 menit',
+        ],
         commonMistakesToAvoid: [
-          'Melewatkan sarapan lalu makan berlebihan di malam hari (rebound eating).',
-          'Mengira jus buah kemasan atau kopi bergula adalah minuman diet sehat padahal sarat kalori cair.',
-          'Kurang minum air putih sehingga tubuh mengira dehidrasi sebagai rasa lapar.'
+          'Makan terlalu sedikit atau melewatkan sarapan lalu makan berlebihan di malam hari (rebound eating).',
+          'Minum kalori cair (es teh manis, boba, kopi susu kental manis) yang menyumbang 300-500 kalori tersembunyi tanpa rasa kenyang.',
+          'Mengabaikan asupan air putih sehingga laju pembakaran lemak (lipolisis) di organ hati melambat drastis.',
         ],
-        motivationalQuote: 'Diet yang sukses bukanlah tentang menyiksa diri dengan menahan lapar, melainkan mencintai tubuh dengan memberikan nutrisi terbaik dan hidrasi yang cukup setiap hari.'
+        motivationalQuote:
+          'Program diet yang sukses bukanlah tentang menahan lapar berlebihan, melainkan tentang komitmen memberikan nutrisi seimbang terbaik dan hidrasi murni bagi tubuh Anda setiap hari.',
       };
+    }
+
+    // Ensure backwards compatibility with legacy fields
+    if (!parsedResult.dietTitle && parsedResult.programTitle) {
+      parsedResult.dietTitle = parsedResult.programTitle;
+    }
+    if (!parsedResult.mealPlan && parsedResult.dailyRoutineTimeline) {
+      parsedResult.mealPlan = parsedResult.dailyRoutineTimeline.map((item: any) => ({
+        time: item.time,
+        mealType: item.activity,
+        menu: item.guideline,
+        calories: item.calories || 0,
+        tips: 'Patuhi jadwal ini agar metabolisme bekerja efisien.',
+      }));
     }
 
     return res.json({
       success: true,
-      data: parsedResult
+      data: parsedResult,
     });
   } catch (err: any) {
-    console.error('Error generating diet tips:', err);
-    return res.status(500).json({ success: false, message: err?.message || 'Gagal memproses tips diet Dokter AI' });
+    console.error('Error generating diet program:', err);
+    return res.status(500).json({ success: false, message: err?.message || 'Gagal memproses Program Diet Sukses Dokter AI' });
   }
-});
+};
+
+app.post('/api/diet-program', handleDietProgramGeneration);
+app.post('/api/diet-tips', handleDietProgramGeneration);
 
 // ==========================================
 // AI Smart Traffic Route & Anti-Stress Health API

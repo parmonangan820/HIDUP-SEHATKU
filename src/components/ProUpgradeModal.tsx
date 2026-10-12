@@ -725,8 +725,8 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
                   <Salad className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-bold text-white">Tips Diet Sukses Dokter AI</h4>
-                  <p className="text-[11px] text-slate-400">Target kalori TDEE/BMR, menu lokal & jadwal hidrasi bakar lemak.</p>
+                  <h4 className="text-xs font-bold text-white">Program Diet Sukses Dokter AI</h4>
+                  <p className="text-[11px] text-slate-400">Rencana program bertahap, rotasi menu 7 hari & checklist kepatuhan harian.</p>
                 </div>
               </div>
 

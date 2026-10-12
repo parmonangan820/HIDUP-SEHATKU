@@ -372,10 +372,10 @@ export const AIChatModal: React.FC<AIChatModalProps> = ({ isOpen, onClose, onOpe
               }
             }}
             className="py-2 rounded-xl flex items-center justify-center gap-1 bg-gradient-to-r from-emerald-500/20 to-teal-500/20 hover:from-emerald-500/30 hover:to-teal-500/30 border border-emerald-500/30 text-emerald-300 font-bold transition-all shadow-sm cursor-pointer"
-            title="Buka Fitur Tips Diet Sukses ala Dokter AI (Eksklusif PRO)"
+            title="Buka Fitur Program Diet Sukses Dokter AI (Eksklusif PRO)"
           >
             <Salad className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="truncate">Diet PRO</span>
+            <span className="truncate">Program Diet</span>
           </button>
         </div>
 

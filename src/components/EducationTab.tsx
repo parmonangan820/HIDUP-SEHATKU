@@ -80,7 +80,7 @@ export const EducationTab: React.FC<EducationTabProps> = ({ onOpenAiChat, onOpen
               className="py-2 px-3.5 rounded-xl bg-gradient-to-r from-emerald-400 to-cyan-400 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/20 active:scale-95 transition-all"
             >
               <Salad className="w-3.5 h-3.5 stroke-[2.5]" />
-              <span>Tips Diet Sukses Dokter AI</span>
+              <span>Program Diet Sukses Dokter AI</span>
               <span className="text-[9px] px-1 py-0.2 rounded bg-slate-950/20 text-slate-950 font-extrabold uppercase">PRO</span>
             </button>
           )}
