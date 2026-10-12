@@ -734,143 +734,146 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
   const currentStep = navigationSteps[currentStepIndex] || navigationSteps[0];
 
   return (
-    <div className="fixed inset-0 z-[9999] flex flex-col bg-slate-950 text-white font-sans overflow-hidden select-none">
-      {/* 1. TOP NAVIGATION HUD (Like Google Maps Live In-App Navigation) */}
-      <div className="relative z-20 bg-slate-900/95 backdrop-blur-xl border-b border-slate-800 px-4 py-3 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
-        {/* Left: Next Turn Maneuver Indicator */}
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 shrink-0 text-slate-950 font-black">
-            {currentStep.icon === 'left' ? (
-              <CornerUpLeft className="w-7 h-7 stroke-[3]" />
-            ) : currentStep.icon === 'right' ? (
-              <CornerUpRight className="w-7 h-7 stroke-[3]" />
-            ) : currentStep.icon === 'arrive' ? (
-              <CheckCircle2 className="w-7 h-7 stroke-[3]" />
-            ) : (
-              <ArrowUp className="w-7 h-7 stroke-[3]" />
-            )}
+    <div className="fixed inset-0 z-[9999] flex flex-col sm:flex-col bg-slate-950 text-white font-sans overflow-hidden select-none">
+      {/* 1. TOP NAVIGATION HUD (Floating card on mobile, fixed header on desktop) */}
+      <div className="absolute top-2 left-2 right-2 sm:static sm:top-auto sm:left-auto sm:right-auto z-30 bg-slate-900/90 sm:bg-slate-900/95 backdrop-blur-xl border border-slate-700/60 sm:border-b sm:border-t-0 sm:border-x-0 sm:border-slate-800 rounded-2xl sm:rounded-none px-3 py-2 sm:px-4 sm:py-3 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-2.5 sm:gap-3 transition-all">
+        {/* Row 1 on mobile: Maneuver Indicator + Quick Actions */}
+        <div className="flex items-center justify-between gap-2 w-full sm:w-auto">
+          {/* Maneuver Indicator & Road Name */}
+          <div className="flex items-center gap-2.5 min-w-0 flex-1">
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20 shrink-0 text-slate-950 font-black">
+              {currentStep.icon === 'left' ? (
+                <CornerUpLeft className="w-5 h-5 sm:w-7 sm:h-7 stroke-[3]" />
+              ) : currentStep.icon === 'right' ? (
+                <CornerUpRight className="w-5 h-5 sm:w-7 sm:h-7 stroke-[3]" />
+              ) : currentStep.icon === 'arrive' ? (
+                <CheckCircle2 className="w-5 h-5 sm:w-7 sm:h-7 stroke-[3]" />
+              ) : (
+                <ArrowUp className="w-5 h-5 sm:w-7 sm:h-7 stroke-[3]" />
+              )}
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-emerald-400 font-black text-xs sm:text-sm uppercase tracking-wider">
+                  {isDriving ? `${currentStep.distance} lagi` : 'Siap Berangkat'}
+                </span>
+                <span className="text-[9px] sm:text-[10px] px-1.5 py-0.2 rounded-full bg-slate-800/90 border border-slate-700 text-slate-300 font-bold truncate max-w-[110px]">
+                  {currentStep.action}
+                </span>
+              </div>
+              <h2 className="text-xs sm:text-base font-black text-white truncate leading-tight">
+                {currentStep.road}
+              </h2>
+              <p className="text-[10px] sm:text-[11px] text-slate-300 truncate hidden xs:block">
+                {currentStep.instruction}
+              </p>
+            </div>
           </div>
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="text-emerald-400 font-black text-sm uppercase tracking-wider">
-                {isDriving ? `${currentStep.distance} lagi` : 'Siap Berangkat'}
-              </span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-300 font-bold">
-                {currentStep.action}
-              </span>
-            </div>
-            <h2 className="text-sm sm:text-base font-black text-white truncate">
-              {currentStep.road}
-            </h2>
-            <p className="text-[11px] text-slate-400 truncate">
-              {currentStep.instruction}
-            </p>
+          {/* Quick Action Buttons (Mute, Steps, Close) */}
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => setIsVoiceMuted(!isVoiceMuted)}
+              className={`p-2 sm:p-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                isVoiceMuted
+                  ? 'bg-slate-800/90 border-slate-700 text-slate-400'
+                  : 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+              }`}
+              title={isVoiceMuted ? 'Aktifkan Suara Navigasi' : 'Bisukan Suara Navigasi'}
+            >
+              {isVoiceMuted ? <VolumeX className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowTurnSteps(!showTurnSteps)}
+              className={`p-2 sm:p-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
+                showTurnSteps
+                  ? 'bg-teal-500 text-slate-950 border-teal-400'
+                  : 'bg-slate-800/90 border-slate-700 text-slate-300 hover:text-white'
+              }`}
+              title="Daftar Langkah Petunjuk Arah"
+            >
+              <RouteIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+              <span className="hidden md:inline text-[11px]">Petunjuk Arah</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-2 sm:p-2.5 rounded-xl bg-rose-500/20 hover:bg-rose-500 text-rose-300 hover:text-white transition-colors border border-rose-500/30 cursor-pointer"
+              title="Tutup Navigasi (Kembali)"
+            >
+              <X className="w-4 h-4 sm:w-5 sm:h-5" />
+            </button>
           </div>
         </div>
 
-        {/* Center: Vehicle Mode Selector (Mobil vs Sepeda Motor) - Prominently Displayed */}
-        <div className="flex items-center gap-1.5 p-1 rounded-2xl bg-slate-950/80 border border-slate-800 shrink-0 w-full sm:w-auto justify-center">
+        {/* Vehicle Mode Selector (Mobil vs Sepeda Motor) - Floating in header */}
+        <div className="flex items-center gap-1 p-0.5 sm:p-1 rounded-xl sm:rounded-2xl bg-slate-950/90 border border-slate-800/80 shrink-0 w-full sm:w-auto justify-center">
           <button
             type="button"
             onClick={() => handleToggleVehicleMode('DRIVE')}
-            className={`px-3.5 py-1.5 rounded-xl font-black text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
+            className={`flex-1 sm:flex-none px-3 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-black text-[11px] sm:text-xs flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer ${
               vehicleMode === 'DRIVE'
                 ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-slate-950 shadow-md shadow-cyan-500/30'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            <Car className="w-4 h-4" />
+            <Car className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span>Mobil</span>
           </button>
 
           <button
             type="button"
             onClick={() => handleToggleVehicleMode('TWO_WHEELER')}
-            className={`px-3.5 py-1.5 rounded-xl font-black text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
+            className={`flex-1 sm:flex-none px-3 sm:px-3.5 py-1 sm:py-1.5 rounded-lg sm:rounded-xl font-black text-[11px] sm:text-xs flex items-center justify-center gap-1 sm:gap-1.5 transition-all cursor-pointer ${
               vehicleMode === 'TWO_WHEELER'
                 ? 'bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 shadow-md shadow-amber-500/30'
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            <Bike className="w-4 h-4" />
+            <Bike className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span>Sepeda Motor</span>
-          </button>
-        </div>
-
-        {/* Right: Close & Quick Actions */}
-        <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-          <button
-            type="button"
-            onClick={() => setIsVoiceMuted(!isVoiceMuted)}
-            className={`p-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
-              isVoiceMuted
-                ? 'bg-slate-800 border-slate-700 text-slate-400'
-                : 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
-            }`}
-            title={isVoiceMuted ? 'Aktifkan Suara Navigasi' : 'Bisukan Suara Navigasi'}
-          >
-            {isVoiceMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setShowTurnSteps(!showTurnSteps)}
-            className={`p-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-              showTurnSteps
-                ? 'bg-teal-500 text-slate-950 border-teal-400'
-                : 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white'
-            }`}
-            title="Daftar Langkah Petunjuk Arah"
-          >
-            <RouteIcon className="w-4 h-4" />
-            <span className="hidden md:inline text-[11px]">Petunjuk Arah</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-2.5 rounded-xl bg-slate-800 hover:bg-rose-500 hover:text-white text-slate-300 transition-colors border border-slate-700 cursor-pointer"
-            title="Tutup Navigasi (Kembali)"
-          >
-            <X className="w-5 h-5" />
           </button>
         </div>
       </div>
 
-      {/* 2. MAP CANVAS WRAPPER (Full Viewport) */}
-      <div className="relative flex-1 w-full h-full min-h-0 bg-slate-950">
+      {/* 2. MAP CANVAS WRAPPER (Full Viewport: absolute on mobile, flex-1 on desktop) */}
+      <div className="absolute inset-0 sm:relative sm:inset-auto sm:flex-1 w-full h-full min-h-0 bg-slate-950 z-10 sm:z-10">
         <div ref={mapContainerRef} className="w-full h-full z-0" />
 
         {/* Floating Toast Notification */}
         {recenterToast && (
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] px-4 py-2 rounded-2xl bg-slate-900/95 border border-teal-500/40 text-teal-300 text-xs font-bold shadow-2xl flex items-center gap-2 backdrop-blur-md animate-bounce">
+          <div className="absolute top-28 sm:top-4 left-1/2 -translate-x-1/2 z-[1000] px-4 py-2 rounded-2xl bg-slate-900/95 border border-teal-500/40 text-teal-300 text-xs font-bold shadow-2xl flex items-center gap-2 backdrop-blur-md animate-bounce">
             <Radio className="w-3.5 h-3.5 text-teal-400 animate-pulse" />
             <span>{recenterToast}</span>
           </div>
         )}
 
         {/* Floating Right Map Controls HUD */}
-        <div className="absolute top-4 right-4 z-[1000] flex flex-col gap-2 pointer-events-auto">
+        <div className="absolute top-28 sm:top-4 right-2 sm:right-4 z-[1000] flex flex-col gap-2 pointer-events-auto">
           {/* TOMBOL PUSATKAN SEKARANG (Prominent Recenter Button) */}
           <button
             type="button"
             onClick={handleRecenterNow}
-            className="px-3.5 py-2.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black text-xs shadow-2xl shadow-emerald-500/30 hover:brightness-110 active:scale-95 transition-all flex items-center gap-2 cursor-pointer border border-emerald-400/50"
+            className="px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-black text-xs shadow-2xl shadow-emerald-500/30 hover:brightness-110 active:scale-95 transition-all flex items-center gap-1.5 sm:gap-2 cursor-pointer border border-emerald-400/50"
             title="Pusatkan Peta ke Lokasi Saya Sekarang (GPS)"
           >
-            <Crosshair className="w-4.5 h-4.5 stroke-[2.5]" />
-            <span className="font-extrabold hidden sm:inline">Pusatkan Sekarang</span>
+            <Crosshair className="w-4 h-4 sm:w-4.5 sm:h-4.5 stroke-[2.5]" />
+            <span className="font-extrabold hidden md:inline">Pusatkan Sekarang</span>
           </button>
 
           {/* Fit Entire Route Bounds Button */}
           <button
             type="button"
             onClick={handleFitEntireRoute}
-            className="p-2.5 rounded-2xl bg-slate-900/90 border border-slate-700 text-white hover:bg-slate-800 shadow-xl backdrop-blur-md flex items-center justify-center cursor-pointer active:scale-95"
+            className="p-2 sm:p-2.5 rounded-2xl bg-slate-900/90 border border-slate-700 text-white hover:bg-slate-800 shadow-xl backdrop-blur-md flex items-center justify-center cursor-pointer active:scale-95"
             title="Tampilkan Keseluruhan Rute A ke B"
           >
-            <Maximize2 className="w-4.5 h-4.5 text-teal-400" />
+            <Maximize2 className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-teal-400" />
           </button>
 
           {/* Zoom In & Out Controls */}
@@ -878,18 +881,18 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
             <button
               type="button"
               onClick={handleZoomIn}
-              className="p-2.5 text-white hover:bg-slate-800 border-b border-slate-800 flex items-center justify-center cursor-pointer active:scale-95"
+              className="p-2 sm:p-2.5 text-white hover:bg-slate-800 border-b border-slate-800 flex items-center justify-center cursor-pointer active:scale-95"
               title="Perbesar Peta (Zoom In)"
             >
-              <ZoomIn className="w-4.5 h-4.5 text-teal-400" />
+              <ZoomIn className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-teal-400" />
             </button>
             <button
               type="button"
               onClick={handleZoomOut}
-              className="p-2.5 text-white hover:bg-slate-800 flex items-center justify-center cursor-pointer active:scale-95"
+              className="p-2 sm:p-2.5 text-white hover:bg-slate-800 flex items-center justify-center cursor-pointer active:scale-95"
               title="Perkecil Peta (Zoom Out)"
             >
-              <ZoomOut className="w-4.5 h-4.5 text-teal-400" />
+              <ZoomOut className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-teal-400" />
             </button>
           </div>
 
@@ -897,7 +900,7 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
           <button
             type="button"
             onClick={() => setShowTrafficOverlay(!showTrafficOverlay)}
-            className={`p-2.5 rounded-2xl border shadow-xl backdrop-blur-md flex items-center justify-center cursor-pointer active:scale-95 transition-all ${
+            className={`p-2 sm:p-2.5 rounded-2xl border shadow-xl backdrop-blur-md flex items-center justify-center cursor-pointer active:scale-95 transition-all ${
               showTrafficOverlay
                 ? 'bg-rose-500/20 border-rose-500/50 text-rose-300'
                 : 'bg-slate-900/90 border-slate-700 text-slate-400'
@@ -913,34 +916,34 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
             onClick={() => {
               setMapTheme(mapTheme === 'google_standard' ? 'google_sat' : 'google_standard');
             }}
-            className="p-2.5 rounded-2xl bg-slate-900/90 border border-slate-700 text-slate-300 hover:text-white shadow-xl backdrop-blur-md flex items-center justify-center cursor-pointer active:scale-95"
+            className="p-2 sm:p-2.5 rounded-2xl bg-slate-900/90 border border-slate-700 text-slate-300 hover:text-white shadow-xl backdrop-blur-md flex items-center justify-center cursor-pointer active:scale-95"
             title={`Ubah Tampilan Peta (${mapTheme === 'google_standard' ? 'Pindah ke Satelit' : 'Pindah ke Standar'})`}
           >
-            <Layers className="w-4.5 h-4.5 text-cyan-400" />
+            <Layers className="w-4 h-4 sm:w-4.5 sm:h-4.5 text-cyan-400" />
           </button>
         </div>
 
         {/* Floating Left: "Jalan Apa Saja yang Macet" Drawer Toggle & Preview Card */}
-        <div className="absolute top-4 left-4 z-[1000] max-w-xs sm:max-w-sm pointer-events-auto">
-          <div className="rounded-3xl bg-slate-900/95 border border-slate-800 shadow-2xl backdrop-blur-xl overflow-hidden">
+        <div className="absolute top-28 sm:top-4 left-2 sm:left-4 z-[1000] max-w-[210px] sm:max-w-sm pointer-events-auto">
+          <div className="rounded-2xl sm:rounded-3xl bg-slate-900/95 border border-slate-800 shadow-2xl backdrop-blur-xl overflow-hidden">
             {/* Header / Accordion Toggle */}
             <div
               onClick={() => setShowCongestionDrawer(!showCongestionDrawer)}
-              className="p-3 bg-slate-950/90 border-b border-slate-800/80 flex items-center justify-between gap-2 cursor-pointer hover:bg-slate-800/50 transition-colors"
+              className="p-2 sm:p-3 bg-slate-950/90 border-b border-slate-800/80 flex items-center justify-between gap-1.5 sm:gap-2 cursor-pointer hover:bg-slate-800/50 transition-colors"
             >
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>
-                <span className="text-xs font-black text-white flex items-center gap-1.5">
-                  <span>🚨 Jalan yang Macet di Rute Ini</span>
-                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-rose-500/20 text-rose-400 font-bold border border-rose-500/30">
-                    {congestedRoadsList.filter((j) => j.level !== 'lancar').length} Titik
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping shrink-0"></span>
+                <span className="text-[11px] sm:text-xs font-black text-white flex items-center gap-1 truncate">
+                  <span className="truncate">🚨 Titik Macet</span>
+                  <span className="text-[9px] sm:text-[10px] px-1 sm:px-1.5 py-0.2 rounded-full bg-rose-500/20 text-rose-400 font-bold border border-rose-500/30 shrink-0">
+                    {congestedRoadsList.filter((j) => j.level !== 'lancar').length}
                   </span>
                 </span>
               </div>
               {showCongestionDrawer ? (
-                <ChevronUp className="w-4 h-4 text-slate-400" />
+                <ChevronUp className="w-3.5 h-3.5 text-slate-400 shrink-0" />
               ) : (
-                <ChevronDown className="w-4 h-4 text-slate-400" />
+                <ChevronDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
               )}
             </div>
 
@@ -1076,24 +1079,24 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
         )}
       </div>
 
-      {/* 3. BOTTOM DRIVE HUD (Controls & Start/Stop Navigation) */}
-      <div className="relative z-20 bg-slate-900/95 backdrop-blur-xl border-t border-slate-800 p-4 sm:p-5 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-4">
+      {/* 3. BOTTOM DRIVE HUD: FLOATING OVERLAY ON MOBILE, FIXED DOCK ON DESKTOP */}
+      <div className="absolute bottom-2 left-2 right-2 sm:static sm:bottom-auto sm:left-auto sm:right-auto z-30 bg-slate-900/90 sm:bg-slate-900/95 backdrop-blur-xl border border-slate-700/60 sm:border-t sm:border-b-0 sm:border-x-0 sm:border-slate-800 rounded-2xl sm:rounded-none p-2.5 sm:p-5 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-2 sm:gap-4 transition-all">
         {/* Metric Badges: Duration, Distance, Speedometer, Heart Health */}
-        <div className="grid grid-cols-2 sm:flex sm:items-center gap-3 w-full sm:w-auto">
+        <div className="grid grid-cols-2 sm:flex sm:items-center gap-1.5 sm:gap-3 w-full sm:w-auto">
           {/* Estimated Time Remaining */}
-          <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800 flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-teal-500/20 text-teal-400">
-              <Clock className="w-5 h-5" />
+          <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-slate-950/80 border border-slate-800 flex items-center gap-2 sm:gap-3">
+            <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-teal-500/20 text-teal-400 shrink-0">
+              <Clock className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div>
-              <span className="text-[10px] text-slate-400 font-bold block uppercase">
+            <div className="min-w-0">
+              <span className="text-[9px] sm:text-[10px] text-slate-400 font-bold block uppercase truncate">
                 Estimasi Tiba
               </span>
-              <span className="text-base sm:text-lg font-black text-white">
-                {effectiveDuration} <span className="text-xs font-bold text-slate-400">mnt</span>
+              <span className="text-sm sm:text-lg font-black text-white">
+                {effectiveDuration} <span className="text-[10px] sm:text-xs font-bold text-slate-400">mnt</span>
               </span>
               {effectiveDelay > 0 && (
-                <span className="text-[10px] text-rose-400 font-bold block">
+                <span className="text-[9px] sm:text-[10px] text-rose-400 font-bold block truncate">
                   +{effectiveDelay} mnt macet
                 </span>
               )}
@@ -1101,46 +1104,45 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
           </div>
 
           {/* Distance */}
-          <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800 flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-400">
-              <MapPin className="w-5 h-5" />
+          <div className="p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-slate-950/80 border border-slate-800 flex items-center gap-2 sm:gap-3">
+            <div className="p-1.5 sm:p-2 rounded-lg sm:rounded-xl bg-cyan-500/20 text-cyan-400 shrink-0">
+              <MapPin className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div>
-              <span className="text-[10px] text-slate-400 font-bold block uppercase">
+            <div className="min-w-0">
+              <span className="text-[9px] sm:text-[10px] text-slate-400 font-bold block uppercase truncate">
                 Jarak Tempuh
               </span>
-              <span className="text-base sm:text-lg font-black text-white">
-                {activeRoute.distanceKm} <span className="text-xs font-bold text-slate-400">km</span>
+              <span className="text-sm sm:text-lg font-black text-white">
+                {activeRoute.distanceKm} <span className="text-[10px] sm:text-xs font-bold text-slate-400">km</span>
               </span>
-              <span className="text-[10px] text-emerald-400 font-bold block">
-                {isMotor ? 'Jalur Roda Dua Cepat' : 'Arteri Utama'}
+              <span className="text-[9px] sm:text-[10px] text-emerald-400 font-bold block truncate">
+                {isMotor ? 'Jalur Roda Dua' : 'Arteri Utama'}
               </span>
             </div>
           </div>
 
           {/* Live Speedometer */}
-          <div className="p-3 rounded-2xl bg-slate-950/80 border border-slate-800 flex items-center gap-3">
+          <div className="hidden xs:flex p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-slate-950/80 border border-slate-800 items-center gap-2 sm:gap-3">
             <div
-              className={`p-2 rounded-xl ${
+              className={`p-1.5 sm:p-2 rounded-lg sm:rounded-xl shrink-0 ${
                 currentSpeedKmh < 18 ? 'bg-rose-500/20 text-rose-400' : 'bg-emerald-500/20 text-emerald-400'
               }`}
             >
-              <Navigation className="w-5 h-5" />
+              <Navigation className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div>
-              <span className="text-[10px] text-slate-400 font-bold block uppercase">
-                Kecepatan Saat Ini
+            <div className="min-w-0">
+              <span className="text-[9px] sm:text-[10px] text-slate-400 font-bold block uppercase truncate">
+                Kecepatan
               </span>
-              <span className="text-base sm:text-lg font-black text-white font-mono">
+              <span className="text-sm sm:text-lg font-black text-white font-mono">
                 {isDriving ? currentSpeedKmh : effectiveSpeed}{' '}
-                <span className="text-xs font-bold text-slate-400">km/j</span>
+                <span className="text-[10px] sm:text-xs font-bold text-slate-400">km/j</span>
               </span>
-              <span className="text-[9px] text-slate-400 block font-mono">Batas: 50 km/j</span>
             </div>
           </div>
 
           {/* Hidup Sehat Anti-Stress Metric */}
-          <div className="p-3 rounded-2xl bg-slate-950/80 border border-teal-500/30 flex items-center gap-3">
+          <div className="hidden sm:flex p-3 rounded-2xl bg-slate-950/80 border border-teal-500/30 items-center gap-3">
             <div className="p-2 rounded-xl bg-pink-500/20 text-pink-400">
               <Heart className="w-5 h-5 fill-pink-500/20" />
             </div>
@@ -1157,7 +1159,7 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
         </div>
 
         {/* PRIMARY ACTION BUTTON: TOMBOL "MULAI JALAN" */}
-        <div className="flex items-center gap-3 w-full sm:w-auto">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           {!isDriving ? (
             <button
               type="button"
@@ -1165,9 +1167,9 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
                 setIsDriving(true);
                 handleRecenterNow();
               }}
-              className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-black text-sm sm:text-base flex items-center justify-center gap-3 shadow-2xl shadow-emerald-500/40 active:scale-95 transition-all cursor-pointer ring-4 ring-emerald-500/30"
+              className="w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 rounded-xl sm:rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-black text-sm sm:text-base flex items-center justify-center gap-2 sm:gap-3 shadow-2xl shadow-emerald-500/40 active:scale-95 transition-all cursor-pointer ring-2 sm:ring-4 ring-emerald-500/30"
             >
-              <Play className="w-6 h-6 fill-slate-950" />
+              <Play className="w-5 h-5 sm:w-6 sm:h-6 fill-slate-950" />
               <span>Mulai Jalan</span>
             </button>
           ) : (
@@ -1175,9 +1177,9 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
               <button
                 type="button"
                 onClick={() => setIsDriving(false)}
-                className="flex-1 sm:flex-none px-6 py-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-xl shadow-amber-500/30 active:scale-95 transition-all cursor-pointer"
+                className="flex-1 sm:flex-none px-4 sm:px-6 py-3 sm:py-4 rounded-xl sm:rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs sm:text-sm flex items-center justify-center gap-2 shadow-xl shadow-amber-500/30 active:scale-95 transition-all cursor-pointer"
               >
-                <Pause className="w-5 h-5 fill-slate-950" />
+                <Pause className="w-4 h-4 sm:w-5 sm:h-5 fill-slate-950" />
                 <span>Jeda Navigasi</span>
               </button>
 
@@ -1188,10 +1190,10 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
                   setVehicleProgress(0);
                   setCurrentStepIndex(0);
                 }}
-                className="px-4 py-4 rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                className="px-3 sm:px-4 py-3 sm:py-4 rounded-xl sm:rounded-2xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer"
                 title="Mulai Ulang dari Awal"
               >
-                <RotateCcw className="w-4 h-4" />
+                <RotateCcw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 <span>Ulang</span>
               </button>
             </div>
