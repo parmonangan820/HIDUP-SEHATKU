@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useHealth } from '../context/HealthContext';
-import { Sparkles, FileText, Cloud, Crown, X, Star, QrCode, ArrowLeft, CheckCircle2, Salad, Navigation, Gift, Clock, Zap, Trophy, Droplet, Bluetooth, MessageSquare, AlertTriangle, Building, Receipt, Copy, Check, Download, ExternalLink } from 'lucide-react';
+import { Sparkles, FileText, Cloud, Crown, X, Star, QrCode, ArrowLeft, CheckCircle2, Salad, Navigation, Gift, Clock, Zap, Trophy, Droplet, Bluetooth, MessageSquare, AlertTriangle, Building, Receipt, Copy, Check, Download } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { createClientQrisPayload, createClientQrisPayloadAsync, generateNationalQRIS } from '../utils/qrisGenerator';
 
@@ -235,7 +235,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
       } else {
         setStatusFeedback({
           type: 'warning',
-          message: '⚠️ Pembayaran belum terdeteksi. Silakan scan barcode QRIS atau klik "Saya Sudah Bayar QRIS" di bawah jika Anda telah menyelesaikan pembayaran.',
+          message: '⚠️ Pembayaran belum terdeteksi. Silakan scan barcode QRIS dan selesaikan transaksi melalui m-Banking atau E-Wallet Anda.',
         });
         return;
       }
@@ -391,16 +391,7 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
                         </p>
                       </div>
                     </div>
-                    <div className="text-[10px] bg-slate-950/70 p-2 rounded-xl text-slate-300 flex items-center justify-between gap-2 border border-slate-800">
-                      <span>💡 Ingin langsung mencoba aktivasi?</span>
-                      <button
-                        type="button"
-                        onClick={handleTriggerSimulatePaid}
-                        className="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-[10px] transition-all cursor-pointer"
-                      >
-                        ⚡ Simulasikan Berhasil
-                      </button>
-                    </div>
+
                     <button
                       type="button"
                       onClick={() => setPaymentTab('manual')}
@@ -530,46 +521,13 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
 
                 {/* Action Buttons */}
                 <div className="space-y-2.5">
-                  {/* Tombol Utama: Saya Sudah Bayar QRIS (Aktivasi PRO Langsung) */}
-                  <button
-                    onClick={handlePaymentSuccess}
-                    className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-600 hover:brightness-110 text-white font-black text-xs sm:text-sm active:scale-95 transition-all shadow-lg shadow-emerald-500/25 flex items-center justify-center gap-2 cursor-pointer"
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>⚡ Saya Sudah Bayar QRIS (Aktivasi PRO Sekarang)</span>
-                  </button>
-
-                  {qrisData?.checkoutUrl && (
-                    <a
-                      href={qrisData.checkoutUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="w-full py-2.5 rounded-2xl bg-indigo-600/90 hover:bg-indigo-600 text-white font-bold text-xs hover:brightness-110 active:scale-95 transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer border border-indigo-400/30"
-                    >
-                      <span>Buka Halaman Checkout InstanLive</span>
-                      <ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                  )}
-
                   <button
                     onClick={handleCheckPaymentStatus}
                     disabled={checkingStatus}
-                    className="w-full py-3 rounded-2xl bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-300 hover:text-white font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-blue-600 hover:brightness-110 text-white font-bold text-xs sm:text-sm transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-indigo-500/25 active:scale-95 disabled:opacity-60"
                   >
                     {checkingStatus ? 'Memeriksa Status Pembayaran...' : '🔄 Cek Status Pembayaran (Auto-Detect Gateway)'}
                   </button>
-
-                  {qrisData?.isSandbox && (
-                    <button
-                      onClick={handleTriggerSimulatePaid}
-                      disabled={checkingStatus}
-                      className="w-full py-2.5 rounded-2xl bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-200 font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                      title="Simulasi jika barcode scan QRIS telah dibayar (Sandbox Mode)"
-                    >
-                      <CheckCircle2 className="w-4 h-4 text-amber-400" />
-                      <span>⚡ Uji Coba Bayar QRIS Selesai (Sandbox Simulator)</span>
-                    </button>
-                  )}
 
                   <button
                     onClick={() => {
