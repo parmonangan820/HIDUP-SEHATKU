@@ -2000,10 +2000,10 @@ Formatkan jawaban DALAM BENTUK JSON murni dengan schema:
   }
 });
 
-// AI Chatbot / Tanya AI Kesehatan Endpoint
+// AI Chatbot / Tanya AI Kesehatan Endpoint (Multi-model resilient Gemini architecture)
 app.post('/api/gemini/chat', async (req: Request, res: Response) => {
   try {
-    const { message, profile, todayStats } = req.body;
+    const { message, profile, todayStats, conversationHistory } = req.body;
 
     if (!message) {
       return res.status(400).json({ error: 'Message is required' });
@@ -2012,6 +2012,7 @@ app.post('/api/gemini/chat', async (req: Request, res: Response) => {
     const aiClient = getAIClient();
 
     if (!aiClient) {
+      console.warn('Gemini API client not initialized, using smart clinical knowledge engine');
       const fallbackReply = generateSmartMedicalResponse(message, profile, todayStats);
       return res.json({ reply: fallbackReply });
     }
@@ -2057,7 +2058,7 @@ LINGKUP KEAHLIAN LENGKAP YANG HARUS ANDA JAWAB DENGAN TUNTAS & MENDALAM:
    - Gejala kelelahan kronis & burnout kerja, teknik jeda mikro (micro-breaks).
 
 6. 🩺 KELUHAN MEDIS UMUM & EDUKASI GEJALA:
-   - Analisis edukatif untuk keluhan sehari-hari (pusing, sakit kepala tegang, pegal leher, flu, batuk, demam, sembelit).
+   - Analisis edukatif untuk keluhan sehari-hari (pusing, sakit kepala tegang, pegal leher, flu, batuk, demam, sembelit, organ tubuh, keluhan otot/sendi).
    - Edukasi pertolongan pertama dan gaya hidup pemulihan.
    - PENTING: Selalu sertakan edukasi Tanda Bahaya (Red Flags) kapan pengguna wajib segera memeriksakan diri ke IGD/dokter spesialis langsung bila terdapat gejala darurat.
 
@@ -2065,21 +2066,61 @@ PANDUAN FORMAT & GAYA KOMUNIKASI:
 - Berikan salam hangat menyebut nama pengguna (${profile?.name || 'Sahabat Sehat'}).
 - Jawab pertanyaan secara langsung, to-the-point, kaya fakta medis namun dengan bahasa yang ramah, jelas, dan memotivasi.
 - Gunakan format terstruktur rapi (bullet points, numbering, dan highlight teks tebal) agar mudah dibaca di layar ponsel.
-- JANGAN membatasi jawaban hanya pada minum air bila pertanyaannya tentang makan, olahraga, tidur, istirahat, atau penyakit! Jawablah persis sesuai konteks topik pertanyaan pengguna dengan tuntas dan mendalam.`;
+- Jawablah persis sesuai konteks topik pertanyaan pengguna secara spesifik, menyeluruh, dan tuntas!`;
 
-    const response = await aiClient.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: `Pertanyaan Pengguna: ${message}`,
-      config: {
-        systemInstruction: systemPrompt,
-        temperature: 0.7,
-      },
+    // Build chat contents array for multi-turn conversational memory
+    const contents: any[] = [];
+    if (Array.isArray(conversationHistory) && conversationHistory.length > 0) {
+      let foundFirstUser = false;
+      for (const turn of conversationHistory) {
+        const isUser = turn.role === 'user' || turn.sender === 'user';
+        if (isUser) foundFirstUser = true;
+        if (foundFirstUser && turn.text) {
+          contents.push({
+            role: isUser ? 'user' : 'model',
+            parts: [{ text: String(turn.text) }],
+          });
+        }
+      }
+    }
+    contents.push({
+      role: 'user',
+      parts: [{ text: `Pertanyaan Pengguna: ${message}` }],
     });
 
-    const reply = response.text?.trim() || generateSmartMedicalResponse(message, profile, todayStats);
+    // Multi-model resilience: Try standard model, fallback to lite if high-demand/spike occurs
+    const candidateModels = ['gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];
+    let reply = '';
+    let lastErr: any = null;
+
+    for (const modelName of candidateModels) {
+      try {
+        const response = await aiClient.models.generateContent({
+          model: modelName,
+          contents: contents.length > 1 ? contents : `Pertanyaan Pengguna: ${message}`,
+          config: {
+            systemInstruction: systemPrompt,
+            temperature: 0.7,
+          },
+        });
+        if (response.text?.trim()) {
+          reply = response.text.trim();
+          break;
+        }
+      } catch (err: any) {
+        lastErr = err;
+        console.warn(`Model ${modelName} returned error, falling back to next candidate:`, err?.message || err);
+      }
+    }
+
+    if (!reply) {
+      console.warn('All Gemini models encountered issues, using smart clinical knowledge engine. Last error:', lastErr?.message);
+      reply = generateSmartMedicalResponse(message, profile, todayStats);
+    }
+
     return res.json({ reply });
   } catch (error: any) {
-    console.error('Error in chat:', error);
+    console.error('Error in chat endpoint:', error);
     const fallbackReply = generateSmartMedicalResponse(req.body?.message || '', req.body?.profile, req.body?.todayStats);
     return res.json({ reply: fallbackReply });
   }

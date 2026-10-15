@@ -453,17 +453,24 @@ Target harian Anda: ${target} ml (hari ini baru tercatat ${water} ml). Yuk minum
 5. ⚠️ Konsultasikan langsung ke fasilitas kesehatan bila demam berlangsung lebih dari 3 hari, timbul sesak napas, atau dahak bercampur darah.`;
     }
 
-    // DEFAULT COMPREHENSIVE MEDICAL OVERVIEW
-    return `Halo ${name}! Terima kasih atas pertanyaan Anda: "${query}".
+    // DEFAULT DYNAMIC CLINICAL RESPONSE FOR CUSTOM QUERIES
+    return `Halo ${name}! Mengenai pertanyaan Anda: **"${query}"**
 
-Sebagai **Dokter AI Hidup Sehatku**, saya memandang kesehatan Anda secara holistik melalui 5 pilar utama medis:
-1. **🥗 Makan & Nutrisi**: Prioritaskan makanan utuh (*whole foods*), cukupi protein (1.2g/kg BB) dan serat sayur-buah untuk metabolisme optimal.
-2. **💧 Minum & Cairan**: Jaga target hidrasi harian Anda (${target} ml) — hari ini tercatat ${water} ml. Air putih adalah bahan bakar utama fungsi ginjal dan sirkulasi darah.
-3. **🏃 Olahraga & Gerak**: Lakukan minimal 20-30 menit aktivitas fisik teratur (hari ini Anda berolahraga ${workoutMins} menit).
-4. **🌙 Tidur Berkualitas**: Cukupi 7-8 jam tidur malam di ruangan sejuk dan gelap untuk regenerasi sel dan pembersihan toksin otak.
-5. **🧘 Istirahat & Stres**: Luangkan jeda istirahat aktif dan latihan pernapasan untuk menyeimbangkan hormon kortisol.
+Sebagai **Dokter AI Medis Hidup Sehatku**, berikut adalah ulasan klinis dan panduan kesehatan terarah untuk Anda:
 
-*Catatan: Jawaban Dokter AI bersifat edukatif klinis. Jika Anda memiliki keluhan medis spesifik atau berkelanjutan, selalu konsultasikan dengan dokter spesialis secara langsung.* Ada aspek lain seputar makan, minum, olahraga, tidur, atau keluhan tubuh yang ingin Anda tanyakan?`;
+🩺 **1. Ulasan Klinis Berdasarkan Pertanyaan Anda:**
+- Topik yang Anda tanyakan (**"${query}"**) berkaitan erat dengan mekanisme biologis tubuh. Baik menyangkut asupan makanan, cairan, kebiasaan gerak, maupun pola istirahat, tubuh selalu berusaha menjaga keseimbangan (*homeostasis*).
+- Berdasarkan profil Anda (Usia: ${currentProfile?.age || 25} tahun, Berat: ${weight} kg), organ tubuh membutuhkan asupan nutrisi berkualitas dan hidrasi teratur agar metabolisme bekerja efisien.
+
+💡 **2. Rekomendasi Solutif Dokter AI:**
+- **Evaluasi Rutinitas**: Perhatikan apakah kondisi terkait "${query}" ini baru Anda alami atau sudah berlangsung beberapa waktu.
+- **Keseimbangan Gaya Hidup**: Pastikan kebutuhan cairan (${target} ml/hari — hari ini tercatat ${water} ml) dan istirahat 7-8 jam per hari tetap terpenuhi karena cairan dan tidur adalah fondasi pemulihan sel.
+- **Gizi Seimbang**: Perbanyak konsumsi serat alami (sayur dan buah) serta batasi konsumsi makanan olahan tinggi garam, gula, dan minyak jenuh.
+
+⚠️ **3. Catatan Medis & Kapan Harus ke Dokter:**
+Jika pertanyaan ini dilatarbelakangi oleh keluhan fisik yang menimbulkan rasa sakit tajam, berulang, atau mengganggu produktivitas, sangat dianjurkan untuk berkonsultasi langsung dengan dokter spesialis di fasilitas kesehatan untuk pemeriksaan fisik lebih lanjut.
+
+Apakah ada gejala spesifik atau hal detail lainnya terkait "${query}" yang ingin Anda ketahui?`;
   };
 
   const handleCopyMessage = (id: string, text: string) => {
@@ -493,6 +500,11 @@ Sebagai **Dokter AI Hidup Sehatku**, saya memandang kesehatan Anda secara holist
       calories: todayRecord.totalCalories,
     };
 
+    const historyPayload = messages
+      .filter((m) => m.id !== 'welcome')
+      .slice(-6)
+      .map((m) => ({ role: m.sender === 'user' ? 'user' : 'model', text: m.text }));
+
     let replyText = '';
 
     try {
@@ -501,6 +513,7 @@ Sebagai **Dokter AI Hidup Sehatku**, saya memandang kesehatan Anda secara holist
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: query,
+          conversationHistory: historyPayload,
           profile,
           todayStats,
         }),
@@ -523,22 +536,21 @@ Sebagai **Dokter AI Hidup Sehatku**, saya memandang kesehatan Anda secara holist
         if (apiKey) {
           const { GoogleGenAI } = await import('@google/genai');
           const ai = new GoogleGenAI({ apiKey });
-          const systemPrompt = `Anda adalah Dokter AI Medis & Konsultan Kesehatan Ahli dari aplikasi "Hidup Sehatku".
-Anda menjawab SEMUA pertanyaan seputar kesehatan secara tuntas dan mendalam:
-1. Makan & Nutrisi (pola makan seimbang, asam lambung/GERD, kolesterol, diabetes, protein, kalori)
-2. Minum & Cairan (kebutuhan air, waktu minum, ginjal, elektrolit, kopi/kafein)
-3. Olahraga & Gerak (kardio, angkat beban, pemanasan, atasi nyeri otot DOMS, pencegahan cedera)
-4. Tidur & Sirkadian (siklus 90 menit, insomnia, sleep hygiene, bangun segar)
-5. Istirahat & Stres (active recovery, hormon kortisol, teknik relaksasi napas 4-7-8, burnout)
-6. Keluhan Medis Umum & Gejala (pusing, demam, flu, edukasi pertolongan pertama & tanda bahaya darurat).
-Gunakan bahasa yang ramah, santun, bernada empati, berbasis sains medis, dan terstruktur rapi.`;
-          const response = await ai.models.generateContent({
-            model: 'gemini-3.8-flash',
-            contents: `Pertanyaan Pengguna: ${query}`,
-            config: { systemInstruction: systemPrompt, temperature: 0.7 },
-          });
-          if (response.text) {
-            replyText = response.text.trim();
+          const systemPrompt = `Anda adalah Dokter AI Medis & Konsultan Kesehatan Ahli dari aplikasi "Hidup Sehatku". Jawablah pertanyaan pengguna secara langsung, spesifik, ramah, dan ilmiah berbasis ilmu medis.`;
+          for (const m of ['gemini-3.8-flash', 'gemini-3.1-flash-lite']) {
+            try {
+              const response = await ai.models.generateContent({
+                model: m,
+                contents: `Pertanyaan Pengguna: ${query}`,
+                config: { systemInstruction: systemPrompt, temperature: 0.7 },
+              });
+              if (response.text?.trim()) {
+                replyText = response.text.trim();
+                break;
+              }
+            } catch (mErr) {
+              // try next model
+            }
           }
         }
       } catch (clientErr) {
