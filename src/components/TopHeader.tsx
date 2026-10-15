@@ -145,11 +145,11 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           {/* Ask AI button */}
           <button
             onClick={onOpenAiChat}
-            className="hidden sm:flex items-center gap-1 px-2 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-white active:scale-95 transition-all text-xs font-semibold"
-            title="Tanya Dokter AI Hidup Sehatku"
+            className="hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gradient-to-r from-cyan-500/20 to-blue-600/20 border border-cyan-500/30 text-cyan-300 hover:text-white active:scale-95 transition-all text-xs font-bold"
+            title="Tanya Dokter AI: Konsultasi Makan, Minum, Olahraga, Tidur & Istirahat"
           >
             <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-            <span>Tanya AI</span>
+            <span>Dokter AI</span>
           </button>
 
           {/* Device Frame Viewport Toggle (Desktop only helper) */}
