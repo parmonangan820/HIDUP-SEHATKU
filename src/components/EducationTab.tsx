@@ -16,14 +16,16 @@ import {
   CheckCircle2,
   Salad,
   Crown,
+  Moon,
 } from 'lucide-react';
 
 interface EducationTabProps {
   onOpenAiChat: () => void;
   onOpenDietTips?: () => void;
+  onOpenSleepModal?: () => void;
 }
 
-export const EducationTab: React.FC<EducationTabProps> = ({ onOpenAiChat, onOpenDietTips }) => {
+export const EducationTab: React.FC<EducationTabProps> = ({ onOpenAiChat, onOpenDietTips, onOpenSleepModal }) => {
   const { profile, isPro } = useHealth();
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'air_minum' | 'olahraga' | 'gaya_hidup'>('all');
   const [expandedArticleId, setExpandedArticleId] = useState<string | null>('manfaat-air-putih-lengkap');
@@ -77,11 +79,22 @@ export const EducationTab: React.FC<EducationTabProps> = ({ onOpenAiChat, onOpen
           {onOpenDietTips && (
             <button
               onClick={onOpenDietTips}
-              className="py-2 px-3.5 rounded-xl bg-gradient-to-r from-emerald-400 to-cyan-400 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/20 active:scale-95 transition-all"
+              className="py-2 px-3.5 rounded-xl bg-gradient-to-r from-emerald-400 to-cyan-400 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer"
             >
               <Salad className="w-3.5 h-3.5 stroke-[2.5]" />
               <span>Program Diet Sukses Dokter AI</span>
               <span className="text-[9px] px-1 py-0.2 rounded bg-slate-950/20 text-slate-950 font-extrabold uppercase">PRO</span>
+            </button>
+          )}
+
+          {onOpenSleepModal && (
+            <button
+              onClick={onOpenSleepModal}
+              className="py-2 px-3.5 rounded-xl bg-gradient-to-r from-indigo-500 via-purple-500 to-cyan-400 text-slate-950 font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-indigo-500/20 active:scale-95 transition-all cursor-pointer"
+            >
+              <Moon className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>Jam Tidur Sehat Sirkadian AI</span>
+              <span className="text-[9px] px-1 py-0.2 rounded bg-slate-950/20 text-slate-950 font-extrabold uppercase">90M</span>
             </button>
           )}
         </div>

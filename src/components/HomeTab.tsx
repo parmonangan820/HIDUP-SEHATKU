@@ -42,6 +42,7 @@ interface HomeTabProps {
   onOpenProfile: () => void;
   onOpenVoiceDrink: () => void;
   onOpenDietTips: () => void;
+  onOpenSleepModal?: () => void;
 }
 
 export const HomeTab: React.FC<HomeTabProps> = ({
@@ -50,6 +51,7 @@ export const HomeTab: React.FC<HomeTabProps> = ({
   onOpenProfile,
   onOpenVoiceDrink,
   onOpenDietTips,
+  onOpenSleepModal,
 }) => {
   const {
     profile,
@@ -246,6 +248,46 @@ export const HomeTab: React.FC<HomeTabProps> = ({
             className="flex-shrink-0 py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-400 to-cyan-400 text-slate-950 font-black text-xs hover:brightness-110 active:scale-95 transition-all shadow-md shadow-emerald-500/20 flex items-center gap-1"
           >
             <span>{isPro ? 'Buka Program' : 'Akses PRO'}</span>
+            <ArrowRight className="w-3 h-3 stroke-[2.5]" />
+          </button>
+        </div>
+      </div>
+
+      {/* Jam Tidur Sehat Sirkadian AI Feature Banner */}
+      <div className="rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-cyan-500 p-[1px] shadow-xl shadow-indigo-500/15">
+        <div className="rounded-2xl bg-slate-900/95 p-3.5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <button
+              onClick={onOpenSleepModal}
+              className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-cyan-400 flex items-center justify-center text-slate-950 flex-shrink-0 shadow-lg shadow-indigo-500/30 hover:scale-105 active:scale-95 transition-transform"
+              title="Buka Jam Tidur Sehat Sirkadian AI"
+            >
+              <Moon className="w-5 h-5 stroke-[2.5]" />
+            </button>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h3 className="text-xs sm:text-sm font-extrabold text-white flex items-center gap-1.5 truncate">
+                  <span>Jam Tidur Sehat Sirkadian AI</span>
+                </h3>
+                <span className="text-[9px] px-2 py-0.5 rounded-full bg-gradient-to-r from-indigo-500/20 to-purple-500/20 border border-indigo-500/40 text-indigo-300 font-black flex items-center gap-1">
+                  <Sparkles className="w-2.5 h-2.5 fill-current" />
+                  <span>BARU</span>
+                </span>
+                <span className="text-[9px] px-1.5 py-0.2 rounded bg-slate-800 text-cyan-300 font-mono">
+                  SIKLUS 90M
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-300 truncate">
+                Analisis jam tidur, grafik 7 hari, siklus 90m, audio relaksasi & alarm bangun
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={onOpenSleepModal}
+            className="flex-shrink-0 py-2 px-3 rounded-xl bg-gradient-to-r from-indigo-400 to-cyan-400 text-slate-950 font-black text-xs hover:brightness-110 active:scale-95 transition-all shadow-md shadow-indigo-500/20 flex items-center gap-1"
+          >
+            <span>Atur Tidur</span>
             <ArrowRight className="w-3 h-3 stroke-[2.5]" />
           </button>
         </div>

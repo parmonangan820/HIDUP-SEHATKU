@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useHealth } from '../context/HealthContext';
-import { Sparkles, FileText, Cloud, Crown, X, Star, QrCode, ArrowLeft, CheckCircle2, Salad, Navigation, Gift, Clock, Zap, Trophy, Droplet, Bluetooth, MessageSquare, AlertTriangle, Building, Receipt, Copy, Check, Download } from 'lucide-react';
+import { Sparkles, FileText, Cloud, Crown, X, Star, QrCode, ArrowLeft, CheckCircle2, Salad, Navigation, Gift, Clock, Zap, Trophy, Droplet, Bluetooth, MessageSquare, AlertTriangle, Building, Receipt, Copy, Check, Download, Moon } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { createClientQrisPayload, createClientQrisPayloadAsync, generateNationalQRIS } from '../utils/qrisGenerator';
 
@@ -747,6 +747,16 @@ export const ProUpgradeModal: React.FC<ProUpgradeModalProps> = ({ isOpen, onClos
                 <div>
                   <h4 className="text-xs font-bold text-white">Rute AI & Pantauan Macet</h4>
                   <p className="text-[11px] text-slate-400">Navigasi cerdas bebas macet Google Maps, hemat waktu & rute anti-stres.</p>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800 flex items-start gap-3">
+                <div className="p-2 rounded-xl bg-purple-500/20 text-purple-400 flex-shrink-0">
+                  <Moon className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-white">Jam Tidur Sehat Sirkadian AI</h4>
+                  <p className="text-[11px] text-slate-400">Analisis siklus 90m, grafik 7 hari, audio alam relaksasi & alarm bangun cerdas.</p>
                 </div>
               </div>
 

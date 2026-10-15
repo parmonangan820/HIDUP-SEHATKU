@@ -17,12 +17,14 @@ import {
   PlusCircle,
   Apple,
   Salad,
+  Moon,
 } from 'lucide-react';
 
 interface AIChatModalProps {
   isOpen: boolean;
   onClose: () => void;
   onOpenDietTips?: () => void;
+  onOpenSleepModal?: () => void;
 }
 
 interface Message {
@@ -46,7 +48,12 @@ interface FoodScanResult {
   recommendations: string[];
 }
 
-export const AIChatModal: React.FC<AIChatModalProps> = ({ isOpen, onClose, onOpenDietTips }) => {
+export const AIChatModal: React.FC<AIChatModalProps> = ({
+  isOpen,
+  onClose,
+  onOpenDietTips,
+  onOpenSleepModal,
+}) => {
   const { profile, todayRecord, isPro, setIsProModalOpen, logWater } = useHealth();
   const [activeTab, setActiveTab] = useState<'chat' | 'scanner'>('chat');
 
@@ -375,8 +382,22 @@ export const AIChatModal: React.FC<AIChatModalProps> = ({ isOpen, onClose, onOpe
             title="Buka Fitur Program Diet Sukses Dokter AI (Eksklusif PRO)"
           >
             <Salad className="w-3.5 h-3.5 text-emerald-400" />
-            <span className="truncate">Program Diet</span>
+            <span className="truncate">Diet AI</span>
           </button>
+
+          {onOpenSleepModal && (
+            <button
+              onClick={() => {
+                onClose();
+                onOpenSleepModal();
+              }}
+              className="py-2 rounded-xl flex items-center justify-center gap-1 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 hover:from-indigo-500/30 hover:to-purple-500/30 border border-indigo-500/30 text-indigo-300 font-bold transition-all shadow-sm cursor-pointer"
+              title="Buka Jam Tidur Sehat Sirkadian AI"
+            >
+              <Moon className="w-3.5 h-3.5 text-indigo-400" />
+              <span className="truncate">Tidur AI</span>
+            </button>
+          )}
         </div>
 
         {/* TAB 1: DOKTER AI CHAT */}

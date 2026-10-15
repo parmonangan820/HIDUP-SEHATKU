@@ -2467,6 +2467,175 @@ app.post('/api/diet-program', handleDietProgramGeneration);
 app.post('/api/diet-tips', handleDietProgramGeneration);
 
 // ==========================================
+// Endpoint: Jam Tidur & Analisis Sirkadian Dokter AI (Sleep & Circadian Doctor)
+// ==========================================
+app.post('/api/sleep-analysis', async (req: Request, res: Response) => {
+  try {
+    const { profile, sleepData = {} } = req.body || {};
+    const name = profile?.name || 'Sahabat Sehat';
+    const age = Number(profile?.age) || 26;
+    const gender = profile?.gender || 'pria';
+    const weight = Number(profile?.weight) || 65;
+    const height = Number(profile?.height) || 170;
+
+    const {
+      bedtime = '23:00',
+      wakeTime = '06:30',
+      durationMinutes = 450,
+      wakeFeeling = 'segar',
+      disturbances = [],
+      pastWeekAverageHours = 7.0,
+      chronotype = 'bear',
+    } = sleepData;
+
+    const durationHours = Math.round((durationMinutes / 60) * 10) / 10;
+    const cyclesCount = Math.floor(durationMinutes / 90);
+
+    const systemPrompt = `Anda adalah "Dokter AI Spesialis Kedokteran Tidur & Kronobiologi Sirkadian" di aplikasi Hidup Sehatku.
+Tugas Anda adalah menganalisis jam tidur dan pemulihan biologis pasien secara ilmiah, berbasis siklus ultradian 90-menit, pengaruhnya terhadap hormon metabolisme (ghrelin/leptin/kortisol), sistem detoksifikasi glimfatik otak, dan kesehatan fisik.
+
+Profil Pasien:
+- Nama: ${name}
+- Usia: ${age} tahun | Gender: ${gender} | BB: ${weight} kg | TB: ${height} cm
+- Jam Mulai Tidur: ${bedtime}
+- Jam Bangun: ${wakeTime}
+- Total Durasi Tidur: ${durationHours} jam (${durationMinutes} menit, ~${cyclesCount} siklus tidur 90-menit)
+- Sensasi Saat Bangun: ${wakeFeeling}
+- Rata-rata 7 Hari: ${pastWeekAverageHours} jam
+- Faktor Gangguan/Kondisi: ${disturbances.length > 0 ? disturbances.join(', ') : 'Tidak ada gangguan khusus'}
+- Tipe Kronotipe: ${chronotype}
+
+Berikan respons HANYA berupa JSON valid (tanpa blok markdown atau kata pembuka/penutup) dengan struktur:
+{
+  "sleepScore": number (Skor Kualitas Tidur 0 - 100 berdasarkan durasi, siklus, dan sensasi bangun),
+  "sleepQualityLabel": "string (misal: 'Sangat Baik & Restoratif', 'Optimal', 'Cukup - Butuh Optimasi', 'Defisit Tidur')",
+  "circadianAssessment": "string (Evaluasi keselarasan jam tidur pasien dengan ritme sirkadian biologis tubuh)",
+  "sleepEfficiency": number (Persentase efisiensi tidur, misal: 88),
+  "sleepCyclesCompleted": number (Jumlah siklus 90 menit tercapai, misal: ${cyclesCount}),
+  "biologicalImpact": {
+    "cellularRepair": "string (Dampak terhadap regenerasi sel otot & pelepasan Human Growth Hormone)",
+    "brainDetox": "string (Analisis pembersihan racun metabolik amiloid di otak via sistem glimfatik)",
+    "metabolicFatBurn": "string (Pengaruh terhadap kestabilan hormon nafsu makan leptin/ghrelin dan pembakaran kalori esok hari)",
+    "heartRecovery": "string (Pemulihan tekanan darah & denyut jantung istirahat)"
+  },
+  "sleepStagesEstimate": {
+    "deepSleepPercentage": number (misal: 22),
+    "remSleepPercentage": number (misal: 24),
+    "lightSleepPercentage": number (misal: 49),
+    "awakePercentage": number (misal: 5)
+  },
+  "doctorRecommendations": [
+    "string (Rekomendasi 1)",
+    "string (Rekomendasi 2)",
+    "string (Rekomendasi 3)",
+    "string (Rekomendasi 4)",
+    "string (Rekomendasi 5)"
+  ],
+  "idealScheduleAdvice": {
+    "recommendedBedtime": "string (Jam tidur ideal, misal: '22:30')",
+    "recommendedWakeTime": "string (Jam bangun ideal, misal: '06:00')",
+    "windDownStartTime": "string (Waktu mulai relaksasi / lepas gadget, misal: '21:45')",
+    "waterCutoffTime": "string (Waktu cut-off minum air banyak, misal: '21:15')"
+  },
+  "motivationalDoctorQuote": "string"
+}`;
+
+    let parsedResult: any = null;
+    const aiClient = getAIClient();
+
+    if (aiClient) {
+      try {
+        const response = await aiClient.models.generateContent({
+          model: 'gemini-3.8-flash',
+          contents: [{ text: systemPrompt }],
+          config: {
+            responseMimeType: 'application/json',
+            temperature: 0.6,
+          },
+        });
+        const text = response.text?.trim() || '';
+        if (text) {
+          parsedResult = JSON.parse(text);
+        }
+      } catch (geminiErr: any) {
+        console.warn('Gemini generate sleep analysis warning, using clinical fallback:', geminiErr?.message);
+      }
+    }
+
+    if (!parsedResult) {
+      // Medically solid fallback calculation
+      let score = 85;
+      if (durationHours >= 7 && durationHours <= 8.5) {
+        score = wakeFeeling === 'segar' ? 92 : 84;
+      } else if (durationHours >= 6 && durationHours < 7) {
+        score = wakeFeeling === 'segar' ? 78 : 72;
+      } else if (durationHours < 6) {
+        score = 58;
+      } else if (durationHours > 9) {
+        score = 75;
+      }
+
+      parsedResult = {
+        sleepScore: score,
+        sleepQualityLabel:
+          score >= 88
+            ? 'Sangat Baik & Restoratif'
+            : score >= 75
+            ? 'Optimal & Menyehatkan'
+            : score >= 65
+            ? 'Cukup - Perlu Sedikit Optimasi'
+            : 'Defisit Tidur (Perlu Istirahat Ekstra)',
+        circadianAssessment: `Durasi tidur Anda ${durationHours} jam mencakup sekitar ${cyclesCount} siklus penuh 90-menit. Pola ini mendukung pemulihan organ dalam dan stabilisasi hormon metabolisme.`,
+        sleepEfficiency: Math.min(95, Math.max(70, Math.round(score * 0.95))),
+        sleepCyclesCompleted: Math.max(1, cyclesCount),
+        biologicalImpact: {
+          cellularRepair:
+            durationHours >= 7
+              ? 'Optimal: Hormon pertumbuhan (HGH) aktif memperbaiki sel otot dan memperkuat sistem imun tubuh.'
+              : 'Sub-optimal: Regenerasi jaringan otot lebih lambat; prioritaskan tidur lebih awal malam ini.',
+          brainDetox:
+            'Sistem glimfatik membersihkan sisa metabolit otak selama fase deep sleep, menjaga ketajaman konsentrasi dan memori esok hari.',
+          metabolicFatBurn:
+            durationHours >= 7
+              ? 'Hormon leptin (penahan nafsu makan) stabil, mencegah lonjakan rasa lapar berlebih terhadap makanan manis esok hari.'
+              : 'Kadar ghrelin (pemicu lapar) dapat meningkat 15-20%; pastikan minum air putih cukup untuk menghindari ngemil semu.',
+          heartRecovery: 'Denyut jantung istirahat dan tekanan darah mengalami penurunan alami yang menyegarkan pembuluh darah kardiovaskular.',
+        },
+        sleepStagesEstimate: {
+          deepSleepPercentage: 22,
+          remSleepPercentage: 24,
+          lightSleepPercentage: 49,
+          awakePercentage: 5,
+        },
+        doctorRecommendations: [
+          'Hentikan konsumsi minuman manis dan kafein minimal 6 jam sebelum jam tidur malam.',
+          'Matikan layar biru ponsel atau gawai 30 menit sebelum berbaring untuk merangsang produksi hormon melatonin alami.',
+          'Jadwalkan minum air terakhir 45-60 menit sebelum tidur (1 gelas kecil hangat) agar ginjal tidak membangunkan Anda di tengah malam.',
+          'Pertahankan suhu kamar sejuk sekitar 20-22°C dan suasana gelap gulita untuk memperpanjang fase Deep Sleep.',
+          'Lakukan teknik pernapasan 4-7-8 atau dengarkan suara relaksasi alam saat mulai berbaring untuk merilekskan sistem saraf simpatik.',
+        ],
+        idealScheduleAdvice: {
+          recommendedBedtime: '22:30',
+          recommendedWakeTime: '06:00',
+          windDownStartTime: '21:45',
+          waterCutoffTime: '21:15',
+        },
+        motivationalDoctorQuote:
+          'Tidur yang cukup dan berkualitas bukan tanda bermalas-malasan, melainkan fondasi biologis terpenting untuk pemulihan otak, metabolisme pembakar kalori, dan panjang umur.',
+      };
+    }
+
+    return res.json({
+      success: true,
+      data: parsedResult,
+    });
+  } catch (err: any) {
+    console.error('Error analyzing sleep:', err);
+    return res.status(500).json({ success: false, message: err?.message || 'Gagal memproses analisis jam tidur Dokter AI' });
+  }
+});
+
+// ==========================================
 // AI Smart Traffic Route & Anti-Stress Health API
 // ==========================================
 app.get('/api/google-maps/key', (_req: Request, res: Response) => {

@@ -22,6 +22,7 @@ import { AccountSwitchModal } from './components/AccountSwitchModal';
 import { ProUpgradeModal } from './components/ProUpgradeModal';
 import { AffiliateModal } from './components/AffiliateModal';
 import { AIDietSuccessModal } from './components/AIDietSuccessModal';
+import { SleepScheduleModal } from './components/SleepScheduleModal';
 import { PwaInstallModal } from './components/PwaInstallModal';
 import { SmartTumblerModal } from './components/SmartTumblerModal';
 import { PaymentHistoryModal } from './components/PaymentHistoryModal';
@@ -60,6 +61,7 @@ function MainApp() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isAiChatOpen, setIsAiChatOpen] = useState(false);
   const [isDietModalOpen, setIsDietModalOpen] = useState(false);
+  const [isSleepModalOpen, setIsSleepModalOpen] = useState(false);
   const [isVoiceDrinkOpen, setIsVoiceDrinkOpen] = useState(false);
   const [isSupabaseSyncOpen, setIsSupabaseSyncOpen] = useState(false);
   const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
@@ -69,6 +71,7 @@ function MainApp() {
     isProfileOpen ||
     isAiChatOpen ||
     isDietModalOpen ||
+    isSleepModalOpen ||
     isVoiceDrinkOpen ||
     isSupabaseSyncOpen ||
     isAffiliateOpen ||
@@ -85,6 +88,7 @@ function MainApp() {
     isProfileOpen,
     isAiChatOpen,
     isDietModalOpen,
+    isSleepModalOpen,
     isVoiceDrinkOpen,
     isSupabaseSyncOpen,
     isAffiliateOpen,
@@ -102,6 +106,7 @@ function MainApp() {
       isProfileOpen,
       isAiChatOpen,
       isDietModalOpen,
+      isSleepModalOpen,
       isVoiceDrinkOpen,
       isSupabaseSyncOpen,
       isAffiliateOpen,
@@ -117,6 +122,7 @@ function MainApp() {
     isProfileOpen,
     isAiChatOpen,
     isDietModalOpen,
+    isSleepModalOpen,
     isVoiceDrinkOpen,
     isSupabaseSyncOpen,
     isAffiliateOpen,
@@ -201,6 +207,10 @@ function MainApp() {
         setIsDietModalOpen(false);
         return;
       }
+      if (current.isSleepModalOpen) {
+        setIsSleepModalOpen(false);
+        return;
+      }
 
       // 2. If state contains a target tab, switch to it
       if (event.state && event.state.tab) {
@@ -230,6 +240,7 @@ function MainApp() {
           onOpenVoiceDrink={() => setIsVoiceDrinkOpen(true)}
           onOpenSupabaseSync={() => setIsSupabaseSyncOpen(true)}
           onOpenInstallModal={() => setIsInstallModalOpen(true)}
+          onOpenSleepModal={() => setIsSleepModalOpen(true)}
           deviceMode={deviceMode}
           setDeviceMode={setDeviceMode}
         />
@@ -356,6 +367,7 @@ function MainApp() {
               onOpenProfile={() => setIsProfileOpen(true)}
               onOpenVoiceDrink={() => setIsVoiceDrinkOpen(true)}
               onOpenDietTips={() => setIsDietModalOpen(true)}
+              onOpenSleepModal={() => setIsSleepModalOpen(true)}
             />
           )}
 
@@ -381,6 +393,7 @@ function MainApp() {
             <EducationTab
               onOpenAiChat={() => setIsAiChatOpen(true)}
               onOpenDietTips={() => setIsDietModalOpen(true)}
+              onOpenSleepModal={() => setIsSleepModalOpen(true)}
             />
           )}
 
@@ -421,6 +434,7 @@ function MainApp() {
           isOpen={isAiChatOpen}
           onClose={() => setIsAiChatOpen(false)}
           onOpenDietTips={() => setIsDietModalOpen(true)}
+          onOpenSleepModal={() => setIsSleepModalOpen(true)}
         />
         <VoiceDrinkModal
           isOpen={isVoiceDrinkOpen}
@@ -437,6 +451,7 @@ function MainApp() {
         <AccountSwitchModal onOpenRegister={() => setIsProfileOpen(true)} />
         <ProUpgradeModal isOpen={isProModalOpen} onClose={() => setIsProModalOpen(false)} />
         <AIDietSuccessModal isOpen={isDietModalOpen} onClose={() => setIsDietModalOpen(false)} />
+        <SleepScheduleModal isOpen={isSleepModalOpen} onClose={() => setIsSleepModalOpen(false)} />
         <AffiliateModal isOpen={isAffiliateOpen} onClose={() => setIsAffiliateOpen(false)} />
         <PwaInstallModal isOpen={isInstallModalOpen} onClose={() => setIsInstallModalOpen(false)} />
         <SmartTumblerModal

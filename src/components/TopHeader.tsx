@@ -1,6 +1,6 @@
 import React from 'react';
 import { useHealth } from '../context/HealthContext';
-import { Droplets, Sparkles, User, Bell, Smartphone, Monitor, Mic, Database, Cloud, Shield, Crown, Download, Receipt } from 'lucide-react';
+import { Droplets, Sparkles, User, Bell, Smartphone, Monitor, Mic, Database, Cloud, Shield, Crown, Download, Receipt, Moon } from 'lucide-react';
 
 interface TopHeaderProps {
   onOpenProfile: () => void;
@@ -8,6 +8,7 @@ interface TopHeaderProps {
   onOpenVoiceDrink: () => void;
   onOpenSupabaseSync: () => void;
   onOpenInstallModal: () => void;
+  onOpenSleepModal?: () => void;
   deviceMode: 'android' | 'ios' | 'full';
   setDeviceMode: (mode: 'android' | 'ios' | 'full') => void;
 }
@@ -18,6 +19,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   onOpenVoiceDrink,
   onOpenSupabaseSync,
   onOpenInstallModal,
+  onOpenSleepModal,
   deviceMode,
   setDeviceMode,
 }) => {
@@ -228,6 +230,17 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
             <Download className="w-3.5 h-3.5 stroke-[2.5]" />
             <span className="hidden sm:inline">Install App</span>
           </button>
+
+          {/* Jam Tidur Sehat Sirkadian AI Trigger */}
+          {onOpenSleepModal && (
+            <button
+              onClick={onOpenSleepModal}
+              className="p-2 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-300 active:scale-95 transition-all"
+              title="Jam Tidur Sehat Sirkadian AI (Analisis Siklus & Alarm Bangun)"
+            >
+              <Moon className="w-4 h-4" />
+            </button>
+          )}
 
           {/* Profile Trigger */}
           <button
