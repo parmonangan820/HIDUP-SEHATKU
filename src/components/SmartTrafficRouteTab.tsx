@@ -841,17 +841,33 @@ export const SmartTrafficRouteTab: React.FC = () => {
   const [isInAppNavOpen, setIsInAppNavOpen] = useState(false);
   const [inAppNavRoute, setInAppNavRoute] = useState<TrafficRoute | null>(null);
 
-  // Silently request and store GPS coordinates on component mount for real-time accurate origin
+  // High-frequency GPS polling and real-time tracking via navigator.geolocation.watchPosition
   useEffect(() => {
+    let watchId: number | null = null;
     if (typeof window !== 'undefined' && navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           userCoordsRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
         },
         () => {},
-        { enableHighAccuracy: true, timeout: 6000 }
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+      );
+
+      watchId = navigator.geolocation.watchPosition(
+        (pos) => {
+          userCoordsRef.current = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        },
+        (err) => {
+          console.warn('GPS watchPosition warning:', err);
+        },
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
       );
     }
+    return () => {
+      if (watchId !== null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
   }, []);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
