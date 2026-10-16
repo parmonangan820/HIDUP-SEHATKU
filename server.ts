@@ -2068,25 +2068,48 @@ PANDUAN FORMAT & GAYA KOMUNIKASI:
 - Gunakan format terstruktur rapi (bullet points, numbering, dan highlight teks tebal) agar mudah dibaca di layar ponsel.
 - Jawablah persis sesuai konteks topik pertanyaan pengguna secara spesifik, menyeluruh, dan tuntas!`;
 
-    // Build chat contents array for multi-turn conversational memory
-    const contents: any[] = [];
+    // Build chat contents array with strict alternating user/model roles for Gemini API
+    const rawContents: any[] = [];
     if (Array.isArray(conversationHistory) && conversationHistory.length > 0) {
-      let foundFirstUser = false;
       for (const turn of conversationHistory) {
         const isUser = turn.role === 'user' || turn.sender === 'user';
-        if (isUser) foundFirstUser = true;
-        if (foundFirstUser && turn.text) {
-          contents.push({
+        if (turn.text) {
+          rawContents.push({
             role: isUser ? 'user' : 'model',
             parts: [{ text: String(turn.text) }],
           });
         }
       }
     }
-    contents.push({
-      role: 'user',
-      parts: [{ text: `Pertanyaan Pengguna: ${message}` }],
-    });
+
+    const contents: any[] = [];
+    let expectedRole = 'user';
+    for (const item of rawContents) {
+      if (contents.length === 0) {
+        if (item.role === 'user') {
+          contents.push(item);
+          expectedRole = 'model';
+        }
+      } else {
+        if (item.role === expectedRole) {
+          contents.push(item);
+          expectedRole = expectedRole === 'user' ? 'model' : 'user';
+        } else {
+          const last = contents[contents.length - 1];
+          last.parts[0].text += `\n${item.parts[0].text}`;
+        }
+      }
+    }
+
+    const finalUserText = `Pertanyaan Pengguna: ${message}`;
+    if (contents.length > 0 && contents[contents.length - 1].role === 'user') {
+      contents[contents.length - 1].parts[0].text += `\n${finalUserText}`;
+    } else {
+      contents.push({
+        role: 'user',
+        parts: [{ text: finalUserText }],
+      });
+    }
 
     // Multi-model resilience: Try standard model, fallback to lite if high-demand/spike occurs
     const candidateModels = ['gemini-3.8-flash', 'gemini-3.1-flash-lite', 'gemini-flash-latest'];

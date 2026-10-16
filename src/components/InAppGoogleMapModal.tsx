@@ -216,7 +216,7 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: `Pertanyaan Navigasi & Kesehatan terkait perjalanan dari ${origin} ke ${destination} (Rute: ${activeRoute.title}): ${userMsg}`,
+          message: userMsg,
           profile: { name: 'Sahabat Sehat', weight: 65, height: 170, age: 28 },
           todayStats: { waterMl: 1500, workoutMinutes: 30, calories: 400 },
           conversationHistory: aiChatMessages,
