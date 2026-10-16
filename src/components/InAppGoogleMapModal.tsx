@@ -30,6 +30,9 @@ import {
   Route as RouteIcon,
   Maximize2,
   Minimize2,
+  Bot,
+  Send,
+  MessageSquare,
 } from 'lucide-react';
 import L from 'leaflet';
 
@@ -187,6 +190,58 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
   const hasFittedBoundsRef = useRef<boolean>(false);
   const isTouchingRef = useRef<boolean>(false);
   const [isRotatingGesture, setIsRotatingGesture] = useState<boolean>(false);
+
+  // AI Chat Assistant States
+  const [showAiChatModal, setShowAiChatModal] = useState(false);
+  const [aiChatMessages, setAiChatMessages] = useState<Array<{ role: 'user' | 'assistant'; text: string }>>([
+    {
+      role: 'assistant',
+      text: `Halo! Saya Asisten Google AI & Dokter Kesehatan Anda selama navigasi rute dari "${origin}" ke "${destination}". Ada yang ingin Anda tanyakan tentang rute, kemacetan, atau tips kesehatan?`,
+    },
+  ]);
+  const [aiChatInput, setAiChatInput] = useState('');
+  const [isAiChatLoading, setIsAiChatLoading] = useState(false);
+
+  const handleSendAiChat = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!aiChatInput.trim() || isAiChatLoading) return;
+
+    const userMsg = aiChatInput.trim();
+    setAiChatInput('');
+    setAiChatMessages((prev) => [...prev, { role: 'user', text: userMsg }]);
+    setIsAiChatLoading(true);
+
+    try {
+      const res = await fetch('/api/gemini/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: `Pertanyaan Navigasi & Kesehatan terkait perjalanan dari ${origin} ke ${destination} (Rute: ${activeRoute.title}): ${userMsg}`,
+          profile: { name: 'Sahabat Sehat', weight: 65, height: 170, age: 28 },
+          todayStats: { waterMl: 1500, workoutMinutes: 30, calories: 400 },
+          conversationHistory: aiChatMessages,
+        }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const reply = data.reply || 'Maaf, saya sedang memproses jawaban. Silakan tanyakan kembali.';
+        setAiChatMessages((prev) => [...prev, { role: 'assistant', text: reply }]);
+      } else {
+        setAiChatMessages((prev) => [
+          ...prev,
+          { role: 'assistant', text: 'Maaf, terjadi kendala koneksi ke server AI. Pastikan jaringan internet stabil.' },
+        ]);
+      }
+    } catch (err) {
+      setAiChatMessages((prev) => [
+        ...prev,
+        { role: 'assistant', text: 'Terjadi kesalahan sistem saat menghubungi Asisten Google AI.' },
+      ]);
+    } finally {
+      setIsAiChatLoading(false);
+    }
+  };
 
   useEffect(() => {
     mapRotationRef.current = mapRotation;
@@ -919,6 +974,16 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
 
             <button
               type="button"
+              onClick={() => setShowAiChatModal(true)}
+              className="p-2 sm:p-2.5 rounded-xl border border-cyan-500/40 bg-gradient-to-r from-cyan-500/20 to-blue-600/20 text-cyan-300 hover:text-white text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 shadow-md shadow-cyan-500/20"
+              title="Tanya Asisten Google AI & Dokter Kesehatan"
+            >
+              <Bot className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-cyan-400" />
+              <span className="hidden md:inline text-[11px]">Tanya Google AI</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setShowTurnSteps(!showTurnSteps)}
               className={`p-2 sm:p-2.5 rounded-xl border text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
                 showTurnSteps
@@ -1191,6 +1256,108 @@ export const InAppGoogleMapModal: React.FC<InAppGoogleMapModalProps> = ({
             )}
           </div>
         </div>
+
+        {/* Google AI Chat Assistant Modal / Drawer */}
+        {showAiChatModal && (
+          <div className="absolute inset-y-4 right-4 z-[1100] w-[90%] sm:w-[420px] rounded-3xl bg-slate-900/98 border border-cyan-500/40 shadow-2xl backdrop-blur-2xl p-4 flex flex-col justify-between overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-300">
+                  <Bot className="w-4.5 h-4.5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white flex items-center gap-1">
+                    <span>Asisten Google AI</span>
+                    <span className="text-[9px] px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 font-bold border border-cyan-500/30">Live</span>
+                  </h3>
+                  <p className="text-[10px] text-slate-400">Tanya apa saja tentang rute, lalu lintas & kesehatan</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAiChatModal(false)}
+                className="p-1.5 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Chat Messages List */}
+            <div className="flex-1 overflow-y-auto py-3 space-y-3 pr-1">
+              {aiChatMessages.map((msg, idx) => {
+                const isUser = msg.role === 'user';
+                return (
+                  <div key={idx} className={`flex gap-2.5 ${isUser ? 'justify-end' : 'justify-start'}`}>
+                    {!isUser && (
+                      <div className="w-7 h-7 rounded-lg bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-300 shrink-0 mt-0.5">
+                        <Bot className="w-3.5 h-3.5" />
+                      </div>
+                    )}
+                    <div
+                      className={`max-w-[82%] p-3 rounded-2xl text-xs leading-relaxed ${
+                        isUser
+                          ? 'bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-medium rounded-tr-none shadow-md'
+                          : 'bg-slate-950/90 border border-slate-800 text-slate-200 rounded-tl-none shadow-sm'
+                      }`}
+                    >
+                      <div className="whitespace-pre-wrap">{msg.text}</div>
+                    </div>
+                  </div>
+                );
+              })}
+              {isAiChatLoading && (
+                <div className="flex gap-2.5 items-center">
+                  <div className="w-7 h-7 rounded-lg bg-cyan-500/25 border border-cyan-500/40 flex items-center justify-center text-cyan-300 shrink-0">
+                    <Bot className="w-3.5 h-3.5 animate-spin" />
+                  </div>
+                  <div className="px-3 py-2 rounded-2xl bg-slate-950/90 border border-slate-800 text-slate-400 text-xs italic flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+                    <span>Google AI sedang menganalisis pertanyaan...</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Quick Prompt Chips */}
+            <div className="py-2 flex gap-1.5 overflow-x-auto no-scrollbar shrink-0">
+              {[
+                'Bagaimana menghindari kemacetan di depan?',
+                'Tips tetap tenang & rileks saat macet',
+                'Berapa estimasi sisa waktu tiba?',
+                'Restoran sehat terdekat di rute ini',
+              ].map((preset, pIdx) => (
+                <button
+                  key={pIdx}
+                  type="button"
+                  onClick={() => {
+                    setAiChatInput(preset);
+                  }}
+                  className="px-2.5 py-1 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-700 text-slate-300 text-[10px] font-medium whitespace-nowrap transition-colors cursor-pointer"
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
+
+            {/* Input Form */}
+            <form onSubmit={handleSendAiChat} className="mt-2 pt-2 border-t border-slate-800 flex items-center gap-2">
+              <input
+                type="text"
+                value={aiChatInput}
+                onChange={(e) => setAiChatInput(e.target.value)}
+                placeholder="Tanya sesuatu ke Google AI..."
+                className="flex-1 px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+              />
+              <button
+                type="submit"
+                disabled={!aiChatInput.trim() || isAiChatLoading}
+                className="p-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-slate-950 font-bold transition-all cursor-pointer shadow-lg shadow-cyan-500/20"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </form>
+          </div>
+        )}
 
         {/* Turn-by-Turn Steps Modal / Drawer (When opened) */}
         {showTurnSteps && (
